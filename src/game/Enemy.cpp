@@ -126,7 +126,7 @@ void Enemy::contactPlayer(Level& level) {
     }
     if (!touching) return;
     Vec2 kb = Vec2{sign(pl.body.pos.x - body.pos.x) * 140.0f, -90.0f};
-    float scale = 1.0f + 0.15f * static_cast<float>(level.layout().levelIndex);
+    float scale = 1.0f + 0.1f * static_cast<float>(level.layout().levelIndex);
     pl.applyDamage(level, {def_->contactDamage * scale * damageScale(), def_->contactType, kb, Team::Monster});
     if (def_->contactType == DamageType::Ice) pl.status.chilled = 2.0f;
     contactDamageCooldown = 0.7f;
@@ -140,6 +140,7 @@ void Enemy::fireAt(Level& level, Vec2 target, SpellId spell, float spreadRad) {
     l.def = spellDef(spell).proj;
     l.def.speed *= 0.72f; // monster spells are slower so they can be dodged
     if (l.def.lifetime < 1.2f) l.def.lifetime *= 1.5f;
+    l.def.explosionDamage *= 0.5f; // monster explosives are scary, not lethal
     Vec2 origin = body.pos + Vec2{0.0f, -body.halfH * 0.3f};
     Vec2 to = target - origin;
     float angle = angleOf(to);
@@ -149,7 +150,7 @@ void Enemy::fireAt(Level& level, Vec2 target, SpellId spell, float spreadRad) {
         angle += to.x >= 0.0f ? -lift : lift;
     }
     angle += level.rng().range(-spreadRad, spreadRad);
-    float dmgMul = (1.0f + 0.15f * static_cast<float>(level.layout().levelIndex)) * damageScale();
+    float dmgMul = (1.0f + 0.1f * static_cast<float>(level.layout().levelIndex)) * damageScale();
     level.launch(l, origin, angle, team, id, dmgMul);
 }
 

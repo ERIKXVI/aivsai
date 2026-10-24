@@ -114,6 +114,9 @@ inline bool isFluid(MatId id) {
     return p == Phase::Liquid;
 }
 
+/// Representative (mid-palette) colour of a material, for UI and effects.
+inline Rgba materialColor(MatId id) { return materials().palette[id][128]; }
+
 /// Builds a fresh cell of the given material with randomized variation and lifetime.
 Cell makeCell(MatId id, uint32_t randomBits);
 

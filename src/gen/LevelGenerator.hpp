@@ -14,7 +14,7 @@ namespace pm {
 class World;
 class ThreadPool;
 
-enum class SpawnKind : uint8_t { GroundEnemy, AirEnemy, Chest, Potion, Spell, Lantern, Altar };
+enum class SpawnKind : uint8_t { GroundEnemy, AirEnemy, Chest, Potion, Spell, Lantern, Altar, Transmuter };
 
 struct SpawnPoint {
     SpawnKind kind;

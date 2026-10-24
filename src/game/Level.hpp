@@ -56,6 +56,15 @@ struct Shockwave {
     float duration;
 };
 
+/// A runestone basin that grants a perk once enough of the craved material is poured in.
+struct Transmuter {
+    Vec2 pos;          ///< centre of the basin floor
+    MatId wants = 0;
+    int required = 120;
+    int progress = 0;
+    bool complete = false;
+};
+
 struct Lantern {
     Vec2 pos;
     float phase;
@@ -96,6 +105,7 @@ public:
     const std::vector<LightFlash>& flashes() const { return flashes_; }
     const std::vector<FloatText>& floatTexts() const { return floatTexts_; }
     const std::vector<Lantern>& lanterns() const { return lanterns_; }
+    const std::vector<Transmuter>& transmuters() const { return transmuters_; }
     const std::vector<Shockwave>& shockwaves() const { return shockwaves_; }
     /// Brief freeze-frame after heavy impacts; returns true while the level should pause.
     bool consumeHitStop() {
@@ -139,8 +149,14 @@ public:
     void dropLoot(Vec2 pos, int tier, bool chest);
     uint32_t nextId() { return nextId_++; }
     void onEnemyKilled(Enemy& e);
+    /// Applies a perk to the run and rebuilds the player's derived stats, with fanfare.
+    void grantPerk(PerkId perk, const char* reason);
+    /// A random perk the player can still benefit from.
+    PerkId rollPerk(const std::vector<PerkId>& exclude);
     /// Testing aid: moves the player to the next main-path waypoint beyond its position.
     void debugWarpAhead();
+    /// Testing aid: places the player at a position.
+    void debugTeleport(Vec2 pos);
     void onPlayerDeath();
 
 private:
@@ -151,6 +167,7 @@ private:
     void interact();
     void updateEffects(float dt);
     void updateIntensity();
+    void updateTransmuters();
 
     LevelLayout layout_;
     RunState& run_;
@@ -166,6 +183,7 @@ private:
     std::vector<LightFlash> flashes_;
     std::vector<FloatText> floatTexts_;
     std::vector<Lantern> lanterns_;
+    std::vector<Transmuter> transmuters_;
     std::vector<Shockwave> shockwaves_;
     int hitStop_ = 0;
     PlayerInput input_;

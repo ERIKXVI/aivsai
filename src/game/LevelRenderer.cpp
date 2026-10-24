@@ -128,6 +128,23 @@ void LevelRenderer::drawProps(const Level& level, float time, bool emissive) {
         }
     }
 
+    // Transmutation circles: a rune ring around an orb of the craved material.
+    for (const Transmuter& t : level.transmuters()) {
+        const Vec2 c = t.pos - Vec2{0.0f, 22.0f + std::sin(time * 1.8f + t.pos.x) * 2.0f};
+        const Vector2 lc = scene_.layerPos(c);
+        const Rgba m = materialColor(t.wants);
+        const Color matCol{m.r, m.g, m.b, 255};
+        const Color ring = t.complete ? Color{255, 210, 110, 255} : Color{150, 110, 255, 255};
+        const float spin = time * (t.complete ? 0.5f : 1.6f);
+        for (int k = 0; k < 8; ++k) {
+            const float a = spin + static_cast<float>(k) * kTau / 8.0f;
+            DrawPixel(static_cast<int>(lc.x + std::cos(a) * 7.0f), static_cast<int>(lc.y + std::sin(a) * 7.0f), ring);
+        }
+        DrawCircleLinesV(lc, 5.0f, emissive ? Color{ring.r, ring.g, ring.b, 120} : ring);
+        if (!t.complete) DrawCircleV(lc, 3.0f, matCol);
+        else if (emissive) DrawCircleV(lc, 2.0f, Color{255, 240, 200, 255});
+    }
+
     for (const Pickup& pk : level.pickups()) {
         const Vec2 pos = lerp(pk.body.prevPos, pk.body.pos, 0.0f);
         const float bob = std::sin(time * 3.0f + pos.x * 0.1f) * 1.5f;
@@ -259,6 +276,13 @@ void LevelRenderer::addLights(const Level& level, float alpha, float time) {
     for (const Lantern& l : level.lanterns()) {
         float flicker = 0.85f + 0.15f * std::sin(time * 13.0f + l.phase) * std::sin(time * 7.3f + l.phase * 2.0f);
         scene_.addLight(PointLight{l.pos + Vec2{0.0f, 3.0f}, 1.6f * flicker, 1.1f * flicker, 0.55f * flicker, 85.0f, 4.0f});
+    }
+
+    for (const Transmuter& t : level.transmuters()) {
+        const Rgba m = materialColor(t.wants);
+        const float k = t.complete ? 0.5f : 1.1f;
+        scene_.addLight(PointLight{t.pos - Vec2{0.0f, 20.0f}, m.r / 255.0f * k + 0.3f, m.g / 255.0f * k + 0.2f,
+                                   m.b / 255.0f * k + 0.5f, 60.0f, 2.0f});
     }
 
     // Treasure glints so it catches the eye in the dark.

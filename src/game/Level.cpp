@@ -27,7 +27,6 @@ Level::~Level() = default;
 void Level::populate() {
     const int tier = std::min(4, layout_.levelIndex);
     const bool lucky = run_.hasPerk(PerkId::LuckyDay);
-    int altarIndex = 0;
     int shopIndex = 0;
     std::vector<PerkId> offered;
     for (const SpawnPoint& s : layout_.spawns) {
@@ -69,16 +68,24 @@ void Level::populate() {
             }
             break;
         case SpawnKind::Lantern: lanterns_.push_back({s.pos + Vec2{0.0f, 4.0f}, rng_.range(0.0f, kTau)}); break;
+        case SpawnKind::Transmuter: {
+            // Each stage's basin craves a material found nearby; the first teaches with water.
+            static constexpr MatId kWants[5][3] = {{mat::Water, mat::Oil, mat::Blood},
+                                                    {mat::Water, mat::Brine, mat::Blood},
+                                                    {mat::Acid, mat::Toxic, mat::Water},
+                                                    {mat::Lava, mat::Oil, mat::Blood},
+                                                    {mat::Lava, mat::Quicksilver, mat::Blood}};
+            const int stage = clamp(layout_.levelIndex, 0, 4);
+            Transmuter t;
+            t.pos = s.pos;
+            t.wants = stage == 0 ? static_cast<MatId>(mat::Water) : kWants[stage][rng_.rangeInt(0, 2)];
+            transmuters_.push_back(t);
+            break;
+        }
         case SpawnKind::Altar: {
-            PerkId perk;
-            int guard = 0;
-            do {
-                perk = static_cast<PerkId>(rng_.rangeInt(0, kPerkCount - 1));
-            } while (guard++ < 50 && ((!perkDef(perk).stackable && run_.hasPerk(perk)) ||
-                                      std::find(offered.begin(), offered.end(), perk) != offered.end()));
+            PerkId perk = rollPerk(offered);
             offered.push_back(perk);
             pickups_.push_back(makePerkAltar(s.pos - Vec2{0.0f, 5.0f}, perk, 0));
-            ++altarIndex;
             break;
         }
         }
@@ -157,6 +164,7 @@ void Level::tick(const PlayerInput& input) {
     }
 
     updateIntensity();
+    if (ticks_ % 10 == 0) updateTransmuters();
     audio_.setListener(player_->body.pos);
 }
 
@@ -339,21 +347,11 @@ void Level::interact() {
         addFlash(at, 0xffd070, 2.0f, 60.0f, 0.5f);
         break;
     case PickupType::PerkAltar: {
-        run_.applyPerk(p.perk);
-        const PerkDef& def = perkDef(p.perk);
+        const PerkId perk = p.perk;
+        const int group = p.altarGroup;
         for (Pickup& other : pickups_)
-            if (other.type == PickupType::PerkAltar && other.altarGroup == p.altarGroup) other.dead = true;
-        // Re-derive the player's stats from the run.
-        const Vec2 pos = pl.body.pos;
-        const uint32_t playerId = pl.id;
-        player_ = std::make_unique<Player>(pos, run_);
-        player_->id = playerId;
-        player_->invulnerable = 0.0f;
-        player_->hp = run_.hp;
-        audio_.play(Sfx::Perk, 0.9f);
-        addFloatText(pos - Vec2{0.0f, 14.0f}, def.name, def.color, 1.4f);
-        addFlash(pos, def.color, 3.0f, 120.0f, 0.8f);
-        particles_.burst(pos, 60, 160.0f, {255, 240, 200, 255}, {255, 200, 120, 255}, 0.8f, rng_, 0.0f);
+            if (other.type == PickupType::PerkAltar && other.altarGroup == group) other.dead = true;
+        grantPerk(perk, nullptr);
         break;
     }
     default: break;
@@ -399,6 +397,69 @@ void Level::addFlash(Vec2 pos, uint32_t color, float intensity, float radius, fl
 void Level::addFloatText(Vec2 pos, const std::string& text, uint32_t color, float scale) {
     if (floatTexts_.size() > 60) floatTexts_.erase(floatTexts_.begin());
     floatTexts_.push_back({pos, text, color, 1.1f, scale});
+}
+
+PerkId Level::rollPerk(const std::vector<PerkId>& exclude) {
+    PerkId perk = PerkId::Vitality;
+    for (int guard = 0; guard < 60; ++guard) {
+        perk = static_cast<PerkId>(rng_.rangeInt(0, kPerkCount - 1));
+        const bool owned = !perkDef(perk).stackable && run_.hasPerk(perk);
+        const bool taken = std::find(exclude.begin(), exclude.end(), perk) != exclude.end();
+        if (!owned && !taken) break;
+    }
+    return perk;
+}
+
+void Level::grantPerk(PerkId perk, const char* reason) {
+    run_.hp = player_->hp;
+    run_.applyPerk(perk);
+    const PerkDef& def = perkDef(perk);
+    // Re-derive the player's stats (resistances, health) from the run.
+    const Vec2 pos = player_->body.pos;
+    const Vec2 vel = player_->body.vel;
+    const uint32_t playerId = player_->id;
+    player_ = std::make_unique<Player>(pos, run_);
+    player_->id = playerId;
+    player_->body.vel = vel;
+    player_->hp = std::min(run_.hp, run_.maxHp);
+    player_->invulnerable = 0.0f;
+    audio_.play(Sfx::Perk, 0.9f);
+    if (reason) addFloatText(pos - Vec2{0.0f, 24.0f}, reason, 0xe0d0ff, 1.1f);
+    addFloatText(pos - Vec2{0.0f, 14.0f}, def.name, def.color, 1.4f);
+    addFlash(pos, def.color, 3.0f, 120.0f, 0.8f);
+    particles_.burst(pos, 60, 160.0f, {255, 240, 200, 255}, {255, 200, 120, 255}, 0.8f, rng_, 0.0f);
+}
+
+void Level::updateTransmuters() {
+    World& w = world();
+    for (Transmuter& t : transmuters_) {
+        if (t.complete) continue;
+        const int cx = floorToInt(t.pos.x), floorY = floorToInt(t.pos.y);
+        int count = 0;
+        for (int y = floorY - 6; y <= floorY; ++y)
+            for (int x = cx - 9; x <= cx + 9; ++x)
+                if (w.inBounds(x, y) && w.at(x, y).mat == t.wants) ++count;
+        t.progress = count;
+        if (count < t.required) continue;
+        // The offering is accepted: the matter vanishes in a burst of light.
+        for (int y = floorY - 8; y <= floorY; ++y)
+            for (int x = cx - 9; x <= cx + 9; ++x)
+                if (w.inBounds(x, y) && w.at(x, y).mat == t.wants) w.clear(x, y);
+        t.complete = true;
+        t.progress = t.required;
+        Rgba col = materialColor(t.wants);
+        col.a = 255;
+        particles_.burst(t.pos - Vec2{0.0f, 4.0f}, 80, 180.0f, col, {255, 230, 180, 255}, 1.0f, rng_, -0.1f);
+        addShake(0.3f);
+        audio_.play(Sfx::Portal, 0.6f, 1.6f);
+        if (player_->alive() && (player_->body.pos - t.pos).length() < 400.0f) grantPerk(rollPerk({}), "Transmutation!");
+    }
+}
+
+void Level::debugTeleport(Vec2 pos) {
+    player_->body.pos = player_->body.prevPos = pos;
+    player_->body.vel = {};
+    unbury(player_->body, world());
 }
 
 void Level::debugWarpAhead() {

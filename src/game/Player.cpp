@@ -336,7 +336,7 @@ void Player::onDamaged(Level& level, const DamageInfo& info, float dealt) {
     run_.stats.damageTaken += dealt;
     level.bleed(body.pos, mat::Blood, std::min(12, static_cast<int>(dealt * 0.5f) + 1), info.knockback);
     if (info.silent) return;
-    invulnerable = 0.45f;
+    invulnerable = 0.6f;
     if (dealt >= 18.0f) level.addHitStop(2);
     level.audio().play(Sfx::PlayerHurt, 0.7f, level.rng().range(0.95f, 1.05f));
     level.addShake(std::min(0.5f, dealt / 40.0f + 0.15f));

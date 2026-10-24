@@ -248,7 +248,8 @@ void MenuScene::drawHelp() {
         "Every pixel is matter. Fire spreads through wood, oil and gunpowder. Water cools lava into obsidian. "
         "Acid eats stone. Gold ore crumbles into gold dust when blasted - walk over it to collect. "
         "Wands cast their spells in order: modifiers boost the next projectile, multicasts fire several at once, "
-        "and trigger spells release the next spell where they land. Reach the portal at the bottom of each "
+        "and trigger spells release the next spell where they land. Transmutation circles grant a perk when you "
+        "pour the material they crave into them with your flask. Reach the portal at the bottom of each "
         "stage; rest and shop in the sanctum between stages; complete the Great Work in the Athanor.";
     ui::textWrapped(tips, r.x + 12.0f * s, y, r.width - 24.0f * s, small, ui::color::kTextDim);
     if (ui::button({sw * 0.5f - 50.0f * s, r.y + r.height - 24.0f * s, 100.0f * s, 16.0f * s}, "Back") || IsKeyPressed(KEY_ESCAPE))

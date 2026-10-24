@@ -91,6 +91,10 @@ void GameScene::finishLoading() {
     camera_.reset(level_->player().body.pos);
     bot_ = Bot{};
     mode_ = Mode::Playing;
+    if (app_.options().openUi == "transmuter" && !level_->transmuters().empty()) {
+        level_->debugTeleport(level_->transmuters().front().pos + Vec2{-30.0f, -8.0f});
+        camera_.reset(level_->player().body.pos);
+    }
     if (app_.options().openUi == "inventory") mode_ = Mode::Inventory;
     else if (app_.options().openUi == "pause") mode_ = Mode::Paused;
     exiting_ = false;
@@ -338,6 +342,24 @@ void GameScene::drawWorldOverlays(float alpha) {
         int size = ui::fontSize(std::max(1, static_cast<int>(std::round(static_cast<float>(s) * t.scale))));
         ui::text(t.text, sp.x, sp.y, size, hexColor(t.color, static_cast<uint8_t>(255 * k)), ui::Align::Center);
     }
+    // Transmutation circles explain themselves when the alchemist comes close.
+    for (const Transmuter& t : level_->transmuters()) {
+        if ((t.pos - level_->player().body.pos).length() > 110.0f) continue;
+        Vector2 sp = scene_.worldToScreen(t.pos - Vec2{0.0f, 36.0f});
+        const int small = ui::fontSize(std::max(1, s - 1));
+        if (t.complete) {
+            ui::text("The circle is spent", sp.x, sp.y, small, ui::color::kTextDim, ui::Align::Center);
+            continue;
+        }
+        ui::text("Transmutation Circle", sp.x, sp.y, ui::fontSize(s), Color{200, 170, 255, 255}, ui::Align::Center);
+        ui::text(std::string("Pour in ") + matDef(t.wants).name + " to receive a perk", sp.x,
+                 sp.y + static_cast<float>(ui::fontSize(s)) + 2.0f, small, ui::color::kText, ui::Align::Center);
+        const float w = 50.0f * s, h = 3.0f * s;
+        Rgba m = materialColor(t.wants);
+        ui::bar({sp.x - w * 0.5f, sp.y + static_cast<float>(ui::fontSize(s) + small) + 6.0f, w, h},
+                static_cast<float>(t.progress) / static_cast<float>(t.required), Color{m.r, m.g, m.b, 255});
+    }
+
     // Interaction prompt.
     if (mode_ == Mode::Playing && level_->player().alive()) {
         if (const Pickup* p = level_->focusedPickup()) {

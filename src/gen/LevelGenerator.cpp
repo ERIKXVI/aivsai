@@ -79,6 +79,7 @@ public:
             out.surfaceY = surfaceY_;
         }
         collectSpawns(world, out);
+        placeTransmuter(world, out);
         return out;
     }
 
@@ -442,6 +443,31 @@ private:
             if (!isFloor(world, x, ground - 1) || hash2(x, 0, seed_) % 3u == 0u) continue;
             int blades = 1 + static_cast<int>(hash2(x, 1, seed_) % 3u);
             for (int k = 1; k <= blades; ++k) world.placeIfEmpty(x, ground - k, mat::Vine);
+        }
+    }
+
+    /// A runestone basin that rewards the alchemist for pouring in a particular material.
+    void placeTransmuter(World& world, LevelLayout& out) {
+        std::vector<Vec2> candidates = chambers_;
+        for (int attempt = 0; attempt < 40 && !candidates.empty(); ++attempt) {
+            const Vec2 c = candidates[static_cast<size_t>(rng_.rangeInt(0, static_cast<int>(candidates.size()) - 1))];
+            int x = static_cast<int>(c.x) + rng_.rangeInt(-20, 20), y = static_cast<int>(c.y);
+            // Drop to the chamber floor.
+            while (y < h_ - 20 && world.inBounds(x, y + 1) && !isSolidForCollision(world.at(x, y + 1).mat)) ++y;
+            if (y >= h_ - 20 || (Vec2{static_cast<float>(x), static_cast<float>(y)} - start_).length() < 120.0f) continue;
+            // Clear headroom and build the basin: a runestone tub with a raised rim.
+            for (int dy = -14; dy <= 0; ++dy)
+                for (int dx = -11; dx <= 11; ++dx)
+                    if (world.inBounds(x + dx, y + dy) && world.at(x + dx, y + dy).mat != mat::Bedrock) world.clear(x + dx, y + dy);
+            for (int dx = -10; dx <= 10; ++dx) {
+                for (int dy = 1; dy <= 4; ++dy) world.place(x + dx, y + dy, mat::Rune);
+            }
+            for (int dy = -4; dy <= 0; ++dy) {
+                world.place(x - 10, y + dy, mat::Rune);
+                world.place(x + 10, y + dy, mat::Rune);
+            }
+            out.spawns.push_back({SpawnKind::Transmuter, {static_cast<float>(x), static_cast<float>(y)}, 0.5f});
+            return;
         }
     }
 
