@@ -136,6 +136,10 @@ void defineMaterials() {
         .flammable(20, 120, ToxicGas);
     Define(Rune, "Runestone", Phase::Solid).hardness(255).colors(0x2c2448, 0x4a3c78)
         .glow(0x7a5cff, 40).flags(kAcidProof);
+    Define(Vine, "Vine", Phase::Solid).hardness(5).colors(0x1f4a1c, 0x3f7a2c).opacity(60)
+        .flammable(90, 30, Empty).flags(kOrganic | kDiggable | kNoCollide);
+    Define(GlowVine, "Glowvine", Phase::Solid).hardness(5).colors(0x4a2a8a, 0x9a70f0).opacity(40)
+        .glow(0x8a60ff, 50).flammable(70, 30, Empty).flags(kOrganic | kDiggable | kNoCollide);
 
     // --- Powders --------------------------------------------------------------------
     Define(Sand, "Sand", Phase::Powder).density(200).colors(0xb08f4f, 0xe2c27e).flags(kDiggable);

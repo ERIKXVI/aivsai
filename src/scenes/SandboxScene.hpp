@@ -5,7 +5,7 @@
 #include <memory>
 
 #include "app/Scene.hpp"
-#include "render/WorldRenderer.hpp"
+#include "render/SceneRenderer.hpp"
 #include "sim/World.hpp"
 
 namespace pm {
@@ -23,7 +23,9 @@ private:
     void buildInitialScene();
 
     std::unique_ptr<World> world_;
-    WorldRenderer renderer_;
+    SceneRenderer renderer_;
+    Vec2 camera_{};
+    float zoom_ = 1.0f;
     MatId brush_ = mat::Sand;
     int brushRadius_ = 6;
     float simMs_ = 0.0f;

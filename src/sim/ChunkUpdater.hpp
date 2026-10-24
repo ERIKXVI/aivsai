@@ -23,7 +23,7 @@ private:
                static_cast<unsigned>(y) < static_cast<unsigned>(h_);
     }
     MatId matAt(int x, int y) const {
-        return inBounds(x, y) ? cells_[static_cast<size_t>(y) * w_ + x].mat : mat::Bedrock;
+        return inBounds(x, y) ? cells_[static_cast<size_t>(y) * w_ + x].mat : static_cast<MatId>(mat::Bedrock);
     }
     const MaterialDef& def(MatId m) const { return defs_[m]; }
 

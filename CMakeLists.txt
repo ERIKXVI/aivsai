@@ -115,3 +115,12 @@ if(PM_BUILD_TESTS)
     target_include_directories(pm_tests PRIVATE "${CMAKE_SOURCE_DIR}")
     add_test(NAME pm_tests COMMAND pm_tests)
 endif()
+
+# ---------------------------------------------------------------------------
+# Developer tools
+# ---------------------------------------------------------------------------
+option(PM_BUILD_TOOLS "Build developer tools (level preview renderer)" ON)
+if(PM_BUILD_TOOLS)
+    add_executable(pm_genpreview tools/genpreview.cpp)
+    target_link_libraries(pm_genpreview PRIVATE pm_game)
+endif()

@@ -18,7 +18,7 @@ enum : MatId {
     Empty = 0,
     // Static solids
     Bedrock, Rock, Soil, Wood, Brick, Metal, Ice, Obsidian, Basalt, Coal, GoldOre, Crystal,
-    Glass, Moss, Fungus, SaltRock, Bone, Flesh, Sulphite, Rune,
+    Glass, Moss, Fungus, SaltRock, Bone, Flesh, Sulphite, Rune, Vine, GlowVine,
     // Powders
     Sand, Gravel, Ash, Snow, Gunpowder, GoldDust, Salt, Sulphur, Spore,
     // Liquids
@@ -51,6 +51,7 @@ constexpr uint32_t kOrganic = 1u << 11;     ///< dissolves extra fast in acid, b
 constexpr uint32_t kSticky = 1u << 12;      ///< slows creatures moving through it
 constexpr uint32_t kHot = 1u << 13;         ///< heat source (melts ice, boils water)
 constexpr uint32_t kDiggable = 1u << 14;    ///< carved by the digging spells quickly
+constexpr uint32_t kNoCollide = 1u << 15;   ///< static but creatures and projectiles pass through (vines)
 } // namespace matflag
 
 struct Rgba {
@@ -104,8 +105,8 @@ inline bool hasFlag(MatId id, uint32_t flag) { return (materials().defs[id].flag
 
 /// Solid for collision purposes: creatures and projectiles cannot pass through.
 inline bool isSolidForCollision(MatId id) {
-    Phase p = phaseOf(id);
-    return p == Phase::Solid || p == Phase::Powder;
+    const MaterialDef& d = materials().defs[id];
+    return (d.phase == Phase::Solid || d.phase == Phase::Powder) && !(d.flags & matflag::kNoCollide);
 }
 
 inline bool isFluid(MatId id) {

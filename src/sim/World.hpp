@@ -65,7 +65,7 @@ public:
     Cell& at(int x, int y) { return cells_[static_cast<size_t>(y) * w_ + x]; }
     const Cell& at(int x, int y) const { return cells_[static_cast<size_t>(y) * w_ + x]; }
     /// Bounds-checked material lookup; outside the world reads as bedrock.
-    MatId matAt(int x, int y) const { return inBounds(x, y) ? at(x, y).mat : mat::Bedrock; }
+    MatId matAt(int x, int y) const { return inBounds(x, y) ? at(x, y).mat : static_cast<MatId>(mat::Bedrock); }
 
     /// Writes a cell and wakes its neighbourhood. Out-of-bounds writes are ignored.
     void set(int x, int y, const Cell& c);

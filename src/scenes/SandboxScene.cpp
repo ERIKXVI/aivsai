@@ -14,7 +14,8 @@ constexpr int kWorldH = 384;
 
 SandboxScene::SandboxScene(App& app) : Scene(app), world_(std::make_unique<World>(kWorldW, kWorldH, 1234u)) {
     buildInitialScene();
-    renderer_.resize(world_->width(), world_->height());
+    camera_ = {world_->width() * 0.5f, world_->height() * 0.5f};
+    zoom_ = SceneRenderer::kViewHeightCells / static_cast<float>(world_->height());
 }
 
 void SandboxScene::buildInitialScene() {
@@ -59,11 +60,8 @@ void SandboxScene::paint(int cx, int cy, int radius, MatId m) {
 }
 
 void SandboxScene::tick() {
-    float scale = static_cast<float>(app_.screenHeight()) / static_cast<float>(world_->height());
-    float offX = (static_cast<float>(app_.screenWidth()) - world_->width() * scale) * 0.5f;
-    Vector2 mouse = GetMousePosition();
-    int mx = static_cast<int>((mouse.x - offX) / scale);
-    int my = static_cast<int>(mouse.y / scale);
+    Vec2 m = renderer_.screenToWorld(GetMousePosition());
+    int mx = floorToInt(m.x), my = floorToInt(m.y);
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) paint(mx, my, brushRadius_, brush_);
     if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) paint(mx, my, brushRadius_, mat::Empty);
     if (IsKeyPressed(KEY_F)) world_->ignite(mx, my);
@@ -91,15 +89,27 @@ void SandboxScene::frame(float dt) {
 }
 
 void SandboxScene::render(float alpha) {
-    renderer_.build(*world_, 0, 0, world_->tick());
-    renderer_.upload();
+    (void)alpha;
+    renderer_.beginFrame(camera_, app_.screenWidth(), app_.screenHeight(), zoom_);
+    const ViewInfo& v = renderer_.view();
+    WorldRenderer& layer = renderer_.worldLayer();
+    layer.build(*world_, v.originX, v.originY, world_->tick());
+    layer.upload();
 
-    ClearBackground(Color{8, 7, 12, 255});
-    float scale = static_cast<float>(app_.screenHeight()) / static_cast<float>(world_->height());
-    float offX = (static_cast<float>(app_.screenWidth()) - world_->width() * scale) * 0.5f;
-    const Texture2D& tex = renderer_.colorTexture();
-    DrawTexturePro(tex, Rectangle{0, 0, static_cast<float>(tex.width), static_cast<float>(tex.height)},
-                   Rectangle{offX, 0, tex.width * scale, tex.height * scale}, Vector2{0, 0}, 0.0f, WHITE);
+    renderer_.beginAlbedo();
+    ClearBackground(Color{34, 28, 30, 255});
+    renderer_.drawWorldAlbedo();
+    renderer_.endAlbedo();
+    renderer_.beginEmission();
+    renderer_.endEmission();
+
+    Vec2 m = renderer_.screenToWorld(GetMousePosition());
+    renderer_.addLight(PointLight{m, 2.6f, 2.1f, 1.5f, 160.0f});
+    renderer_.addLight(PointLight{{140.0f, 200.0f}, 0.8f, 1.4f, 3.2f, 180.0f});
+
+    ClearBackground(BLACK);
+    LightingParams lp;
+    renderer_.present(lp, static_cast<float>(app_.time()));
 
     DrawText(TextFormat("%s  r=%d   sim %.2f ms  chunks %d  fps %d", matDef(brush_).name, brushRadius_, simMs_,
                         world_->activeChunkCount(), GetFPS()),
