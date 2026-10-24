@@ -59,6 +59,9 @@ constexpr PaletteEntry kPalette[] = {
     {'%', {196, 228, 244, 200}, false},{'@', {255, 255, 255, 255}, false},{'+', {255, 255, 255, 255}, true},
     {'#', {150, 110, 255, 255}, true}, {'*', {255, 255, 255, 255}, true}, {'$', {255, 214, 90, 255}, true},
     {'S', {96, 90, 104, 255}, false},  {'^', {142, 136, 150, 255}, false},
+    // The Rebis: white queen and red king
+    {'>', {232, 228, 240, 255}, false},{')', {150, 146, 172, 255}, false},{'<', {188, 36, 44, 255}, false},
+    {'(', {104, 18, 30, 255}, false},
 };
 // clang-format on
 
@@ -626,29 +629,30 @@ const char* const kPedestal[] = {
     "ooooooooooo",
 };
 
-// ---- Boss: the Rebis, the two-headed alchemical hermaphrodite (24x22) --------------------
+// ---- Boss: the Rebis, the two-headed alchemical hermaphrodite (24x22): the white queen and
+// the red king joined around a golden heart. ------------------------------------------------
 const char* const kBoss[] = {
     "....oooo.......oooo.....",
-    "...o7777o.....o7777o....",
-    "..o7E77E7o...o7E77E7o...",
-    "..o777777o...o777777o...",
-    "..o78oo87o...o78oo87o...",
-    "...o7777o.....o7777o....",
-    "....o88ooooooooo88o.....",
-    "...o8777777777777778o...",
-    "..o877gggggggggggg778o..",
-    ".o8777gggggggggggg7778o.",
-    ".o877ggg*gg##gg*ggg778o.",
-    "o8777ggggg####ggggg7778o",
-    "o8777ggggg####ggggg7778o",
-    "o8777ggg*gg##gg*ggg7778o",
-    ".o8777gggggggggggg7778o.",
-    ".o8777gggggggggggg7778o.",
-    "..o87777777777777778o...",
-    "...o88777777777777o.....",
-    "....oo8o77oo77o8oo......",
-    "......o8o8oo8o8o........",
-    ".....o8oo8oo8oo8o.......",
+    "...o>>>>o.....o<<<<o....",
+    "..o>E>>E>o...o<E<<E<o...",
+    "..o>>>>>>o...o<<<<<<o...",
+    "..o>)oo)>o...o<(oo(<o...",
+    "...o>>>>o.....o<<<<o....",
+    "....o))ooooooooo((o.....",
+    "...o)>>>>>>><<<<<<<(o...",
+    "..o)>>gggggggggggg<<(o..",
+    ".o)>>>gggggggggggg<<<(o.",
+    ".o)>>ggg*gg##gg*ggg<<(o.",
+    "o)>>>ggggg####ggggg<<<(o",
+    "o)>>>ggggg####ggggg<<<(o",
+    "o)>>>ggg*gg##gg*ggg<<<(o",
+    ".o)>>>gggggggggggg<<<(o.",
+    ".o)>>>gggggggggggg<<<(o.",
+    "..o)>>>>>>>><<<<<<<(o...",
+    "...o))>>>>>><<<<<<o.....",
+    "....oo)o>>oo<<o(oo......",
+    "......o)o)oo(o(o........",
+    ".....o)oo)oo(oo(o.......",
     ".....oo..oo..oo.oo......",
 };
 const char* const kBossCore[] = {

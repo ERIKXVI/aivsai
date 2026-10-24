@@ -592,7 +592,7 @@ void Enemy::drawBoss(DrawContext& ctx, Vec2 p, Color tint) const {
     Vec2 topLeft{p.x - info.w * kScale * 0.5f, p.y - info.h * kScale * 0.5f + std::sin(ctx.time * 1.7f) * 1.5f};
     Vector2 lp = ctx.scene.layerPos(topLeft);
     ctx.sprites.drawScaled(SpriteId::Boss, 0, lp, kScale, false, tint);
-    if (hurtFlash > 0.0f) ctx.sprites.drawScaled(SpriteId::Boss, 0, lp, kScale, false, Color{255, 255, 255, 90}, false, true);
+    if (hurtFlash > 0.0f) ctx.sprites.drawScaled(SpriteId::Boss, 0, lp, kScale, false, Color{255, 255, 255, 45}, false, true);
     // The philosopher's stone pulses at the Rebis' heart.
     const SpriteInfo& ci = ctx.sprites.info(SpriteId::BossCore);
     Vector2 cp = ctx.scene.layerPos({p.x - ci.w * 0.5f, topLeft.y + info.h * kScale * 0.5f - ci.h * 0.5f + 2.0f});
@@ -623,9 +623,13 @@ void Enemy::addLights(DrawContext& ctx) const {
     if (elite_) ctx.scene.addLight(PointLight{p, 1.4f, 1.0f, 0.35f, 46.0f, 4.0f});
     if (def_->glow == 0) return;
     Color c = hexColor(def_->glow);
-    float k = type_ == EnemyType::Boss ? 1.4f : 0.9f;
-    float radius = type_ == EnemyType::Boss ? 150.0f : 40.0f;
-    ctx.scene.addLight(PointLight{p, c.r / 255.0f * k, c.g / 255.0f * k, c.b / 255.0f * k, radius, 4.0f});
+    if (type_ == EnemyType::Boss) {
+        // The Rebis lights its arena from above its heads, so its own body is not blown out.
+        ctx.scene.addLight(PointLight{p - Vec2{0.0f, 44.0f}, c.r / 255.0f * 0.95f, c.g / 255.0f * 0.95f, c.b / 255.0f * 0.95f, 170.0f, 0.0f});
+        return;
+    }
+    constexpr float k = 0.9f;
+    ctx.scene.addLight(PointLight{p, c.r / 255.0f * k, c.g / 255.0f * k, c.b / 255.0f * k, 40.0f, 4.0f});
 }
 
 } // namespace pm
