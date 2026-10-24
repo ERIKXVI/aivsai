@@ -122,6 +122,34 @@ bool button(Rectangle r, const std::string& label, bool enabled, bool focused) {
     return clicked;
 }
 
+void NavList::update(int count) {
+    confirm_ = false;
+    if (count <= 0) return;
+    const Vector2 delta = GetMouseDelta();
+    if (delta.x * delta.x + delta.y * delta.y > 4.0f) active_ = false;
+    const bool up = input::keyPressed(KEY_UP) || input::keyPressed(KEY_W) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_UP);
+    const bool down =
+        input::keyPressed(KEY_DOWN) || input::keyPressed(KEY_S) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN);
+    if (up || down) {
+        if (active_) index_ = (index_ + (down ? 1 : -1) + count) % count;
+        active_ = true;
+        if (g_audio) g_audio->play(Sfx::UiHover, 0.5f);
+    }
+    index_ = std::min(index_, count - 1);
+    const bool confirm = input::keyPressed(KEY_ENTER) || input::keyPressed(KEY_SPACE) ||
+                         IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN);
+    if (confirm && active_) {
+        confirm_ = true;
+        if (g_audio) g_audio->play(Sfx::UiClick, 0.7f);
+    } else if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN)) {
+        active_ = true; // a gamepad's first A press reveals the focus
+    }
+}
+
+bool backPressed() { return input::keyPressed(KEY_ESCAPE) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT); }
+
+bool confirmPressed() { return input::keyPressed(KEY_ENTER) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN); }
+
 Color spellTypeColor(SpellId spell) {
     switch (spellDef(spell).type) {
     case SpellType::Projectile: return Color{90, 140, 230, 255};

@@ -269,9 +269,9 @@ void GameScene::frame(float dt) {
             for (Wand& w : run_.wands) w.resetDeck();
         }
     } else if (mode_ == Mode::Paused) {
-        if (input::keyPressed(KEY_ESCAPE)) mode_ = Mode::Playing;
+        if (ui::backPressed() || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT)) mode_ = Mode::Playing;
     } else if (mode_ == Mode::Settings) {
-        if (input::keyPressed(KEY_ESCAPE)) mode_ = Mode::Paused;
+        if (ui::backPressed()) mode_ = Mode::Paused;
     } else if (mode_ == Mode::Dead) {
         endTimer_ += dt;
     }

@@ -47,6 +47,28 @@ bool hovered(Rectangle r);
 /// Button with hover feedback; returns true when clicked (or activated by keyboard focus).
 bool button(Rectangle r, const std::string& label, bool enabled = true, bool focused = false);
 
+/// Keyboard and gamepad navigation for a list of buttons: Up/Down (W/S, D-pad) move the
+/// focus and Enter/Space (A) activates. The focus only appears once those are used, and
+/// moving the mouse hands control back to it.
+class NavList {
+public:
+    /// Call once per frame before drawing the list.
+    void update(int count);
+    bool focused(int index) const { return active_ && index == index_; }
+    /// True when the focused entry was activated this frame.
+    bool activated(int index) const { return focused(index) && confirm_; }
+
+private:
+    int index_ = 0;
+    bool active_ = false;
+    bool confirm_ = false;
+};
+
+/// "Back" in menus and panels: Esc or the gamepad's B button.
+bool backPressed();
+/// "Confirm" in menus: Enter or the gamepad's A button.
+bool confirmPressed();
+
 /// Spell icon with a frame coloured by spell type.
 void spellIcon(SpellId spell, Rectangle r, bool highlight = false);
 Color spellTypeColor(SpellId spell);

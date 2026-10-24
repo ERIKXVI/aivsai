@@ -62,6 +62,11 @@ bool GrimoirePanel::draw(App& app) {
         if (ui::button(tr, labels[i], true, static_cast<int>(tab_) == i)) tab_ = static_cast<Tab>(i);
     }
 
+    // Left/right (A/D, D-pad) flip between the tabs.
+    const bool left = input::keyPressed(KEY_LEFT) || input::keyPressed(KEY_A) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_LEFT);
+    const bool right = input::keyPressed(KEY_RIGHT) || input::keyPressed(KEY_D) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_RIGHT);
+    if (left || right) tab_ = static_cast<Tab>((static_cast<int>(tab_) + (right ? 1 : 2)) % 3);
+
     const float cx = r.x + 20.0f * s, cy = r.y + 54.0f * s;
     switch (tab_) {
     case Tab::Spells: drawSpells(app, cx, cy); break;
@@ -73,7 +78,7 @@ bool GrimoirePanel::draw(App& app) {
                                     p.totalGold);
     ui::text(footer, sw * 0.5f, r.y + r.height - 44.0f * s, small, ui::color::kTextDim, ui::Align::Center);
     return ui::button({sw * 0.5f - 50.0f * s, r.y + r.height - 24.0f * s, 100.0f * s, 16.0f * s}, "Back") ||
-           input::keyPressed(KEY_ESCAPE);
+           ui::backPressed();
 }
 
 void GrimoirePanel::drawSpells(App& app, float x, float y) {

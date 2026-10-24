@@ -14,6 +14,7 @@
 #include "sim/Particles.hpp"
 #include "sim/World.hpp"
 #include "ui/GrimoirePanel.hpp"
+#include "ui/Ui.hpp"
 
 namespace pm {
 
@@ -44,6 +45,7 @@ private:
     Rng rng_;
     Panel panel_ = Panel::Main;
     GrimoirePanel grimoire_;
+    ui::NavList nav_;
     std::optional<RunState> suspended_; ///< run that "Continue the Work" resumes
     float time_ = 0.0f;
     float nextEvent_ = 2.0f;

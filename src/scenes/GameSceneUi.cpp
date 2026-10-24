@@ -355,17 +355,22 @@ void GameScene::drawPauseMenu() {
     ui::panel(panelR);
     ui::text("PAUSED", sw * 0.5f, panelR.y + 8.0f * s, ui::fontSize(ui::scale() + 1), ui::color::kGold, ui::Align::Center);
     float bw = 130.0f * s, bh = 18.0f * s, x = sw * 0.5f - bw * 0.5f, y = panelR.y + 30.0f * s;
-    if (ui::button({x, y, bw, bh}, "Resume")) mode_ = Mode::Playing;
-    y += bh + 5.0f * s;
-    if (ui::button({x, y, bw, bh}, "Settings")) mode_ = Mode::Settings;
-    y += bh + 5.0f * s;
-    if (ui::button({x, y, bw, bh}, "Abandon Run")) {
+    pauseNav_.update(4);
+    int index = 0;
+    auto item = [&](const char* label) {
+        const bool pressed = ui::button({x, y, bw, bh}, label, true, pauseNav_.focused(index)) || pauseNav_.activated(index);
+        ++index;
+        y += bh + 5.0f * s;
+        return pressed;
+    };
+    if (item("Resume")) mode_ = Mode::Playing;
+    if (item("Settings")) mode_ = Mode::Settings;
+    if (item("Abandon Run")) {
         recordProfile(false);
         app_.setScene(std::make_unique<MenuScene>(app_));
     }
-    y += bh + 5.0f * s;
     // Quitting keeps the run suspended at the start of this stage.
-    if (ui::button({x, y, bw, bh}, "Save & Quit")) app_.requestQuit();
+    if (item("Save & Quit")) app_.requestQuit();
 }
 
 void GameScene::drawEndScreen(bool victory) {
@@ -420,11 +425,11 @@ void GameScene::drawEndScreen(bool victory) {
     if (a < 1.0f) return;
     float bw = 120.0f * s, bh = 18.0f * s;
     y += 10.0f * s;
-    if (ui::button({sw * 0.5f - bw - 4.0f * s, y, bw, bh}, victory ? "New Work" : "Try Again") || input::keyPressed(KEY_ENTER)) {
+    if (ui::button({sw * 0.5f - bw - 4.0f * s, y, bw, bh}, victory ? "New Work" : "Try Again") || ui::confirmPressed()) {
         RunState fresh = newRun(static_cast<uint32_t>(GetRandomValue(1, 0x7FFFFFFF)), run_.difficulty, false, run_.loadout);
         app_.setScene(std::make_unique<GameScene>(app_, std::move(fresh)));
     }
-    if (ui::button({sw * 0.5f + 4.0f * s, y, bw, bh}, "Main Menu") || input::keyPressed(KEY_ESCAPE)) {
+    if (ui::button({sw * 0.5f + 4.0f * s, y, bw, bh}, "Main Menu") || ui::backPressed()) {
         app_.setScene(std::make_unique<MenuScene>(app_));
     }
 }

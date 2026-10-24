@@ -17,6 +17,7 @@
 #include "render/SceneRenderer.hpp"
 #include "scenes/Hints.hpp"
 #include "ui/Minimap.hpp"
+#include "ui/Ui.hpp"
 
 namespace pm {
 
@@ -60,6 +61,7 @@ private:
     FollowCamera camera_;
     Bot bot_;
     HintTracker hints_;
+    ui::NavList pauseNav_;
     Minimap minimap_;
     Mode mode_ = Mode::Loading;
 

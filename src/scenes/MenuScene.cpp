@@ -219,45 +219,49 @@ void MenuScene::drawMain() {
     float bw = 150.0f * s, bh = 18.0f * s, gap = 4.0f * s;
     const int buttons = suspended_ ? 9 : 8;
     float x = sw * 0.5f - bw * 0.5f, y = std::min(sh * 0.44f, sh - 26.0f * s - static_cast<float>(buttons) * (bh + gap));
+    nav_.update(buttons);
+    int index = 0;
+    Rectangle last{};
+    // One menu entry: a button that the mouse, keyboard or gamepad can press.
+    auto item = [&](const std::string& label) {
+        last = {x, y, bw, bh};
+        const bool pressed = ui::button(last, label, true, nav_.focused(index)) || nav_.activated(index);
+        ++index;
+        y += bh + gap;
+        return pressed;
+    };
+
     if (suspended_) {
-        if (ui::button({x, y, bw, bh}, "Continue the Work")) {
+        if (item("Continue the Work")) {
             app_.setScene(std::make_unique<GameScene>(app_, *suspended_));
             return;
         }
-        if (ui::hovered({x, y, bw, bh})) {
+        if (ui::hovered(last)) {
             const RunState& r = *suspended_;
             std::string where = r.inSanctum ? std::string("Sanctum after ") + biomeDef(biomeForDepth(r.levelIndex)).name
                                             : std::string(stageNumeral(r.levelIndex)) + ". " + biomeDef(biomeForDepth(r.levelIndex)).name;
             ui::tooltip("Continue the Work", where + TextFormat("  -  %s, %d gold", loadoutDef(r.loadout).name, r.gold), ui::color::kGold);
         }
-        y += bh + gap;
     }
-    if (ui::button({x, y, bw, bh}, "Begin the Great Work")) panel_ = Panel::Loadout;
-    if (suspended_ && ui::hovered({x, y, bw, bh}))
+    if (item("Begin the Great Work")) panel_ = Panel::Loadout;
+    if (suspended_ && ui::hovered(last))
         ui::tooltip("Begin the Great Work", "Starting anew abandons your suspended run.", ui::color::kDanger);
-    y += bh + gap;
     // Everyone attempts the daily rite with the same seed and the same kit.
-    if (ui::button({x, y, bw, bh}, "Daily Rite")) startRun(true, LoadoutId::Apprentice);
-    if (ui::hovered({x, y, bw, bh}))
+    if (item("Daily Rite")) startRun(true, LoadoutId::Apprentice);
+    if (ui::hovered(last))
         ui::tooltip("Daily Rite", "Today's seed, the same for every alchemist, with the Apprentice's kit.", ui::color::kGold);
-    y += bh + gap;
     Settings& st = app_.settings();
     int d = clamp(st.difficulty, 0, 2);
-    if (ui::button({x, y, bw, bh}, std::string("Difficulty: ") + kDifficultyNames[d])) {
+    if (item(std::string("Difficulty: ") + kDifficultyNames[d])) {
         st.difficulty = (d + 1) % 3;
         saveSettings(st);
     }
-    if (ui::hovered({x, y, bw, bh})) ui::tooltip(kDifficultyNames[d], kDifficultyHints[d], ui::color::kGold);
-    y += bh + gap;
-    if (ui::button({x, y, bw, bh}, "Alchemy Sandbox")) app_.setScene(std::make_unique<SandboxScene>(app_));
-    y += bh + gap;
-    if (ui::button({x, y, bw, bh}, "Grimoire")) panel_ = Panel::Grimoire;
-    y += bh + gap;
-    if (ui::button({x, y, bw, bh}, "How to Play")) panel_ = Panel::Help;
-    y += bh + gap;
-    if (ui::button({x, y, bw, bh}, "Settings")) panel_ = Panel::Settings;
-    y += bh + gap;
-    if (ui::button({x, y, bw, bh}, "Quit")) app_.requestQuit();
+    if (ui::hovered(last)) ui::tooltip(kDifficultyNames[d], kDifficultyHints[d], ui::color::kGold);
+    if (item("Alchemy Sandbox")) app_.setScene(std::make_unique<SandboxScene>(app_));
+    if (item("Grimoire")) panel_ = Panel::Grimoire;
+    if (item("How to Play")) panel_ = Panel::Help;
+    if (item("Settings")) panel_ = Panel::Settings;
+    if (item("Quit")) app_.requestQuit();
 
     const Profile& p = app_.profile();
     std::string stats = TextFormat("Runs %d   Great Works completed %d   Deepest stage %d", p.runs, p.victories, p.deepest);
@@ -333,7 +337,9 @@ void MenuScene::drawLoadouts() {
         y += rowH + rowGap;
     }
     // Arrow keys move the selection between unlocked paths.
-    const int dir = (input::keyPressed(KEY_DOWN) || input::keyPressed(KEY_S) ? 1 : 0) - (input::keyPressed(KEY_UP) || input::keyPressed(KEY_W) ? 1 : 0);
+    const bool down = input::keyPressed(KEY_DOWN) || input::keyPressed(KEY_S) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN);
+    const bool up = input::keyPressed(KEY_UP) || input::keyPressed(KEY_W) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_UP);
+    const int dir = (down ? 1 : 0) - (up ? 1 : 0);
     if (dir != 0) {
         for (int step = 1; step < kLoadoutCount; ++step) {
             const int next = (static_cast<int>(selected) + dir * step + kLoadoutCount) % kLoadoutCount;
@@ -346,11 +352,11 @@ void MenuScene::drawLoadouts() {
     }
 
     const float bw = 100.0f * s, bh = 16.0f * s, by = r.y + r.height - 24.0f * s;
-    if (ui::button({sw * 0.5f - bw - 4.0f * s, by, bw, bh}, "Begin") || input::keyPressed(KEY_ENTER)) {
+    if (ui::button({sw * 0.5f - bw - 4.0f * s, by, bw, bh}, "Begin") || ui::confirmPressed()) {
         startRun(false, selected);
         return;
     }
-    if (ui::button({sw * 0.5f + 4.0f * s, by, bw, bh}, "Back") || input::keyPressed(KEY_ESCAPE)) panel_ = Panel::Main;
+    if (ui::button({sw * 0.5f + 4.0f * s, by, bw, bh}, "Back") || ui::backPressed()) panel_ = Panel::Main;
     if (!tipTitle.empty()) ui::tooltip(tipTitle, tipBody, ui::color::kAccent);
 }
 
@@ -403,7 +409,7 @@ void MenuScene::drawHelp() {
         y += static_cast<float>(size) + 1.0f * s;
         y += ui::textWrapped(tip.action, r.x + 12.0f * s, y, r.width - 24.0f * s, small, ui::color::kTextDim) + 4.0f * s;
     }
-    if (ui::button({sw * 0.5f - 50.0f * s, r.y + r.height - 24.0f * s, 100.0f * s, 16.0f * s}, "Back") || input::keyPressed(KEY_ESCAPE))
+    if (ui::button({sw * 0.5f - 50.0f * s, r.y + r.height - 24.0f * s, 100.0f * s, 16.0f * s}, "Back") || ui::backPressed())
         panel_ = Panel::Main;
 }
 

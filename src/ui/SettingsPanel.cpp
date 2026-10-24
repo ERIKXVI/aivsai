@@ -72,7 +72,7 @@ bool drawSettingsPanel(App& app) {
     if (changed) app.applySettings();
 
     bool back = ui::button({x, panelR.y + panelR.height - bh - 8.0f * s, bw, bh}, "Back");
-    if (back || input::keyPressed(KEY_ESCAPE)) {
+    if (back || ui::backPressed()) {
         saveSettings(st);
         return true;
     }
