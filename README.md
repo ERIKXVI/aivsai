@@ -14,7 +14,9 @@ yourself from spell cards.
 | | |
 |---|---|
 | ![Rubedo](docs/media/rubedo.jpg) | ![The Rebis](docs/media/boss.jpg) |
-| ![Sanctum](docs/media/sanctum.jpg) | ![Wand editing](docs/media/inventory.jpg) |
+| ![An alchemist's laboratory vault](docs/media/vault.jpg) | ![Sanctum](docs/media/sanctum.jpg) |
+| ![The map](docs/media/map.jpg) | ![The Grimoire](docs/media/grimoire.jpg) |
+| ![Alchemy Sandbox](docs/media/sandbox.jpg) | ![Wand editing](docs/media/inventory.jpg) |
 
 ## Playing
 
