@@ -23,7 +23,7 @@ const BiomeDef kBiomes[static_cast<int>(BiomeId::Count)] = {
     // II. Albedo — the whitening: salt glaciers, ice and brine.
     {
         "Albedo", "The Salt Glaciers",
-        SaltRock, Ice, Ice, Snow, Rock,
+        SaltRock, SaltRock, Ice, Snow, Rock,
         {{{Ice, 0.04f, 0.60f}, {Crystal, 0.06f, 0.82f}, {GoldOre, 0.07f, 0.82f}, {Salt, 0.05f, 0.78f}}},
         {{{Water, 0.5f}, {Brine, 0.4f}, {Quicksilver, 0.1f}, {Empty, 0.0f}}},
         {{{Snow, 0.6f}, {Salt, 0.3f}, {Sand, 0.1f}}},

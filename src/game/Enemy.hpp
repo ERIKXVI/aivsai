@@ -92,6 +92,7 @@ private:
     void fireAt(Level& level, Vec2 target, SpellId spell, float spreadRad = 0.05f);
     void contactPlayer(Level& level);
     int animFrame(float time) const;
+    void drawBoss(DrawContext& ctx, Vec2 p, Color tint) const;
 
     EnemyType type_;
     const EnemyDef* def_;

@@ -156,13 +156,19 @@ void LevelRenderer::drawProps(const Level& level, float time, bool emissive) {
         }
         case PickupType::Wand: {
             if (!pk.wand) break;
-            Vec2 base = pos + Vec2{-static_cast<float>(pk.wand->length) * 0.5f, bob};
+            // A slanted two-pixel-thick rod with a glowing gem, spinning slowly.
+            const float angle = -0.6f + std::sin(time * 1.5f + pos.x) * 0.25f;
+            const Vec2 dir = fromAngle(angle);
+            const Vec2 base = pos + Vec2{0.0f, bob} - dir * (static_cast<float>(pk.wand->length) * 0.5f);
             for (int i = 0; i <= pk.wand->length; ++i) {
-                Vector2 p = scene_.layerPos(base + Vec2{static_cast<float>(i), -static_cast<float>(i) * 0.35f});
-                bool gem = i >= pk.wand->length - 1;
-                if (emissive && !gem) continue;
-                DrawPixel(static_cast<int>(std::floor(p.x)), static_cast<int>(std::floor(p.y)),
-                          hexColor(gem ? pk.wand->gemColor : pk.wand->handleColor));
+                Vector2 p = scene_.layerPos(base + dir * static_cast<float>(i));
+                const int px = static_cast<int>(std::floor(p.x)), py = static_cast<int>(std::floor(p.y));
+                const bool gem = i >= pk.wand->length - 1;
+                if (emissive) {
+                    if (gem) DrawRectangle(px, py, 2, 2, hexColor(pk.wand->gemColor));
+                    continue;
+                }
+                DrawRectangle(px, py, gem ? 2 : 1, 2, hexColor(gem ? pk.wand->gemColor : pk.wand->handleColor));
             }
             break;
         }
@@ -250,10 +256,32 @@ void LevelRenderer::addLights(const Level& level, float alpha, float time) {
         scene_.addLight(PointLight{l.pos + Vec2{0.0f, 3.0f}, 1.6f * flicker, 1.1f * flicker, 0.55f * flicker, 85.0f, 4.0f});
     }
 
+    // Treasure glints so it catches the eye in the dark.
+    int lootLights = 0;
     for (const Pickup& pk : level.pickups()) {
-        if (pk.type == PickupType::PerkAltar) {
+        if (lootLights >= 12) break;
+        switch (pk.type) {
+        case PickupType::PerkAltar: {
             Color c = hexColor(perkDef(pk.perk).color);
             scene_.addLight(PointLight{pk.body.pos - Vec2{0.0f, 12.0f}, c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, 45.0f, 3.0f});
+            ++lootLights;
+            break;
+        }
+        case PickupType::Spell:
+        case PickupType::Wand: {
+            Color c = pk.type == PickupType::Spell ? spellColor(pk.spell) : hexColor(pk.wand ? pk.wand->gemColor : 0xffffff);
+            float pulse = 0.55f + 0.2f * std::sin(time * 3.0f + pk.body.pos.x);
+            scene_.addLight(PointLight{pk.body.pos, c.r / 255.0f * pulse, c.g / 255.0f * pulse, c.b / 255.0f * pulse, 28.0f, 2.0f});
+            ++lootLights;
+            break;
+        }
+        case PickupType::Chest:
+            if (!pk.opened) {
+                scene_.addLight(PointLight{pk.body.pos - Vec2{0.0f, 3.0f}, 0.7f, 0.55f, 0.25f, 30.0f, 3.0f});
+                ++lootLights;
+            }
+            break;
+        default: break;
         }
     }
 

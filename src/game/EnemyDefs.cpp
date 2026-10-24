@@ -25,7 +25,7 @@ const EnemyDef kEnemies[static_cast<int>(EnemyType::Count)] = {
     {"Rock Worm",      SpriteId::WormHead,   Behaviour::Burrower,  95, 4.5f, 4.5f,  70, 16, DamageType::Physical, SpellId::None,      0.0f, 260, mat::Blood, 30, true,  0,        {0.9f, 1, 0.8f, 1, 1, 1.2f, 1, 1}},
     {"Basalt Golem",   SpriteId::Golem,      Behaviour::Brute,    170, 6.5f, 8.0f,  26, 22, DamageType::Physical, SpellId::None,      3.0f, 190, mat::Gravel, 45, false, 0xff8c3c, {0.6f, 0.5f, 0.7f, 1.2f, 1, 1.5f, 0, 1}},
     {"Homunculus",     SpriteId::Homunculus, Behaviour::Companion, 70, 4.0f, 5.0f,  80,  0, DamageType::Physical, SpellId::SparkBolt, 0.55f, 160, mat::Blood, 0, false, 0,        kNormal},
-    {"The Rebis",      SpriteId::Boss,       Behaviour::Boss,    2200, 11.0f, 10.0f, 45, 25, DamageType::Physical, SpellId::Fireball,  2.4f, 400, mat::Ichor, 400, true, 0xffc860, {1, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 1}},
+    {"The Rebis",      SpriteId::Boss,       Behaviour::Boss,    2200, 20.0f, 18.0f, 45, 25, DamageType::Physical, SpellId::Fireball,  2.4f, 400, mat::Ichor, 400, true, 0xffc860, {1, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 1}},
 };
 // clang-format on
 

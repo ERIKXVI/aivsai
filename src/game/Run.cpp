@@ -68,10 +68,10 @@ RunState newRun(uint32_t seed, Difficulty difficulty, bool daily) {
     r.flask.mat = mat::Water;
     r.flask.amount = 500;
     if (difficulty == Difficulty::Apprentice) {
-        r.maxHp = r.hp = 150.0f;
+        r.maxHp = r.hp = 170.0f;
         r.addSpell(SpellId::DamageUp);
     } else if (difficulty == Difficulty::Archmage) {
-        r.maxHp = r.hp = 80.0f;
+        r.maxHp = r.hp = 90.0f;
     }
     return r;
 }

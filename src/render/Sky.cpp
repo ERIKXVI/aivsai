@@ -76,7 +76,7 @@ void Sky::draw(const std::vector<int>& skyline, int surfaceY, int originX, int o
     // The moon, with a few darker maria.
     {
         // Anchored to the view with a slight drift so it is always in the sky.
-        const int x = static_cast<int>(static_cast<float>(texW) * 0.74f - std::fmod(starShift, 60.0f));
+        const int x = static_cast<int>(static_cast<float>(texW) * 0.74f - starShift);
         const int y = static_cast<int>(static_cast<float>(surfaceY) * 0.3f) - originY;
         if (x > -20 && x < texW + 20 && y > -20 && y < texH + 20) {
             Color face = emissionPass ? Color{200, 196, 170, 255} : Color{236, 232, 210, 255};

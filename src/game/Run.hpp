@@ -42,8 +42,8 @@ struct RunState {
     int levelIndex = 0;      ///< 0..4 = biomes, then victory
     bool inSanctum = false;
 
-    float maxHp = 100.0f;
-    float hp = 100.0f;
+    float maxHp = 120.0f;
+    float hp = 120.0f;
     int gold = 0;
     float levitationMax = 2.0f;
     std::vector<Wand> wands;

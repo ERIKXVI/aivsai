@@ -96,6 +96,9 @@ void GameScene::finishLoading() {
     exiting_ = false;
     titleTimer_ = 4.0f;
     if (run_.inSanctum) {
+        // Sanctums restore the alchemist completely.
+        run_.hp = run_.maxHp;
+        level_->player().hp = run_.maxHp;
         titleMain_ = "SANCTUM";
         titleSub_ = biomeDef(BiomeId::Sanctum).subtitle;
     } else {
@@ -277,6 +280,7 @@ void GameScene::render(float alpha) {
         Vec2 cam = camera_.position(level_->shake(), time_, app_.settings().screenShake);
         levelRenderer_.render(*level_, cam, a, time_, app_.screenWidth(), app_.screenHeight());
         drawWorldOverlays(a);
+        if (mode_ == Mode::Playing) drawCompass(a);
         if (mode_ != Mode::Victory) drawHud();
         drawTitleCard();
         if (!run_.inSanctum && run_.levelIndex == 0 && level_->time() < 30.0f) drawControlsHint();
@@ -336,6 +340,26 @@ void GameScene::drawWorldOverlays(float alpha) {
             }
         }
     }
+}
+
+void GameScene::drawCompass(float alpha) {
+    // A faint arrow orbiting the alchemist points towards the exit portal.
+    const Player& pl = level_->player();
+    if (!pl.alive() || level_->isSanctum()) return;
+    const Vec2 p = pl.body.interpolated(alpha);
+    const Vec2 to = level_->exitPos() - p;
+    const float dist = to.length();
+    if (dist < 60.0f) return;
+    const Vec2 dir = to / dist;
+    const float s = static_cast<float>(ui::scale());
+    Vector2 c = scene_.worldToScreen(p + dir * 22.0f);
+    Vector2 tip{c.x + dir.x * 6.0f * s, c.y + dir.y * 6.0f * s};
+    Vector2 left{c.x - dir.y * 3.0f * s, c.y + dir.x * 3.0f * s};
+    Vector2 right{c.x + dir.y * 3.0f * s, c.y - dir.x * 3.0f * s};
+    const float pulse = 0.55f + 0.25f * std::sin(time_ * 3.0f);
+    Color col{200, 170, 255, static_cast<unsigned char>(255.0f * pulse)};
+    DrawTriangle(tip, right, left, col);
+    DrawTriangle(tip, left, right, col);
 }
 
 void GameScene::drawHud() {
@@ -456,7 +480,7 @@ void GameScene::drawControlsHint() {
     float a = clamp(std::min((t - 1.0f) * 2.0f, (30.0f - t) / 2.0f), 0.0f, 1.0f);
     if (a <= 0.0f) return;
     const char* lines[] = {"A/D move   W/Space jump - hold to levitate", "Mouse aim   LMB cast   1-4 / wheel switch wand",
-                           "E interact   Tab edit wands   Esc pause", "Find the portal deep below."};
+                           "Wand 2 digs through rock   Tab edit wands", "E interact   Esc pause   Follow the arrow to the portal"};
     float x = 10.0f * s, y = 60.0f * s;
     Rectangle r{x - 4.0f * s, y - 4.0f * s, 170.0f * s, (static_cast<float>(small) * 1.3f) * 4.0f + 8.0f * s};
     unsigned char al = static_cast<unsigned char>(200.0f * a);

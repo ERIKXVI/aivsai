@@ -1,5 +1,6 @@
 #include "render/Sprites.hpp"
 
+#include <cmath>
 #include <vector>
 
 namespace pm {
@@ -91,6 +92,18 @@ void SpriteBank::drawEmissive(SpriteId id, int frame, Vector2 pos, bool flipX, C
 void SpriteBank::drawSilhouette(SpriteId id, int frame, Vector2 pos, bool flipX, Color tint) const {
     int i = static_cast<int>(id);
     drawFrame(silhouette_[i], info_[i], frame, pos, flipX, tint);
+}
+
+void SpriteBank::drawScaled(SpriteId id, int frame, Vector2 pos, int scale, bool flipX, Color tint, bool emissive,
+                            bool silhouette) const {
+    const int i = static_cast<int>(id);
+    const SpriteInfo& in = info_[i];
+    const Texture2D& tex = silhouette ? silhouette_[i] : (emissive ? emissive_[i] : color_[i]);
+    if (tex.id == 0 || in.frames == 0) return;
+    frame = ((frame % in.frames) + in.frames) % in.frames;
+    Rectangle src{static_cast<float>(frame * in.w), 0.0f, static_cast<float>(flipX ? -in.w : in.w), static_cast<float>(in.h)};
+    Rectangle dst{std::floor(pos.x), std::floor(pos.y), static_cast<float>(in.w * scale), static_cast<float>(in.h * scale)};
+    DrawTexturePro(tex, src, dst, Vector2{0.0f, 0.0f}, 0.0f, tint);
 }
 
 void SpriteBank::drawRotated(SpriteId id, int frame, Vector2 center, float degrees, Color tint) const {

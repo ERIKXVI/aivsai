@@ -38,6 +38,7 @@ private:
 
     void drawWorldOverlays(float alpha);
     void drawHud();
+    void drawCompass(float alpha);
     void drawInventory();
     void drawPauseMenu();
     void drawEndScreen(bool victory);

@@ -60,6 +60,7 @@ public:
         placePools(world);
         placePowders(world);
         placeExitPlatform(world);
+        placeArenaPlatforms(world);
         presimulate(world, pool);
         // Guarantee the route: progressively wider clearing until a player-sized body fits.
         for (int radius = 7; radius <= 13; radius += 3) {
@@ -266,8 +267,39 @@ private:
     void carvePockets() {
         if (!surface_) carveCircle(start_.x, start_.y, 20.0f, 2.0f);
         carveCircle(exit_.x, exit_.y - 10.0f, 30.0f, 2.0f);
+        if (biome_ == BiomeId::Athanor) carveArena();
         // Reach the start pocket from above the first path segment's top.
         sealBorders();
+    }
+
+    /// The final stage ends in a vast furnace hall where the Rebis waits above the portal.
+    void carveArena() {
+        const float cx = exit_.x, cy = exit_.y - 70.0f;
+        const float rx = std::min(200.0f, static_cast<float>(w_) * 0.5f - 30.0f), ry = 95.0f;
+        for (int y = static_cast<int>(cy - ry - 6); y <= static_cast<int>(cy + ry + 6); ++y)
+            for (int x = static_cast<int>(cx - rx - 6); x <= static_cast<int>(cx + rx + 6); ++x) {
+                if (!inBounds(x, y)) continue;
+                float dx = (static_cast<float>(x) - cx) / rx, dy = (static_cast<float>(y) - cy) / ry;
+                float edge = 1.0f + noise::perlin(x * 0.05f, y * 0.05f, seed_ ^ 0xA7u) * 0.08f;
+                if (dx * dx + dy * dy < edge) open_[idx(x, y)] = 1;
+            }
+        arena_ = {cx, cy, rx, ry};
+    }
+
+    void placeArenaPlatforms(World& world) {
+        if (arena_.w <= 0.0f) return;
+        // Floating obsidian ledges give footing while dodging the Rebis.
+        const int count = 6;
+        for (int i = 0; i < count; ++i) {
+            float t = (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
+            int px = static_cast<int>(arena_.x - arena_.w * 0.75f + t * arena_.w * 1.5f);
+            int py = static_cast<int>(arena_.y + ((i % 2) ? 20.0f : -15.0f));
+            int half = rng_.rangeInt(9, 14);
+            for (int x = px - half; x <= px + half; ++x)
+                for (int y = py; y < py + 3; ++y)
+                    if (world.inBounds(x, y) && world.at(x, y).mat == mat::Empty)
+                        world.at(x, y) = makeCell(y == py ? mat::Rune : mat::Obsidian, hash2(x, y, seed_));
+        }
     }
 
     void paintMaterials(World& world, ThreadPool& pool) {
@@ -680,6 +712,7 @@ private:
     Vec2 start_, exit_;
     bool surface_ = false;
     int surfaceY_ = 0;
+    Rectf arena_{0.0f, 0.0f, 0.0f, 0.0f}; ///< boss arena centre (x, y) and radii (w, h)
     std::vector<int> skyline_;
 };
 

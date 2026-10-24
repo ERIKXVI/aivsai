@@ -56,6 +56,9 @@ public:
     void draw(SpriteId id, int frame, Vector2 pos, bool flipX, Color tint = WHITE) const;
     void drawEmissive(SpriteId id, int frame, Vector2 pos, bool flipX, Color tint = WHITE) const;
     void drawSilhouette(SpriteId id, int frame, Vector2 pos, bool flipX, Color tint) const;
+    /// Draws a frame scaled by an integer factor (top-left at `pos`); used for giants.
+    void drawScaled(SpriteId id, int frame, Vector2 pos, int scale, bool flipX, Color tint = WHITE, bool emissive = false,
+                    bool silhouette = false) const;
     /// Draws centred at `center`, rotated by `degrees` (used for spinning items).
     void drawRotated(SpriteId id, int frame, Vector2 center, float degrees, Color tint = WHITE) const;
 

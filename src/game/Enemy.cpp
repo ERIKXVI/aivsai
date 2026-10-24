@@ -560,6 +560,10 @@ void Enemy::drawAlbedo(DrawContext& ctx) const {
             if (hurtFlash > 0.0f) ctx.sprites.drawSilhouette(SpriteId::WormBody, 0, lp, false, Color{255, 255, 255, 180});
         }
     }
+    if (type_ == EnemyType::Boss) {
+        drawBoss(ctx, p, tint);
+        return;
+    }
     const SpriteInfo& info = ctx.sprites.info(def_->sprite);
     const int frame = animFrame(ctx.time);
     float top = flying || !segments.empty() ? p.y - info.h * 0.5f : p.y + body.halfH - static_cast<float>(info.h);
@@ -570,34 +574,47 @@ void Enemy::drawAlbedo(DrawContext& ctx) const {
     else if (status.burning > 0.0f) ctx.sprites.drawSilhouette(def_->sprite, frame, lp, flip, Color{255, 120, 30, 100});
     else if (status.shocked > 0.0f) ctx.sprites.drawSilhouette(def_->sprite, frame, lp, flip, Color{200, 220, 255, 150});
 
-    if (type_ == EnemyType::Boss) {
-        // The core pulses at the Rebis' heart.
-        const SpriteInfo& ci = ctx.sprites.info(SpriteId::BossCore);
-        Vector2 cp = ctx.scene.layerPos({p.x - ci.w * 0.5f, p.y - ci.h * 0.5f + 1.0f});
-        ctx.sprites.draw(SpriteId::BossCore, 0, cp, false);
-    }
+}
+
+void Enemy::drawBoss(DrawContext& ctx, Vec2 p, Color tint) const {
+    constexpr int kScale = 2;
+    const SpriteInfo& info = ctx.sprites.info(SpriteId::Boss);
+    // A slow bob makes the giant feel alive.
+    Vec2 topLeft{p.x - info.w * kScale * 0.5f, p.y - info.h * kScale * 0.5f + std::sin(ctx.time * 1.7f) * 1.5f};
+    Vector2 lp = ctx.scene.layerPos(topLeft);
+    ctx.sprites.drawScaled(SpriteId::Boss, 0, lp, kScale, false, tint);
+    if (hurtFlash > 0.0f) ctx.sprites.drawScaled(SpriteId::Boss, 0, lp, kScale, false, Color{255, 255, 255, 90}, false, true);
+    // The philosopher's stone pulses at the Rebis' heart.
+    const SpriteInfo& ci = ctx.sprites.info(SpriteId::BossCore);
+    Vector2 cp = ctx.scene.layerPos({p.x - ci.w * 0.5f, topLeft.y + info.h * kScale * 0.5f - ci.h * 0.5f + 2.0f});
+    ctx.sprites.draw(SpriteId::BossCore, 0, cp, false);
 }
 
 void Enemy::drawEmission(DrawContext& ctx) const {
     const Vec2 p = body.interpolated(ctx.alpha);
+    if (type_ == EnemyType::Boss) {
+        constexpr int kScale = 2;
+        const SpriteInfo& info = ctx.sprites.info(SpriteId::Boss);
+        Vec2 topLeft{p.x - info.w * kScale * 0.5f, p.y - info.h * kScale * 0.5f + std::sin(ctx.time * 1.7f) * 1.5f};
+        ctx.sprites.drawScaled(SpriteId::Boss, 0, ctx.scene.layerPos(topLeft), kScale, false, WHITE, true);
+        const SpriteInfo& ci = ctx.sprites.info(SpriteId::BossCore);
+        Vector2 cp = ctx.scene.layerPos({p.x - ci.w * 0.5f, topLeft.y + info.h * kScale * 0.5f - ci.h * 0.5f + 2.0f});
+        float pulse = 0.6f + 0.4f * std::sin(ctx.time * 4.0f);
+        ctx.sprites.drawEmissive(SpriteId::BossCore, 0, cp, false, Color{255, 255, 255, static_cast<unsigned char>(255 * pulse)});
+        return;
+    }
     const SpriteInfo& info = ctx.sprites.info(def_->sprite);
     float top = flying || !segments.empty() ? p.y - info.h * 0.5f : p.y + body.halfH - static_cast<float>(info.h);
     Vector2 lp = ctx.scene.layerPos({p.x - info.w * 0.5f, top});
     ctx.sprites.drawEmissive(def_->sprite, animFrame(ctx.time), lp, !facingRight_);
-    if (type_ == EnemyType::Boss) {
-        const SpriteInfo& ci = ctx.sprites.info(SpriteId::BossCore);
-        Vector2 cp = ctx.scene.layerPos({p.x - ci.w * 0.5f, p.y - ci.h * 0.5f + 1.0f});
-        float pulse = 0.6f + 0.4f * std::sin(ctx.time * 4.0f);
-        ctx.sprites.drawEmissive(SpriteId::BossCore, 0, cp, false, Color{255, 255, 255, static_cast<unsigned char>(255 * pulse)});
-    }
 }
 
 void Enemy::addLights(DrawContext& ctx) const {
     if (def_->glow == 0) return;
     const Vec2 p = body.interpolated(ctx.alpha);
     Color c = hexColor(def_->glow);
-    float k = type_ == EnemyType::Boss ? 3.0f : 0.9f;
-    float radius = type_ == EnemyType::Boss ? 160.0f : 40.0f;
+    float k = type_ == EnemyType::Boss ? 1.4f : 0.9f;
+    float radius = type_ == EnemyType::Boss ? 150.0f : 40.0f;
     ctx.scene.addLight(PointLight{p, c.r / 255.0f * k, c.g / 255.0f * k, c.b / 255.0f * k, radius, 4.0f});
 }
 

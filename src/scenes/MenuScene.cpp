@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <ctime>
+#include <vector>
 
 #include "app/App.hpp"
 #include "core/Timing.hpp"
@@ -62,14 +63,23 @@ void MenuScene::buildWorld() {
     titleTop_ = ty;
     titleBottom_ = ty + text.height;
     auto* px = static_cast<Color*>(text.data);
+    // Embolden the thin pixel font by one pixel so the letters read as solid stone.
+    std::vector<uint8_t> solid(static_cast<size_t>(text.width) * text.height, 0);
+    for (int y = 0; y < text.height; ++y)
+        for (int x = 0; x < text.width; ++x)
+            if (px[y * text.width + x].a >= 128) {
+                solid[static_cast<size_t>(y) * text.width + x] = 1;
+                if (x + 1 < text.width) solid[static_cast<size_t>(y) * text.width + x + 1] = 1;
+                if (y + 1 < text.height) solid[static_cast<size_t>(y + 1) * text.width + x] = 1;
+            }
     for (int y = 0; y < text.height; ++y) {
         for (int x = 0; x < text.width; ++x) {
-            if (px[y * text.width + x].a < 128) continue;
+            if (!solid[static_cast<size_t>(y) * text.width + x]) continue;
             bool edge = false;
             for (int dy = -1; dy <= 1 && !edge; ++dy)
                 for (int dx = -1; dx <= 1 && !edge; ++dx) {
                     int nx = x + dx, ny = y + dy;
-                    edge = nx < 0 || ny < 0 || nx >= text.width || ny >= text.height || px[ny * text.width + nx].a < 128;
+                    edge = nx < 0 || ny < 0 || nx >= text.width || ny >= text.height || !solid[static_cast<size_t>(ny) * text.width + nx];
                 }
             Cell c = makeCell(edge ? mat::GoldOre : mat::Rune, hash2(x, y, 11u));
             c.var = static_cast<uint8_t>(edge ? 250 : 120 + (y * 5));
