@@ -15,7 +15,8 @@ constexpr float kEnemyActiveRange = 380.0f;
 } // namespace
 
 Level::Level(LevelLayout layout, RunState& run, Audio& audio, ThreadPool& pool)
-    : layout_(std::move(layout)), run_(run), audio_(audio), pool_(pool), rng_(layout_.seed ^ 0x9E3779B9u) {
+    : layout_(std::move(layout)), run_(run), audio_(audio), pool_(pool), rng_(layout_.seed ^ 0x9E3779B9u),
+      fxRng_(layout_.seed ^ 0x51ED270Bu) {
     player_ = std::make_unique<Player>(layout_.playerStart - Vec2{0.0f, 6.0f}, run_);
     player_->id = nextId();
     populate();
@@ -155,6 +156,7 @@ void Level::tick(const PlayerInput& input) {
     {
         ScopedTimer particleTimer(ProfileSection::Particles);
         particles_.update(world(), dt);
+        spawnAmbience();
     }
     updatePickups(dt);
     if (input.interactPressed && player_->alive()) interact();

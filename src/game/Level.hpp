@@ -171,12 +171,15 @@ private:
     void updateEffects(float dt);
     void updateIntensity();
     void updateTransmuters();
+    /// Biome ambience: drifting dust, ice glitter, spores, embers, fireflies.
+    void spawnAmbience();
 
     LevelLayout layout_;
     RunState& run_;
     Audio& audio_;
     ThreadPool& pool_;
     Rng rng_;
+    Rng fxRng_; ///< cosmetic randomness, kept apart so decoration never shifts gameplay
     std::unique_ptr<Player> player_;
     std::vector<std::unique_ptr<Enemy>> enemies_;
     std::vector<Projectile> projectiles_;

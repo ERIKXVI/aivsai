@@ -417,4 +417,56 @@ void Level::onEnemyKilled(Enemy& e) {
     addShake(0.08f);
 }
 
+void Level::spawnAmbience() {
+    struct Ambience {
+        float rate;        ///< particles per tick
+        Rgba color, glow;
+        float life, gravity, drag;
+        Vec2 velMin, velMax;
+    };
+    static constexpr Ambience kDust{0.8f, {150, 140, 125, 80}, {0, 0, 0, 0}, 4.0f, 0.004f, 1.5f, {-5, -4}, {5, 3}};
+    static constexpr Ambience kGlitter{1.2f, {225, 238, 255, 170}, {30, 45, 70, 0}, 5.0f, 0.04f, 2.5f, {-8, 2}, {8, 8}};
+    static constexpr Ambience kSpores{0.9f, {230, 210, 90, 140}, {70, 60, 10, 0}, 5.0f, -0.02f, 1.5f, {-6, -6}, {6, 0}};
+    static constexpr Ambience kEmbers{1.6f, {255, 150, 60, 230}, {255, 110, 30, 0}, 3.0f, -0.05f, 1.0f, {-12, -25}, {12, -8}};
+    static constexpr Ambience kGold{1.2f, {255, 210, 120, 220}, {220, 160, 50, 0}, 3.0f, -0.04f, 1.0f, {-10, -20}, {10, -6}};
+    static constexpr Ambience kSparkles{0.5f, {205, 170, 255, 200}, {120, 80, 210, 0}, 2.5f, -0.02f, 1.2f, {-6, -8}, {6, 2}};
+    static constexpr Ambience kFireflies{0.15f, {210, 255, 130, 220}, {120, 210, 60, 0}, 4.0f, 0.0f, 0.8f, {-10, -6}, {10, 6}};
+
+    const Ambience* a = nullptr;
+    switch (layout_.biome) {
+    case BiomeId::Nigredo: a = &kDust; break;
+    case BiomeId::Albedo: a = &kGlitter; break;
+    case BiomeId::Citrinitas: a = &kSpores; break;
+    case BiomeId::Rubedo: a = &kEmbers; break;
+    case BiomeId::Athanor: a = fxRng_.chance(0.5f) ? &kEmbers : &kGold; break;
+    case BiomeId::Sanctum: a = &kSparkles; break;
+    default: return;
+    }
+    const World& w = world();
+    const Vec2 around = player_->body.pos;
+    auto emit = [&](const Ambience& amb, Vec2 p) {
+        const Vec2 v{fxRng_.range(amb.velMin.x, amb.velMax.x), fxRng_.range(amb.velMin.y, amb.velMax.y)};
+        particles_.addVisual(p, v, amb.color, amb.glow, amb.life * fxRng_.range(0.7f, 1.2f), amb.gravity,
+                             partflag::kFade | partflag::kDieOnHit);
+    };
+    // Spread over roughly the visible area, only into open air.
+    for (float budget = a->rate; budget > 0.0f; budget -= 1.0f) {
+        if (budget < 1.0f && !fxRng_.chance(budget)) break;
+        const Vec2 p{around.x + fxRng_.range(-250.0f, 250.0f), around.y + fxRng_.range(-150.0f, 130.0f)};
+        const int x = floorToInt(p.x), y = floorToInt(p.y);
+        if (!w.inBounds(x, y) || w.at(x, y).mat != mat::Empty) continue;
+        if (layout_.surfaceY > 0 && y < layout_.skyline[static_cast<size_t>(x)]) continue; // the sky gets fireflies instead
+        emit(*a, p);
+    }
+    // Fireflies over the mountainside on the first stage.
+    if (layout_.surfaceY > 0 && fxRng_.chance(kFireflies.rate)) {
+        const int x = floorToInt(around.x + fxRng_.range(-250.0f, 250.0f));
+        if (x > 0 && x < w.width()) {
+            const int ground = layout_.skyline[static_cast<size_t>(x)];
+            const int y = ground - fxRng_.rangeInt(4, 50);
+            if (w.inBounds(x, y) && w.at(x, y).mat == mat::Empty) emit(kFireflies, {static_cast<float>(x), static_cast<float>(y)});
+        }
+    }
+}
+
 } // namespace pm
