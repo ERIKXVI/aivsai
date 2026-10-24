@@ -74,6 +74,7 @@ public:
     Player& player() { return *player_; }
     const Player& player() const { return *player_; }
     RunState& run() { return run_; }
+    const RunState& run() const { return run_; }
     Audio& audio() { return audio_; }
     Rng& rng() { return rng_; }
     ParticleSystem& particles() { return particles_; }
@@ -122,6 +123,8 @@ public:
     void dropLoot(Vec2 pos, int tier, bool chest);
     uint32_t nextId() { return nextId_++; }
     void onEnemyKilled(Enemy& e);
+    /// Testing aid: moves the player to the next main-path waypoint beyond its position.
+    void debugWarpAhead();
     void onPlayerDeath();
 
 private:
@@ -156,6 +159,8 @@ private:
     uint32_t nextId_ = 1;
     LevelEvent event_ = LevelEvent::None;
     bool playerDeathHandled_ = false;
+    bool exitTriggered_ = false;
+    size_t debugWarpIndex_ = 0;
 };
 
 } // namespace pm

@@ -114,10 +114,10 @@ void defineMaterials() {
     Define(Brick, "Brick", Phase::Solid).hardness(140).colors(0x5e2c24, 0x8f4a3a);
     Define(Metal, "Metal", Phase::Solid).hardness(235).colors(0x4c5560, 0x8d99a6)
         .flags(kAcidProof | kConductive);
-    Define(Ice, "Ice", Phase::Solid).hardness(55).colors(0x8cc8e8, 0xd8f2ff).opacity(140).flags(kMeltable);
+    Define(Ice, "Ice", Phase::Solid).hardness(55).colors(0x6aa8d0, 0xb8e2f8).opacity(140).flags(kMeltable);
     Define(Obsidian, "Obsidian", Phase::Solid).hardness(200).colors(0x15101d, 0x3b2950);
     Define(Basalt, "Basalt", Phase::Solid).hardness(150).colors(0x231d1b, 0x453832);
-    Define(Coal, "Coal", Phase::Solid).hardness(60).colors(0x141418, 0x2e2e36)
+    Define(Coal, "Coal", Phase::Solid).hardness(60).colors(0x222228, 0x44444e)
         .flammable(5, 255, Ash).speckle(0x55555e, 0.05f);
     Define(GoldOre, "Gold Ore", Phase::Solid).hardness(90).colors(0x4a4238, 0x6e6252).speckle(0xf2c84b, 0.18f);
     Define(Crystal, "Crystal", Phase::Solid).hardness(95).colors(0x3fa8d8, 0xb8f0ff).opacity(160)
@@ -128,7 +128,7 @@ void defineMaterials() {
         .flammable(55, 40, Ash).flags(kOrganic | kDiggable);
     Define(Fungus, "Glowcap", Phase::Solid).hardness(25).colors(0x3c2a66, 0x8a68e0)
         .flammable(18, 60, Ash).glow(0x9a70ff, 70).flags(kOrganic | kDiggable);
-    Define(SaltRock, "Salt Rock", Phase::Solid).hardness(70).colors(0xb8bcc4, 0xe8ecf2);
+    Define(SaltRock, "Salt Rock", Phase::Solid).hardness(70).colors(0x8a909c, 0xc8ced8);
     Define(Bone, "Bone", Phase::Solid).hardness(80).colors(0xb8ad94, 0xe2d8c0);
     Define(Flesh, "Flesh", Phase::Solid).hardness(30).colors(0x6a2a2e, 0x9a4a4a)
         .flammable(20, 80, Ash).flags(kOrganic | kDiggable);

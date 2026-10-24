@@ -19,7 +19,13 @@ struct LaunchOptions {
     bool startRun = false;    ///< skip the menu and start a run
     bool windowed = false;    ///< force windowed mode
     bool autoplay = false;    ///< let the test bot drive the player
+    bool turbo = false;       ///< run ticks as fast as possible, render rarely (headless tests)
+    bool god = false;         ///< player cannot die (coverage tests)
     uint32_t seed = 0;        ///< 0 = random
+    int startLevel = 0;       ///< stage to begin a --play run on (testing)
+    std::string loadout;      ///< comma-separated spell names for the first wand (testing)
+    bool startInSanctum = false; ///< begin the --play run in a sanctum (testing)
+    std::string openUi;       ///< "inventory" or "pause": open that screen once loaded (testing)
     int captureFrame = -1;    ///< save a screenshot after this many frames, then quit (testing)
     std::string capturePath = "capture.png";
     int captureEvery = 0;     ///< also save numbered screenshots every N frames (testing)

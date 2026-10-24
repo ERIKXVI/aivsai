@@ -11,43 +11,47 @@ PlayerInput Bot::think(const Level& level) {
     PlayerInput in;
     ++tick_;
     const Player& pl = level.player();
-    const auto& path = level.layout().mainPath;
     const Vec2 pos = pl.body.pos;
+    const Vec2 goal = level.exitPos() - Vec2{0.0f, 8.0f};
 
-    Vec2 target = level.exitPos() - Vec2{0.0f, 8.0f};
-    if (!path.empty() && waypoint_ < path.size()) {
-        target = path[waypoint_];
-        if ((target - pos).length() < 24.0f) ++waypoint_;
+    // Replan the flow field every couple of seconds; the world keeps changing.
+    if (--replanTimer_ <= 0) {
+        nav_.build(level.world());
+        nav_.computeDistances(goal);
+        replanTimer_ = 120;
     }
-    if (level.isSanctum()) target = level.exitPos() - Vec2{0.0f, 8.0f};
 
-    const Vec2 to = target - pos;
-    in.moveX = std::fabs(to.x) > 3.0f ? (to.x > 0.0f ? 1.0f : -1.0f) : 0.0f;
+    Vec2 target = goal;
+    Vec2 step;
+    const int distance = nav_.distanceAt(pos);
+    if (distance != NavGrid::kUnreachable && nav_.nextStep(pos, step)) target = step;
 
-    // Progress tracking: if we stop getting closer, dig towards the target.
-    float dist = to.length();
-    if (dist < lastProgress_ - 2.0f) {
-        lastProgress_ = dist;
+    // Progress tracking: if the distance stops shrinking, dig towards the goal.
+    if (distance != NavGrid::kUnreachable && distance < bestDistance_) {
+        bestDistance_ = distance;
         stuckTimer_ = 0.0f;
+        noProgress_ = 0.0f;
     } else {
         stuckTimer_ += kTickDt;
+        noProgress_ += kTickDt;
     }
-    if (stuckTimer_ > 2.5f) {
-        digTicks_ = 90;
+    if (stuckTimer_ > 3.0f) {
+        digTicks_ = 60;
         stuckTimer_ = 0.0f;
-        lastProgress_ = dist;
     }
 
-    // Climb: jump into walls and levitate towards higher targets.
-    if (pl.body.hitWall || to.y < -12.0f) jumpHold_ = 0.4f;
+    const Vec2 to = target - pos;
+    in.moveX = std::fabs(to.x) > 2.0f ? (to.x > 0.0f ? 1.0f : -1.0f) : 0.0f;
+    if (pl.body.hitWall || to.y < -6.0f) jumpHold_ = 0.35f;
     jumpHold_ -= kTickDt;
     in.jumpHeld = jumpHold_ > 0.0f;
     in.jumpPressed = in.jumpHeld && pl.body.onGround;
 
-    in.aim = target;
+    in.aim = pos + Vec2{to.x >= 0.0f ? 40.0f : -40.0f, 0.0f};
     in.selectWand = 0;
-    if (const Actor* foe = const_cast<Level&>(level).nearestHostile(pos, Team::Player, 160.0f)) {
-        if (level.lineOfSight(pos, foe->body.pos)) {
+    if (const Actor* foe = const_cast<Level&>(level).nearestHostile(pos, Team::Player, 150.0f)) {
+        // Keep a little distance from explosions of our own making.
+        if ((foe->body.pos - pos).length() > 18.0f && level.lineOfSight(pos, foe->body.pos)) {
             in.aim = foe->body.pos;
             in.castHeld = true;
         }
@@ -55,11 +59,13 @@ PlayerInput Bot::think(const Level& level) {
     if (digTicks_ > 0) {
         --digTicks_;
         in.selectWand = 1;
-        in.aim = pos + to.normalized() * 30.0f;
-        in.castHeld = true;
+        in.aim = pos + (goal - pos).normalized() * 30.0f;
+        in.castHeld = (tick_ % 4) != 0;
     }
-    // Grab whatever is lying around.
-    in.interactPressed = (tick_ % 30) == 0;
+    in.interactPressed = (tick_ % 20) == 0;
+
+    // Drink healing potions when hurt.
+    in.drinkPressed = pl.hp < pl.maxHp * 0.4f && level.run().flask.mat == mat::Vitae && (tick_ % 60) == 0;
     return in;
 }
 

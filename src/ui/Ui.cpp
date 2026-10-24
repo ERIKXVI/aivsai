@@ -131,7 +131,7 @@ Color spellTypeColor(SpellId spell) {
 void spellIcon(SpellId spell, Rectangle r, bool highlight) {
     const SpellDef& d = spellDef(spell);
     const float s = static_cast<float>(g_scale);
-    Color frame = spellTypeColor(spell);
+    Color frame = spell == SpellId::None ? Color{70, 64, 80, 255} : spellTypeColor(spell);
     DrawRectangleRec(r, Color{14, 12, 20, 240});
     DrawRectangleLinesEx(r, s, highlight ? WHITE : frame);
     if (spell == SpellId::None) return;

@@ -2,11 +2,11 @@
 
 #include <algorithm>
 #include <cmath>
-#include <queue>
 
 #include "core/Noise.hpp"
 #include "core/Rng.hpp"
 #include "core/ThreadPool.hpp"
+#include "gen/Navigation.hpp"
 #include "sim/World.hpp"
 
 namespace pm {
@@ -402,7 +402,8 @@ private:
     }
 
     void placePools(World& world) {
-        int attempts = 46;
+        const bool molten = biome_ == BiomeId::Rubedo || biome_ == BiomeId::Athanor;
+        int attempts = molten ? 70 : 46;
         for (int i = 0; i < attempts; ++i) {
             int x = rng_.rangeInt(20, w_ - 20), y = rng_.rangeInt(120, h_ - 30);
             if (!isOpen(x, y)) continue;
@@ -415,7 +416,7 @@ private:
             bool dangerous = liquid == mat::Lava || liquid == mat::Acid;
             if (dangerous && distanceToPath({static_cast<float>(x), static_cast<float>(fy)}) < 40.0f) liquid = mat::Water;
             if (biome_ == BiomeId::Rubedo && liquid == mat::Water) liquid = mat::Oil;
-            int r = rng_.rangeInt(6, 15);
+            int r = rng_.rangeInt(6, 15) + (molten && liquid == mat::Lava ? 5 : 0);
             for (int dy = -r; dy <= r; ++dy)
                 for (int dx = -r; dx <= r; ++dx)
                     if (dx * dx + dy * dy <= r * r) world.placeIfEmpty(x + dx, fy - r + dy, liquid);
@@ -589,61 +590,15 @@ LevelLayout generateLevel(BiomeId biome, int levelIndex, uint32_t seed, ThreadPo
 }
 
 bool pathExists(const World& world, Vec2 from, Vec2 to, std::vector<uint8_t>* reachedBlocks) {
-    // BFS over 4x4 blocks. A block is passable when it holds few collision-solid cells;
-    // a player-sized body needs a 2x3 window of passable blocks.
-    constexpr int kBlock = 4;
-    const int bw = world.width() / kBlock, bh = world.height() / kBlock;
-    std::vector<uint8_t> passable(static_cast<size_t>(bw) * bh, 0);
-    for (int by = 0; by < bh; ++by)
-        for (int bx = 0; bx < bw; ++bx) {
-            int solid = 0;
-            for (int y = 0; y < kBlock; ++y)
-                for (int x = 0; x < kBlock; ++x)
-                    if (isSolidForCollision(world.at(bx * kBlock + x, by * kBlock + y).mat)) ++solid;
-            passable[static_cast<size_t>(by) * bw + bx] = solid <= 2 ? 1 : 0;
-        }
-    auto fits = [&](int bx, int by) {
-        for (int y = by - 2; y <= by; ++y)
-            for (int x = bx; x <= bx + 1; ++x) {
-                if (x < 0 || y < 0 || x >= bw || y >= bh) return false;
-                if (!passable[static_cast<size_t>(y) * bw + x]) return false;
-            }
-        return true;
-    };
-    auto findFit = [&](Vec2 p) -> Vec2i {
-        int cx = static_cast<int>(p.x) / kBlock, cy = static_cast<int>(p.y) / kBlock;
-        for (int r = 0; r < 6; ++r)
-            for (int dy = -r; dy <= r; ++dy)
-                for (int dx = -r; dx <= r; ++dx)
-                    if (fits(cx + dx, cy + dy)) return {cx + dx, cy + dy};
-        return {-1, -1};
-    };
-    Vec2i s = findFit(from), g = findFit(to);
-    if (s.x < 0 || g.x < 0) return false;
-    std::vector<uint8_t> seen(passable.size(), 0);
-    std::queue<Vec2i> q;
-    q.push(s);
-    seen[static_cast<size_t>(s.y) * bw + s.x] = 1;
-    constexpr int kDx[4] = {1, -1, 0, 0}, kDy[4] = {0, 0, 1, -1};
-    bool found = false;
-    while (!q.empty()) {
-        Vec2i c = q.front();
-        q.pop();
-        if (std::abs(c.x - g.x) <= 1 && std::abs(c.y - g.y) <= 1) {
-            found = true;
-            if (!reachedBlocks) break;
-        }
-        for (int k = 0; k < 4; ++k) {
-            int nx = c.x + kDx[k], ny = c.y + kDy[k];
-            if (nx < 0 || ny < 0 || nx >= bw || ny >= bh) continue;
-            size_t i = static_cast<size_t>(ny) * bw + nx;
-            if (seen[i] || !fits(nx, ny)) continue;
-            seen[i] = 1;
-            q.push({nx, ny});
-        }
+    NavGrid nav;
+    nav.build(world);
+    if (!nav.computeDistances(to)) return false;
+    if (reachedBlocks) {
+        reachedBlocks->assign(nav.distances().size(), 0);
+        for (size_t i = 0; i < nav.distances().size(); ++i)
+            (*reachedBlocks)[i] = nav.distances()[i] != NavGrid::kUnreachable ? 1 : 0;
     }
-    if (reachedBlocks) *reachedBlocks = std::move(seen);
-    return found;
+    return nav.distanceAt(from) != NavGrid::kUnreachable;
 }
 
 LevelLayout generateSanctum(int levelIndex, uint32_t seed, ThreadPool& pool) {

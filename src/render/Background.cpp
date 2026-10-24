@@ -44,11 +44,13 @@ void Background::setBiome(BiomeId biome, uint32_t seed) {
             float body = tiled([&](float u, float v) { return noise::fbm(u * 0.025f, v * 0.035f, seed, 4); }, fx, fy, size);
             float cracks = tiled([&](float u, float v) { return noise::ridged(u * 0.02f, v * 0.02f, seed ^ 0x77u, 3); }, fx, fy, size);
             float grain = noise::perlin(fx * 0.4f, fy * 0.4f, seed ^ 0x13u) * 0.05f;
-            float t = clamp(0.5f + body * 0.6f + grain, 0.0f, 1.0f);
+            // Stones: Worley cells give the wall a blocky, masonry-like rock structure.
+            float stones = tiled([&](float u, float v) { return noise::worley(u * 0.045f, v * 0.06f, seed ^ 0x5Au); }, fx, fy, size);
+            float t = clamp(0.45f + body * 0.8f + grain - stones * 0.35f, 0.0f, 1.0f);
             Color c = mixColor(b.backgroundB, b.backgroundA, t);
             // Dark fissures between rock plates.
-            float fissure = smoothstep(0.82f, 0.95f, cracks);
-            float k = 1.0f - fissure * 0.7f;
+            float fissure = smoothstep(0.80f, 0.95f, cracks);
+            float k = 1.0f - fissure * 0.75f;
             // Horizontal strata catch a little extra light.
             float strata = 0.92f + 0.08f * std::sin(fy * 0.25f + body * 3.0f);
             k *= strata;

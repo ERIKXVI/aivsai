@@ -296,7 +296,7 @@ void Level::damageRadius(Vec2 pos, float radius, float damage, DamageType type, 
         if (d > radius + a.body.halfW) return;
         float f = 1.0f - 0.6f * clamp(d / std::max(1.0f, radius), 0.0f, 1.0f);
         float dmg = damage * f;
-        if (team == Team::Player && a.team == Team::Player) dmg *= 0.5f; // self-inflicted blasts sting less
+        if (team == Team::Player && a.team == Team::Player) dmg *= 0.35f; // self-inflicted blasts sting less
         Vec2 kb = (d > 0.1f ? to / d : Vec2{0.0f, -1.0f}) * knockback * f + Vec2{0.0f, -knockback * 0.35f * f};
         a.applyDamage(*this, {dmg, type, kb, team});
     };

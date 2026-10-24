@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <unordered_map>
 
 #include "core/Timing.hpp"
@@ -114,7 +115,7 @@ void Level::tick(const PlayerInput& input) {
     input_ = input;
     ++ticks_;
     time_ += dt;
-    run_.stats.time += dt;
+    if (player_->alive()) run_.stats.time += dt;
 
     player_->setInput(input);
     if (player_->alive()) player_->tick(*this);
@@ -156,7 +157,8 @@ void Level::tick(const PlayerInput& input) {
         if (to.length() < 12.0f) {
             exitHold_ += dt;
             player_->body.vel = player_->body.vel * 0.8f + to * 2.0f;
-            if (exitHold_ > 0.5f && event_ == LevelEvent::None) {
+            if (exitHold_ > 0.5f && !exitTriggered_) {
+                exitTriggered_ = true;
                 event_ = LevelEvent::ExitReached;
                 audio_.play(Sfx::Portal, 0.8f);
             }
@@ -254,6 +256,8 @@ void Level::interact() {
     if (!focused) return;
     Pickup& p = pickups_[static_cast<size_t>(focused - pickups_.data())];
     Player& pl = *player_;
+    // Note: spawning new pickups reallocates `pickups_`, so `p` must not be used after that.
+    const Vec2 at = p.body.pos;
 
     if (p.price > 0 && run_.gold < p.price) {
         audio_.play(Sfx::UiDeny, 0.6f);
@@ -282,8 +286,7 @@ void Level::interact() {
     case PickupType::Wand: {
         pay();
         Wand w = std::move(*p.wand);
-        const Vec2 at = p.body.pos;
-        p.dead = true; // `p` may dangle after the push_back below
+        p.dead = true;
         if (static_cast<int>(run_.wands.size()) < RunState::kMaxWands) {
             run_.wands.push_back(std::move(w));
             run_.activeWand = static_cast<int>(run_.wands.size()) - 1;
@@ -315,8 +318,8 @@ void Level::interact() {
         p.opened = true;
         run_.stats.chestsOpened++;
         audio_.play(Sfx::ChestOpen, 0.8f);
-        dropLoot(p.body.pos - Vec2{0.0f, 4.0f}, std::min(4, layout_.levelIndex), true);
-        addFlash(p.body.pos, 0xffd070, 2.0f, 60.0f, 0.5f);
+        dropLoot(at - Vec2{0.0f, 4.0f}, std::min(4, layout_.levelIndex), true);
+        addFlash(at, 0xffd070, 2.0f, 60.0f, 0.5f);
         break;
     case PickupType::PerkAltar: {
         run_.applyPerk(p.perk);
@@ -376,6 +379,29 @@ void Level::addFlash(Vec2 pos, uint32_t color, float intensity, float radius, fl
 void Level::addFloatText(Vec2 pos, const std::string& text, uint32_t color, float scale) {
     if (floatTexts_.size() > 60) floatTexts_.erase(floatTexts_.begin());
     floatTexts_.push_back({pos, text, color, 1.1f, scale});
+}
+
+void Level::debugWarpAhead() {
+    const auto& path = layout_.mainPath;
+    if (path.empty()) return;
+    size_t nearest = 0;
+    float best = 1e30f;
+    for (size_t i = 0; i < path.size(); ++i) {
+        float d = (path[i] - player_->body.pos).lengthSq();
+        if (d < best) {
+            best = d;
+            nearest = i;
+        }
+    }
+    // Always advance past the previous warp so repeated warps make progress.
+    debugWarpIndex_ = std::max(debugWarpIndex_ + 1, nearest + 1);
+    const Vec2 target = debugWarpIndex_ < path.size() ? path[debugWarpIndex_] : layout_.exitPos - Vec2{0.0f, 10.0f};
+    std::printf("[autoplay] warp to waypoint %zu\n", debugWarpIndex_);
+    std::fflush(stdout);
+    player_->body.pos = player_->body.prevPos = target;
+    player_->body.vel = {};
+    dig(target, 9.0f, 254, false);
+    unbury(player_->body, world());
 }
 
 void Level::onPlayerDeath() {

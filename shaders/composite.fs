@@ -49,9 +49,9 @@ void main() {
 
     // Solid interiors fade to darkness; open-air pixels (background) are lit a bit less.
     float solid = emission.a;
-    float depth = smoothstep(0.6, 1.0, light.a) * solid;
-    float shade = mix(1.0, 0.38, depth);
-    float backgroundDim = mix(0.8, 1.0, solid);
+    float depth = smoothstep(0.78, 1.0, light.a) * solid;
+    float shade = mix(1.0, 0.42, depth);
+    float backgroundDim = mix(0.62, 1.0, solid);
 
     vec3 lighting = ambient + light.rgb + glow * glowLight;
     vec3 color = albedo.rgb * lighting * shade * backgroundDim;

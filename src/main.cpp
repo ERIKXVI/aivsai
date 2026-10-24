@@ -18,7 +18,13 @@ pm::LaunchOptions parseArgs(int argc, char** argv) {
         else if (std::strcmp(a, "--play") == 0) o.startRun = true;
         else if (std::strcmp(a, "--windowed") == 0) o.windowed = true;
         else if (std::strcmp(a, "--autoplay") == 0) o.autoplay = true;
+        else if (std::strcmp(a, "--turbo") == 0) o.turbo = true;
+        else if (std::strcmp(a, "--god") == 0) o.god = true;
         else if (std::strcmp(a, "--seed") == 0) o.seed = static_cast<uint32_t>(std::strtoul(next(), nullptr, 10));
+        else if (std::strcmp(a, "--level") == 0) o.startLevel = std::atoi(next());
+        else if (std::strcmp(a, "--loadout") == 0) o.loadout = next();
+        else if (std::strcmp(a, "--sanctum") == 0) o.startInSanctum = true;
+        else if (std::strcmp(a, "--ui") == 0) o.openUi = next();
         else if (std::strcmp(a, "--capture") == 0) {
             o.captureFrame = std::atoi(next());
             o.capturePath = next();

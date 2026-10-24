@@ -83,6 +83,8 @@ void GameScene::finishLoading() {
     camera_.reset(level_->player().body.pos);
     bot_ = Bot{};
     mode_ = Mode::Playing;
+    if (app_.options().openUi == "inventory") mode_ = Mode::Inventory;
+    else if (app_.options().openUi == "pause") mode_ = Mode::Paused;
     exiting_ = false;
     titleTimer_ = 4.0f;
     if (run_.inSanctum) {
@@ -171,15 +173,20 @@ void GameScene::tick() {
             tickAccumulator_ -= 1.0f;
             PlayerInput in;
             if (mode_ == Mode::Playing && !exiting_) in = app_.options().autoplay ? bot_.think(*level_) : gatherInput();
+            if (app_.options().god) level_->player().hp = level_->player().maxHp;
+            if (app_.options().autoplay && bot_.hopelesslyStuck()) {
+                level_->debugWarpAhead();
+                bot_.clearStuck();
+            }
             if (mode_ != Mode::Playing || exiting_) in.aim = level_->player().body.pos + level_->player().aimDir();
             level_->tick(in);
             switch (level_->pollEvent()) {
             case LevelEvent::ExitReached:
                 exiting_ = true;
-                if (app_.options().autoplay) std::printf("[autoplay] stage %d%s cleared at %.1fs\n", run_.levelIndex, run_.inSanctum ? " (sanctum)" : "", run_.stats.time);
+                if (app_.options().autoplay) { std::printf("[autoplay] stage %d%s cleared at %.1fs\n", run_.levelIndex, run_.inSanctum ? " (sanctum)" : "", run_.stats.time); std::fflush(stdout); }
                 break;
             case LevelEvent::PlayerDied:
-                if (app_.options().autoplay) std::printf("[autoplay] died on stage %d at %.1fs, kills %d\n", run_.levelIndex, run_.stats.time, run_.stats.kills);
+                if (app_.options().autoplay) { std::printf("[autoplay] died on stage %d at %.1fs, kills %d\n", run_.levelIndex, run_.stats.time, run_.stats.kills); std::fflush(stdout); }
                 mode_ = Mode::Dead;
                 endTimer_ = 0.0f;
                 slowMo_ = 0.35f;
@@ -211,7 +218,10 @@ void GameScene::frame(float dt) {
     // Fades: in on arrival, out when stepping through the portal.
     if (exiting_) {
         fade_ = std::min(1.0f, fade_ + dt * 1.8f);
-        if (fade_ >= 1.0f) advanceStage();
+        if (fade_ >= 1.0f) {
+            advanceStage(); // releases the current level
+            return;
+        }
     } else {
         fade_ = std::max(0.0f, fade_ - dt * 1.5f);
     }

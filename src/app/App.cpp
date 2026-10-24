@@ -14,6 +14,29 @@
 
 namespace pm {
 
+namespace {
+
+/// Replaces the first wand's spells with a comma-separated list of spell names.
+void applyLoadout(RunState& run, const std::string& list) {
+    Wand& w = run.wands[0];
+    w.slots.clear();
+    size_t start = 0;
+    while (start <= list.size()) {
+        size_t end = list.find(',', start);
+        if (end == std::string::npos) end = list.size();
+        std::string name = list.substr(start, end - start);
+        for (int i = 1; i < kSpellCount; ++i)
+            if (name == spellDef(static_cast<SpellId>(i)).name) w.slots.push_back(static_cast<SpellId>(i));
+        start = end + 1;
+    }
+    w.capacity = std::max(1, static_cast<int>(w.slots.size()));
+    w.manaMax = w.mana = 2000.0f;
+    w.manaCharge = 1000.0f;
+    w.resetDeck();
+}
+
+} // namespace
+
 App::App(const LaunchOptions& options) : options_(options) {
     unsigned flags = FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT;
     SetConfigFlags(flags);
@@ -37,7 +60,7 @@ App::App(const LaunchOptions& options) : options_(options) {
     }
 
     int refresh = GetMonitorRefreshRate(GetCurrentMonitor());
-    SetTargetFPS(refresh > 0 ? std::max(refresh, 60) : 144);
+    SetTargetFPS(options_.turbo ? 0 : (refresh > 0 ? std::max(refresh, 60) : 144));
 
     InitAudioDevice();
     initMaterials();
@@ -89,7 +112,12 @@ int App::run() {
         setScene(std::make_unique<SandboxScene>(*this));
     } else if (options_.startRun) {
         uint32_t seed = options_.seed ? options_.seed : static_cast<uint32_t>(GetRandomValue(1, 0x7FFFFFFF));
-        setScene(std::make_unique<GameScene>(*this, newRun(seed, static_cast<Difficulty>(clamp(settings_.difficulty, 0, 2)), false)));
+        RunState run = newRun(seed, static_cast<Difficulty>(clamp(settings_.difficulty, 0, 2)), false);
+        run.levelIndex = clamp(options_.startLevel, 0, 4);
+        if (!options_.loadout.empty()) applyLoadout(run, options_.loadout);
+        run.inSanctum = options_.startInSanctum;
+        if (run.inSanctum) run.gold = 900;
+        setScene(std::make_unique<GameScene>(*this, std::move(run)));
     } else {
         setScene(std::make_unique<MenuScene>(*this));
     }
@@ -114,19 +142,27 @@ int App::run() {
 
         // Fixed-rate simulation. If the machine falls behind we drop time rather than
         // spiralling: at most 3 ticks per rendered frame.
-        accumulator += frameDt;
-        int ticks = 0;
-        while (accumulator >= kTickDt && ticks < 3) {
-            scene_->tick();
-            accumulator -= kTickDt;
-            ++ticks;
+        if (options_.turbo) {
+            // Headless testing: simulate many ticks per frame and only draw occasionally.
+            for (int i = 0; i < 8; ++i) {
+                scene_->tick();
+                scene_->frame(kTickDt);
+            }
+            accumulator = 0.0;
+        } else {
+            accumulator += frameDt;
+            int ticks = 0;
+            while (accumulator >= kTickDt && ticks < 3) {
+                scene_->tick();
+                accumulator -= kTickDt;
+                ++ticks;
+            }
+            if (ticks == 3) accumulator = std::min(accumulator, static_cast<double>(kTickDt));
+            scene_->frame(static_cast<float>(frameDt));
         }
-        if (ticks == 3) accumulator = std::min(accumulator, static_cast<double>(kTickDt));
-
-        scene_->frame(static_cast<float>(frameDt));
 
         BeginDrawing();
-        scene_->render(static_cast<float>(accumulator / kTickDt));
+        if (!options_.turbo || frameCount_ % 4 == 0) scene_->render(static_cast<float>(accumulator / kTickDt));
         EndDrawing();
 
         ++frameCount_;
