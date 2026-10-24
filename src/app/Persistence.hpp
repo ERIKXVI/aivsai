@@ -14,7 +14,7 @@ struct Settings {
     float musicVolume = 0.6f;
     float sfxVolume = 0.85f;
     bool screenShake = true;
-    bool fullscreen = false;
+    bool fullscreen = true;     ///< borderless fullscreen (the first-launch default)
     bool showFps = false;
     int difficulty = 1; ///< 0 Apprentice, 1 Adept, 2 Archmage
     int loadout = 0;    ///< last chosen starting loadout
