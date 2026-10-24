@@ -127,7 +127,7 @@ reacting to combat intensity, with fire/water/lava ambience mixed in.
 ### Repository layout
 
 ```
-src/app      application shell, settings and profile persistence
+src/app      application shell, input latch, settings, profile and run saves
 src/core     math, RNG, noise, thread pool, profiler
 src/sim      materials, cells, world/chunk scheduler, particles
 src/gen      biomes, level generator, vaults, navigation grid
