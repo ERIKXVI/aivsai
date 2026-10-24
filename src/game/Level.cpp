@@ -439,10 +439,12 @@ void Level::updateTransmuters() {
     for (Transmuter& t : transmuters_) {
         if (t.complete) continue;
         const int cx = floorToInt(t.pos.x), floorY = floorToInt(t.pos.y);
+        // Only matter the alchemist brought counts: a circle beside a natural pool must
+        // not fill itself.
         int count = 0;
         for (int y = floorY - 6; y <= floorY; ++y)
             for (int x = cx - 9; x <= cx + 9; ++x)
-                if (w.inBounds(x, y) && w.at(x, y).mat == t.wants) ++count;
+                if (w.inBounds(x, y) && w.at(x, y).mat == t.wants && (w.at(x, y).flags & cellflag::kPlayerMade)) ++count;
         t.progress = count;
         if (count < t.required) continue;
         // The offering is accepted: the matter vanishes in a burst of light.
