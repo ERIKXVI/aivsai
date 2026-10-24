@@ -1,7 +1,9 @@
 #include "app/App.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 
+#include "app/Platform.hpp"
 #include "audio/Audio.hpp"
 #include "game/Run.hpp"
 #include "raylib.h"
@@ -45,6 +47,12 @@ App::App(const LaunchOptions& options) : options_(options) {
     int w = options_.width > 0 ? options_.width : 1600;
     int h = options_.height > 0 ? options_.height : 900;
     InitWindow(w, h, "Prima Materia");
+    if (!IsWindowReady()) {
+        platform::showFatalError("Prima Materia",
+                                 "The game could not open its window. Prima Materia needs a graphics driver with "
+                                 "OpenGL 3.3 support - please install or update the drivers for your graphics card.");
+        std::exit(1);
+    }
     SetWindowMinSize(960, 540);
     SetExitKey(KEY_NULL);
 
