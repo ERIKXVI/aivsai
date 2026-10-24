@@ -111,7 +111,7 @@ void HintTracker::update(const Level& level, const RunState& run, float dt) {
     if (scanTimer_ > 0.0f) return;
     scanTimer_ = 0.5f;
     const World& world = level.world();
-    if (!seen(Hint::Absorb) && run.flask.amount < Flask::kCapacity / 2 &&
+    if (!seen(Hint::Absorb) && run.flask.amount < Flask::kCapacity &&
         nearby(world, player.center(), 14, [](MatId m) { return matDef(m).phase == Phase::Liquid; })) {
         show(Hint::Absorb);
         return;
