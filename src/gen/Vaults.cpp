@@ -84,26 +84,26 @@ struct Room {
 void buildLaboratory(Room& r) {
     r.shell(mat::Brick);
     // Shelves of vials and potions against the far wall.
-    const int shelfLen = 20;
-    for (int level = 0; level < 2; ++level) {
-        const int sy = r.iy1 - 9 - level * 8;
+    const int shelfLen = 26;
+    for (int level = 0; level < 3; ++level) {
+        const int sy = r.iy1 - 9 - level * 9;
         const int a = r.far(0), b = r.far(shelfLen);
         r.fill(std::min(a, b), sy, std::max(a, b), sy, mat::Wood);
         for (int k = 2; k < shelfLen - 2; k += 3)
             if (r.rng.chance(0.55f)) r.set(r.far(k), sy - 1, mat::Glass);
-        r.spawn(SpawnKind::Potion, r.far(shelfLen - 4), sy - 1);
+        if (level < 2) r.spawn(SpawnKind::Potion, r.far(shelfLen - 4 - level * 8), sy - 1);
     }
     // The cauldron, brimming with something precious.
-    const int cx = r.cx();
-    r.fill(cx - 6, r.iy1, cx + 6, r.iy1, mat::Metal);
-    r.fill(cx - 6, r.iy1 - 5, cx - 6, r.iy1, mat::Metal);
-    r.fill(cx + 6, r.iy1 - 5, cx + 6, r.iy1, mat::Metal);
+    const int cx = r.cx() + (r.plan.doorSide > 0 ? -4 : 4);
+    r.fill(cx - 8, r.iy1, cx + 8, r.iy1, mat::Metal);
+    r.fill(cx - 8, r.iy1 - 7, cx - 8, r.iy1, mat::Metal);
+    r.fill(cx + 8, r.iy1 - 7, cx + 8, r.iy1, mat::Metal);
     const float roll = r.rng.uniform();
     const MatId brew = roll < 0.55f ? mat::Vitae : roll < 0.8f ? mat::Quicksilver : mat::Midas;
-    r.fill(cx - 5, r.iy1 - 4, cx + 5, r.iy1 - 1, brew);
+    r.fill(cx - 7, r.iy1 - 6, cx + 7, r.iy1 - 1, brew);
     // A worktable with a spell left on it, set back so the doorway stays clear.
-    const int tx = r.near(20);
-    r.spawn(SpawnKind::Spell, tx, r.table(tx, 6, 5));
+    const int tx = r.near(22);
+    r.spawn(SpawnKind::Spell, tx, r.table(tx, 7, 5));
     r.lantern(r.cx() - r.width() / 4);
     r.lantern(r.cx() + r.width() / 4);
 }
@@ -119,9 +119,11 @@ void buildMagazine(Room& r) {
     const int door = vaultDoorRow(r.plan);
     for (int y = door - kVaultDoorHeight + 1; y <= door; ++y) r.clear(r.plan.doorSide > 0 ? r.ix1 : r.ix0, y);
     // Two tiers of kegs stacked from the far wall.
-    for (int i = 0; i < 5; ++i) r.keg(r.far(5 + i * 8), r.iy1);
-    for (int i = 0; i < 3; ++i) r.keg(r.far(9 + i * 8), r.iy1 - 7);
-    r.spawn(SpawnKind::Wand, r.far(17), r.iy1 - 14);
+    const int base = std::clamp((r.width() - 34) / 8, 3, 8);
+    for (int i = 0; i < base; ++i) r.keg(r.far(5 + i * 8), r.iy1);
+    for (int i = 0; i < base - 2; ++i) r.keg(r.far(9 + i * 8), r.iy1 - 7);
+    for (int i = 0; i < base - 4; ++i) r.keg(r.far(13 + i * 8), r.iy1 - 14);
+    r.spawn(SpawnKind::Wand, r.far(5 + (base - 1) * 4), r.iy1 - 7 * std::max(1, base - 3) - 1);
     r.spawn(SpawnKind::Chest, r.near(14), r.iy1);
     // Spilled powder on the floor.
     for (int k = 0; k < 18; ++k) r.set(r.near(20) + r.rng.rangeInt(-6, 6), r.iy1, mat::Gunpowder);
@@ -136,7 +138,7 @@ void buildCrypt(Room& r) {
     r.fill(std::min(ledge0, ledge1), door + 1, std::max(ledge0, ledge1), door + 2, mat::Brick);
     r.spawn(SpawnKind::Potion, r.near(5), door);
     // Sarcophagi on the floor.
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < 3; ++i) {
         const int sx = r.far(8 + i * 22);
         r.fill(sx - 6, r.iy1 - 4, sx + 6, r.iy1, mat::Basalt);
         r.fill(sx - 5, r.iy1 - 5, sx + 5, r.iy1 - 5, mat::Bone);
@@ -167,8 +169,8 @@ void buildTreasury(Room& r) {
     r.spawn(SpawnKind::Wand, r.cx(), r.iy1 - 4);
     r.spawn(SpawnKind::Chest, r.far(6), r.iy1);
     r.spawn(SpawnKind::Chest, r.far(16), r.iy1);
-    for (int k = 0; k < 3; ++k) {
-        const int gx = r.far(26 + k * 9);
+    for (int k = 0; k < 5; ++k) {
+        const int gx = k < 3 ? r.far(26 + k * 9) : r.near(18 + (k - 3) * 10);
         for (int dy = 0; dy < 3; ++dy) r.fill(gx - 3 + dy, r.iy1 - dy, gx + 3 - dy, r.iy1 - dy, mat::GoldDust);
     }
     r.spawn(SpawnKind::Guardian, r.cx() - 12, r.iy1);
@@ -222,11 +224,11 @@ void buildSpring(Room& r) {
 
 void vaultSize(VaultKind kind, int& w, int& h) {
     switch (kind) {
-    case VaultKind::Laboratory: w = 76; h = 36; return;
-    case VaultKind::Magazine: w = 66; h = 34; return;
-    case VaultKind::Crypt: w = 64; h = 52; return;
-    case VaultKind::Treasury: w = 78; h = 34; return;
-    case VaultKind::Spring: w = 70; h = 36; return;
+    case VaultKind::Laboratory: w = 104; h = 46; return;
+    case VaultKind::Magazine: w = 90; h = 42; return;
+    case VaultKind::Crypt: w = 86; h = 62; return;
+    case VaultKind::Treasury: w = 108; h = 42; return;
+    case VaultKind::Spring: w = 96; h = 44; return;
     case VaultKind::Count: break;
     }
     w = h = 0;

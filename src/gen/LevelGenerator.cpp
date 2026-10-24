@@ -492,7 +492,7 @@ private:
         const int top = (surface_ ? kSkyRows : 0) + 70;
         uint32_t used = 0;
         std::vector<Rectf> placed;
-        for (int attempt = 0; attempt < 500 && static_cast<int>(placed.size()) < wanted; ++attempt) {
+        for (int attempt = 0; attempt < 1500 && static_cast<int>(placed.size()) < wanted; ++attempt) {
             VaultPlan plan;
             plan.kind = pickVaultKind(biome_, rng_, used);
             vaultSize(plan.kind, plan.w, plan.h);
