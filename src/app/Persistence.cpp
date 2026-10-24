@@ -100,6 +100,7 @@ Settings loadSettings() {
     read(kv, "show_fps", s.showFps);
     read(kv, "difficulty", s.difficulty);
     read(kv, "loadout", s.loadout);
+    read(kv, "hints", s.hints);
     return s;
 }
 
@@ -111,7 +112,8 @@ void saveSettings(const Settings& s) {
                                         {"fullscreen", str(s.fullscreen)},
                                         {"show_fps", str(s.showFps)},
                                         {"difficulty", str(s.difficulty)},
-                                        {"loadout", str(s.loadout)}});
+                                        {"loadout", str(s.loadout)},
+                                        {"hints", str(s.hints)}});
 }
 
 Profile loadProfile() {
@@ -128,7 +130,6 @@ Profile loadProfile() {
     read(kv, "chests_opened", p.chestsOpened);
     read(kv, "spells_seen", p.spellsSeen);
     read(kv, "perks_seen", p.perksSeen);
-    read(kv, "hints_seen", p.hintsSeen);
     if (auto it = kv.find("creature_kills"); it != kv.end()) {
         std::istringstream ss(it->second);
         std::string item;
@@ -149,7 +150,6 @@ void saveProfile(const Profile& p) {
                                        {"chests_opened", str(p.chestsOpened)},
                                        {"spells_seen", str(p.spellsSeen)},
                                        {"perks_seen", str(p.perksSeen)},
-                                       {"hints_seen", str(p.hintsSeen)},
                                        {"creature_kills", joinInts(p.creatureKills)}});
 }
 

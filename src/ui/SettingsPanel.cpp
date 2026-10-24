@@ -35,7 +35,7 @@ bool drawSettingsPanel(App& app) {
     Settings& st = app.settings();
     const float sw = static_cast<float>(app.screenWidth()), sh = static_cast<float>(app.screenHeight());
     const float s = static_cast<float>(ui::scale());
-    Rectangle panelR{sw * 0.5f - 110.0f * s, sh * 0.5f - 105.0f * s, 220.0f * s, 210.0f * s};
+    Rectangle panelR{sw * 0.5f - 110.0f * s, sh * 0.5f - 115.0f * s, 220.0f * s, 230.0f * s};
     ui::panel(panelR);
     ui::text("SETTINGS", sw * 0.5f, panelR.y + 8.0f * s, ui::fontSize(ui::scale() + 1), ui::color::kGold, ui::Align::Center);
 
@@ -54,13 +54,19 @@ bool drawSettingsPanel(App& app) {
         changed = true;
     }
     y += bh + 4.0f * s;
-    if (ui::button({x, y, bw, bh}, std::string("Fullscreen: ") + (st.fullscreen ? "On" : "Off"))) {
+    const bool fullscreen = IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE);
+    if (ui::button({x, y, bw, bh}, std::string("Fullscreen: ") + (fullscreen ? "On" : "Off"))) {
         app.toggleFullscreen();
         changed = true;
     }
     y += bh + 4.0f * s;
     if (ui::button({x, y, bw, bh}, std::string("Show FPS: ") + (st.showFps ? "On" : "Off"))) {
         st.showFps = !st.showFps;
+        changed = true;
+    }
+    y += bh + 4.0f * s;
+    if (ui::button({x, y, bw, bh}, std::string("Hints: ") + (st.hints ? "On" : "Off"))) {
+        st.hints = !st.hints;
         changed = true;
     }
     if (changed) app.applySettings();

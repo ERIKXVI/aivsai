@@ -18,7 +18,7 @@
 namespace pm {
 
 GameScene::GameScene(App& app, RunState run)
-    : Scene(app), run_(std::move(run)), levelRenderer_(scene_, app.sprites(), app.pool()), hints_(app.profile().hintsSeen) {
+    : Scene(app), run_(std::move(run)), levelRenderer_(scene_, app.sprites(), app.pool()), hints_(app.hintsShown()) {
     requestLevel();
 }
 
@@ -193,7 +193,7 @@ void GameScene::stepLevel() {
     }
     level_->tick(in);
     minimap_.update(*level_);
-    if (mode_ == Mode::Playing && !autoplay) hints_.update(*level_, run_, kTickDt);
+    if (mode_ == Mode::Playing && !autoplay && app_.settings().hints) hints_.update(*level_, run_, kTickDt);
 
     switch (level_->pollEvent()) {
     case LevelEvent::ExitReached:
@@ -299,9 +299,9 @@ void GameScene::render(float alpha) {
         if (mode_ != Mode::Dead && mode_ != Mode::Victory) drawWorldOverlays(a);
         if (mode_ == Mode::Playing) drawCompass(a);
         if (mode_ != Mode::Victory) drawHud();
-        if (mode_ == Mode::Playing) hints_.draw(static_cast<float>(app_.screenWidth()), static_cast<float>(app_.screenHeight()), usingGamepad_);
+        if (mode_ == Mode::Playing && app_.settings().hints) hints_.draw(static_cast<float>(app_.screenWidth()), static_cast<float>(app_.screenHeight()), usingGamepad_);
         drawTitleCard();
-        if (!run_.inSanctum && run_.levelIndex == 0 && level_->time() < 30.0f) drawControlsHint();
+        if (app_.settings().hints && !run_.inSanctum && run_.levelIndex == 0 && level_->time() < 30.0f) drawControlsHint();
     }
 
     switch (mode_) {

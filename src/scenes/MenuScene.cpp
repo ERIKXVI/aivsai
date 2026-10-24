@@ -48,6 +48,7 @@ MenuScene::MenuScene(App& app) : Scene(app), rng_(static_cast<uint64_t>(std::tim
     if (ui == "loadout") panel_ = Panel::Loadout;
     else if (ui == "grimoire") panel_ = Panel::Grimoire;
     else if (ui == "help") panel_ = Panel::Help;
+    else if (ui == "settings") panel_ = Panel::Settings;
 }
 
 void MenuScene::buildWorld() {

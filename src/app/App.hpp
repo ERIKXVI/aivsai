@@ -26,7 +26,7 @@ struct LaunchOptions {
     int startLoadout = 0;     ///< starting loadout (LoadoutId) for a --play run
     std::string testWand;     ///< comma-separated spell names for the first wand (testing)
     bool startInSanctum = false; ///< begin the --play run in a sanctum (testing)
-    std::string openUi;       ///< open a screen once loaded: inventory, pause, transmuter, vault, map (in a run) or loadout, grimoire (menu)
+    std::string openUi;       ///< open a screen once loaded: inventory, pause, transmuter, vault, map (in a run) or loadout, grimoire, help, settings (menu)
     int captureFrame = -1;    ///< save a screenshot after this many frames, then quit (testing)
     std::string capturePath = "capture.png";
     int captureEvery = 0;     ///< also save numbered screenshots every N frames (testing)
@@ -57,6 +57,9 @@ public:
     const SpriteBank& sprites() const { return *sprites_; }
     Settings& settings() { return settings_; }
     Profile& profile() { return profile_; }
+    /// Contextual hints already shown since the game was launched (bit = Hint). Kept per
+    /// launch rather than per profile so everyone sharing a PC gets the introduction.
+    uint32_t& hintsShown() { return hintsShown_; }
     /// Pushes volume settings to the audio system.
     void applySettings();
     const LaunchOptions& options() const { return options_; }
@@ -74,6 +77,7 @@ private:
     ThreadPool pool_;
     Settings settings_;
     Profile profile_;
+    uint32_t hintsShown_ = 0;
     std::unique_ptr<Audio> audio_;
     std::unique_ptr<SpriteBank> sprites_;
     std::unique_ptr<Scene> scene_;
