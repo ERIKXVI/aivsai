@@ -242,12 +242,15 @@ void GameScene::drawInventory() {
     const int small = ui::fontSize(std::max(1, ui::scale() - 1));
     DrawRectangle(0, 0, app_.screenWidth(), app_.screenHeight(), Color{0, 0, 0, 160});
 
-    const float slot = 16.0f * s, gap = 3.0f * s;
-    Rectangle panelR{sw * 0.5f - 230.0f * s, sh * 0.5f - 150.0f * s, 460.0f * s, 300.0f * s};
+    const float slot = 16.0f * s, gap = 2.0f * s;
+    // Tall enough for every wand row, the satchel and the info card.
+    const float panelH = std::max(200.0f, 104.0f + 36.4f * static_cast<float>(run_.wands.size())) * s;
+    Rectangle panelR{sw * 0.5f - 260.0f * s, sh * 0.5f - panelH * 0.5f, 520.0f * s, panelH};
     ui::panel(panelR);
     ui::text("SATCHEL OF SPELLS", panelR.x + panelR.width * 0.5f, panelR.y + 6.0f * s, size, ui::color::kGold, ui::Align::Center);
-    ui::text("Drag spells between wands and satchel. Right-click removes. Tab closes.", panelR.x + panelR.width * 0.5f,
-             panelR.y + 8.0f * s + static_cast<float>(size), small, ui::color::kTextDim, ui::Align::Center);
+    ui::text("Drag spells between wands and satchel. Right-click returns a spell to the satchel. Tab closes.",
+             panelR.x + panelR.width * 0.5f, panelR.y + 8.0f * s + static_cast<float>(size), small, ui::color::kTextDim,
+             ui::Align::Center);
 
     struct Hover {
         SpellId spell = SpellId::None;
@@ -256,24 +259,25 @@ void GameScene::drawInventory() {
     } hover;
     Vector2 mouse = GetMousePosition();
     std::string wandTip, wandTipTitle;
+    const Color statColor{140, 130, 150, 255};
 
     float y = panelR.y + 32.0f * s;
     for (size_t wi = 0; wi < run_.wands.size(); ++wi) {
         Wand& w = run_.wands[wi];
         float x = panelR.x + 10.0f * s;
-        Rectangle nameR{x, y, 110.0f * s, slot};
+        Rectangle nameR{x, y, 104.0f * s, slot};
         ui::text(w.name, x, y, small, static_cast<int>(wi) == run_.activeWand ? ui::color::kText : ui::color::kTextDim);
         ui::text(TextFormat("delay %.2fs  recharge %.2fs", w.castDelay, w.rechargeTime), x, y + static_cast<float>(small) + 1.0f * s,
-                 small, Color{140, 130, 150, 255});
+                 small, statColor);
         ui::text(TextFormat("mana %d (+%d/s)%s%s", static_cast<int>(w.manaMax), static_cast<int>(w.manaCharge), w.shuffle ? "  shuffle" : "",
                             w.spellsPerCast > 1 ? "  multicast" : ""),
-                 x, y + (static_cast<float>(small) + 1.0f * s) * 2.0f, small, Color{140, 130, 150, 255});
+                 x, y + (static_cast<float>(small) + 1.0f * s) * 2.0f, small, statColor);
         if (ui::hovered({nameR.x, nameR.y, nameR.width, slot * 1.6f})) {
             wandTipTitle = w.name;
             wandTip = TextFormat("Spread %.1f deg. Spells per cast %d. Capacity %d.%s", w.spreadDeg, w.spellsPerCast, w.capacity,
                                  w.shuffle ? " Shuffle: casts spells in random order." : "");
         }
-        float sx = panelR.x + 130.0f * s;
+        const float sx = panelR.x + 118.0f * s;
         for (int i = 0; i < w.capacity; ++i) {
             Rectangle r{sx + static_cast<float>(i) * (slot + gap), y, slot, slot};
             SpellId sp = w.slots[static_cast<size_t>(i)];
@@ -281,11 +285,21 @@ void GameScene::drawInventory() {
             ui::spellIcon(isDragSrc ? SpellId::None : sp, r, CheckCollisionPointRec(mouse, r));
             if (CheckCollisionPointRec(mouse, r)) hover = {sp, static_cast<int>(wi), i};
         }
-        y += slot * 1.9f + 4.0f * s;
+        // What the first cast of this deck does, so the effect of modifiers is visible.
+        int pos = 0;
+        const CastShot first = buildShot(w.slots, w.order, pos, w.spellsPerCast);
+        float damage = 0.0f;
+        for (const ProjectileLaunch& l : first.projectiles) damage += l.def.damage + l.def.explosionDamage;
+        const int count = static_cast<int>(first.projectiles.size());
+        if (count > 0)
+            ui::text(TextFormat("first cast: %d projectile%s, %d damage, %d mana", count, count == 1 ? "" : "s", static_cast<int>(damage),
+                                static_cast<int>(first.mana)),
+                     sx, y + slot + 3.0f * s, small, statColor);
+        y += slot * 1.9f + 6.0f * s;
     }
 
-    // Satchel grid.
-    y = std::max(y, panelR.y + 190.0f * s);
+    // Satchel grid, right under the wands.
+    y += static_cast<float>(small) + 4.0f * s;
     ui::text("Satchel", panelR.x + 10.0f * s, y - static_cast<float>(small) - 2.0f * s, small, ui::color::kTextDim);
     for (int i = 0; i < RunState::kInventorySize; ++i) {
         int col = i % 8, row = i / 8;
@@ -296,8 +310,8 @@ void GameScene::drawInventory() {
         if (CheckCollisionPointRec(mouse, r)) hover = {sp, -1, i};
     }
 
-    // Perks and flask summary.
-    float px = panelR.x + 10.0f * s + 8.0f * (slot + gap) + 10.0f * s;
+    // Perks beside the satchel.
+    float px = panelR.x + 10.0f * s + 8.0f * (slot + gap) + 14.0f * s;
     ui::text("Perks", px, y - static_cast<float>(small) - 2.0f * s, small, ui::color::kTextDim);
     float py = y;
     for (int p = 0; p < kPerkCount; ++p) {
@@ -316,6 +330,35 @@ void GameScene::drawInventory() {
     ui::text(TextFormat("Kills %d   Gold %d   Time %s", run_.stats.kills, run_.gold, formatTime(run_.stats.time).c_str()),
              panelR.x + panelR.width - 10.0f * s, panelR.y + panelR.height - static_cast<float>(small) - 6.0f * s, small,
              ui::color::kTextDim, ui::Align::Right);
+
+    // Info card: the spell under the cursor, or the rules of wands.
+    {
+        Rectangle card{panelR.x + panelR.width - 140.0f * s, panelR.y + 32.0f * s, 130.0f * s, panelR.height - 56.0f * s};
+        ui::panel(card, Color{12, 9, 18, 230});
+        const float cx = card.x + 8.0f * s, cw = card.width - 16.0f * s;
+        float cy = card.y + 8.0f * s;
+        const SpellId shown = drag_.active ? drag_.spell : hover.spell;
+        if (shown != SpellId::None) {
+            const SpellDef& d = spellDef(shown);
+            ui::spellIcon(shown, {cx, cy, 24.0f * s, 24.0f * s});
+            ui::text(d.name, cx + 30.0f * s, cy + 2.0f * s, small, ui::spellTypeColor(shown));
+            static constexpr const char* kTypeNames[] = {"Projectile", "Modifier", "Multicast"};
+            ui::text(kTypeNames[static_cast<int>(d.type)], cx + 30.0f * s, cy + 4.0f * s + static_cast<float>(small), small,
+                     ui::color::kTextDim);
+            cy += 32.0f * s;
+            ui::textWrapped(spellDetails(shown), cx, cy, cw, small, ui::color::kText);
+        } else {
+            ui::text("The art of wands", cx, cy, small, ui::color::kGold);
+            cy += static_cast<float>(small) + 6.0f * s;
+            const char* rules[] = {
+                "Spells cast from left to right; when the deck runs out the wand recharges.",
+                "Green modifiers boost the projectile that follows them.",
+                "Gold multicasts fire the next spells together.",
+                "Triggers release the next spell where they land.",
+            };
+            for (const char* rule : rules) cy += ui::textWrapped(rule, cx, cy, cw, small, ui::color::kTextDim) + 5.0f * s;
+        }
+    }
 
     // Drag & drop.
     auto spellAt = [&](int wand, int slotIndex) -> SpellId& {
@@ -340,9 +383,7 @@ void GameScene::drawInventory() {
             }
             drag_ = Drag{};
         }
-    } else if (hover.spell != SpellId::None) {
-        ui::tooltip(spellDef(hover.spell).name, spellDetails(hover.spell), ui::spellTypeColor(hover.spell));
-    } else if (!wandTip.empty()) {
+    } else if (hover.spell == SpellId::None && !wandTip.empty()) {
         ui::tooltip(wandTipTitle, wandTip, ui::color::kGold);
     }
 }
