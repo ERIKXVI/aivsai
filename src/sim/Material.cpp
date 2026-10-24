@@ -107,16 +107,16 @@ void defineMaterials() {
 
     // --- Static solids -------------------------------------------------------------
     Define(Bedrock, "Bedrock", Phase::Solid).hardness(255).colors(0x1d1b24, 0x34303f).flags(kAcidProof);
-    Define(Rock, "Rock", Phase::Solid).hardness(110).colors(0x3f3d46, 0x6b6874);
-    Define(Soil, "Soil", Phase::Solid).hardness(35).colors(0x3b2a1e, 0x664a33).flags(kDiggable);
+    Define(Rock, "Rock", Phase::Solid).hardness(110).colors(0x302e38, 0x77737f);
+    Define(Soil, "Soil", Phase::Solid).hardness(35).colors(0x34241a, 0x70513a).flags(kDiggable);
     Define(Wood, "Wood", Phase::Solid).hardness(45).colors(0x5a3a1e, 0x8a5f34)
         .flammable(14, 160, Ash).flags(kOrganic | kDiggable);
     Define(Brick, "Brick", Phase::Solid).hardness(140).colors(0x5e2c24, 0x8f4a3a);
     Define(Metal, "Metal", Phase::Solid).hardness(235).colors(0x4c5560, 0x8d99a6)
         .flags(kAcidProof | kConductive);
     Define(Ice, "Ice", Phase::Solid).hardness(55).colors(0x6aa8d0, 0xb8e2f8).opacity(140).flags(kMeltable);
-    Define(Obsidian, "Obsidian", Phase::Solid).hardness(200).colors(0x15101d, 0x3b2950);
-    Define(Basalt, "Basalt", Phase::Solid).hardness(150).colors(0x231d1b, 0x453832);
+    Define(Obsidian, "Obsidian", Phase::Solid).hardness(200).colors(0x110c18, 0x4a3264);
+    Define(Basalt, "Basalt", Phase::Solid).hardness(150).colors(0x1c1715, 0x54443c);
     Define(Coal, "Coal", Phase::Solid).hardness(60).colors(0x222228, 0x44444e)
         .flammable(5, 255, Ash).speckle(0x55555e, 0.05f);
     Define(GoldOre, "Gold Ore", Phase::Solid).hardness(90).colors(0x4a4238, 0x6e6252).speckle(0xf2c84b, 0.18f);
@@ -128,7 +128,7 @@ void defineMaterials() {
         .flammable(55, 40, Ash).flags(kOrganic | kDiggable);
     Define(Fungus, "Glowcap", Phase::Solid).hardness(25).colors(0x3c2a66, 0x8a68e0)
         .flammable(18, 60, Ash).glow(0x9a70ff, 70).flags(kOrganic | kDiggable);
-    Define(SaltRock, "Salt Rock", Phase::Solid).hardness(70).colors(0x8a909c, 0xc8ced8);
+    Define(SaltRock, "Salt Rock", Phase::Solid).hardness(70).colors(0x767c8a, 0xcfd5df);
     Define(Bone, "Bone", Phase::Solid).hardness(80).colors(0xb8ad94, 0xe2d8c0);
     Define(Flesh, "Flesh", Phase::Solid).hardness(30).colors(0x6a2a2e, 0x9a4a4a)
         .flammable(20, 80, Ash).flags(kOrganic | kDiggable);

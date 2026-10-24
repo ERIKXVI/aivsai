@@ -345,9 +345,11 @@ private:
                         m = b_.surface;
                     }
                 }
-                // Coherent shading gives rock a hand-painted texture instead of noise.
+                // Coherent shading plus darker fracture lines give rock a hand-painted texture.
                 float tex = noise::fbm(x * 0.09f, y * 0.09f, s ^ 0x3131u, 3);
-                int var = 128 + static_cast<int>(tex * 110.0f) + static_cast<int>(hash2(x, y, s) & 31u) - 16;
+                float cracks = noise::ridged(x * 0.045f, y * 0.06f, s ^ 0x9191u, 2);
+                int var = 128 + static_cast<int>(tex * 125.0f) - static_cast<int>(smoothstep(0.8f, 0.97f, cracks) * 95.0f) +
+                          static_cast<int>(hash2(x, y, s) & 31u) - 16;
                 if (phaseOf(m) == Phase::Powder) var = static_cast<int>(hash2(x, y, s) & 255u);
                 c = makeCell(m, hash2(x, y, s ^ 0xABCDu));
                 c.var = static_cast<uint8_t>(clamp(var, 0, 255));

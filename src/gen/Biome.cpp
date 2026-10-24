@@ -24,12 +24,12 @@ const BiomeDef kBiomes[static_cast<int>(BiomeId::Count)] = {
     {
         "Albedo", "The Salt Glaciers",
         SaltRock, SaltRock, Ice, Snow, Rock,
-        {{{Ice, 0.04f, 0.60f}, {Crystal, 0.06f, 0.82f}, {GoldOre, 0.07f, 0.82f}, {Salt, 0.05f, 0.78f}}},
+        {{{Ice, 0.065f, 0.70f}, {Crystal, 0.06f, 0.82f}, {GoldOre, 0.07f, 0.82f}, {Salt, 0.05f, 0.78f}}},
         {{{Water, 0.5f}, {Brine, 0.4f}, {Quicksilver, 0.1f}, {Empty, 0.0f}}},
         {{{Snow, 0.6f}, {Salt, 0.3f}, {Sand, 0.1f}}},
         0.55f, 0.15f,
         0x46576b, 0x1d2835,
-        {0.30f, 0.34f, 0.42f}, {0.92f, 0.98f, 1.06f}, 0.85f, 0x0a0e14,
+        {0.36f, 0.40f, 0.48f}, {0.94f, 0.99f, 1.06f}, 0.85f, 0x0a0e14,
         50, 1,
     },
     // III. Citrinitas — the yellowing: sulphur mines, gunpowder stores, glowing fungus.
@@ -47,7 +47,7 @@ const BiomeDef kBiomes[static_cast<int>(BiomeId::Count)] = {
     // IV. Rubedo — the reddening: the crimson forge, lava rivers and basalt.
     {
         "Rubedo", "The Crimson Forge",
-        Basalt, Obsidian, Rock, Ash, Obsidian,
+        Basalt, Obsidian, Obsidian, Ash, Obsidian,
         {{{Obsidian, 0.04f, 0.62f}, {GoldOre, 0.06f, 0.74f}, {Coal, 0.05f, 0.76f}, {Crystal, 0.06f, 0.86f}}},
         {{{Lava, 0.8f}, {Oil, 0.1f}, {Acid, 0.1f}, {Empty, 0.0f}}},
         {{{Ash, 0.5f}, {Gravel, 0.3f}, {Sand, 0.2f}}},
