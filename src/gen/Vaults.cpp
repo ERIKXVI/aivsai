@@ -11,8 +11,6 @@ namespace pm {
 
 namespace {
 
-constexpr int kDoorHeight = 13;
-
 /// Interior bounds and helpers shared by every vault builder.
 struct Room {
     World& world;
@@ -55,7 +53,7 @@ struct Room {
             for (int x = ix0; x <= ix1; ++x) clear(x, y);
         const int door = vaultDoorRow(plan);
         const int wx0 = plan.doorSide > 0 ? ix1 + 1 : plan.x0, wx1 = wx0 + kVaultWall - 1;
-        for (int y = door - kDoorHeight + 1; y <= door; ++y)
+        for (int y = door - kVaultDoorHeight + 1; y <= door; ++y)
             for (int x = wx0; x <= wx1; ++x) clear(x, y);
     }
 
@@ -103,9 +101,9 @@ void buildLaboratory(Room& r) {
     const float roll = r.rng.uniform();
     const MatId brew = roll < 0.55f ? mat::Vitae : roll < 0.8f ? mat::Quicksilver : mat::Midas;
     r.fill(cx - 5, r.iy1 - 4, cx + 5, r.iy1 - 1, brew);
-    // A worktable by the door with a spell left on it.
-    const int tx = r.near(12);
-    r.spawn(SpawnKind::Spell, tx, r.table(tx, 6, 6));
+    // A worktable with a spell left on it, set back so the doorway stays clear.
+    const int tx = r.near(20);
+    r.spawn(SpawnKind::Spell, tx, r.table(tx, 6, 5));
     r.lantern(r.cx() - r.width() / 4);
     r.lantern(r.cx() + r.width() / 4);
 }
@@ -119,7 +117,7 @@ void buildMagazine(Room& r) {
     }
     r.fill(r.ix0, r.iy0, r.ix1, r.iy0, mat::Wood);
     const int door = vaultDoorRow(r.plan);
-    for (int y = door - kDoorHeight + 1; y <= door; ++y) r.clear(r.plan.doorSide > 0 ? r.ix1 : r.ix0, y);
+    for (int y = door - kVaultDoorHeight + 1; y <= door; ++y) r.clear(r.plan.doorSide > 0 ? r.ix1 : r.ix0, y);
     // Two tiers of kegs stacked from the far wall.
     for (int i = 0; i < 5; ++i) r.keg(r.far(5 + i * 8), r.iy1);
     for (int i = 0; i < 3; ++i) r.keg(r.far(9 + i * 8), r.iy1 - 7);
@@ -192,7 +190,7 @@ void buildSpring(Room& r) {
         }
     const int door = vaultDoorRow(p);
     const int wx0 = p.doorSide > 0 ? r.ix1 - 4 : p.x0, wx1 = p.doorSide > 0 ? p.x0 + p.w - 1 : r.ix0 + 4;
-    for (int y = door - kDoorHeight + 1; y <= door; ++y)
+    for (int y = door - kVaultDoorHeight + 1; y <= door; ++y)
         for (int x = wx0; x <= wx1; ++x) r.clear(x, y);
     // The pool basin in the middle of the floor.
     const int pool0 = static_cast<int>(cx) - 12, pool1 = static_cast<int>(cx) + 12;
@@ -237,7 +235,7 @@ void vaultSize(VaultKind kind, int& w, int& h) {
 int vaultDoorRow(const VaultPlan& plan) {
     const int interiorTop = plan.y0 + kVaultWall;
     const int floorRow = plan.y0 + plan.h - 1 - kVaultWall;
-    return plan.kind == VaultKind::Crypt ? interiorTop + kDoorHeight + 1 : floorRow;
+    return plan.kind == VaultKind::Crypt ? interiorTop + kVaultDoorHeight + 1 : floorRow;
 }
 
 VaultKind pickVaultKind(BiomeId biome, Rng& rng, uint32_t usedMask) {

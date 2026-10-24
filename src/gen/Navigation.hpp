@@ -25,8 +25,9 @@ public:
 
     int width() const { return bw_; }
     int height() const { return bh_; }
-    /// Distance from the block containing `p`, or kUnreachable.
-    int distanceAt(Vec2 p) const;
+    /// Distance from the nearest block (within `searchRadius` blocks of `p`) where a body
+    /// fits, or kUnreachable.
+    int distanceAt(Vec2 p, int searchRadius = 6) const;
     /// World-space centre of the neighbouring block that is one step closer to the goal.
     /// Returns false when `p` is not on a reachable block.
     bool nextStep(Vec2 p, Vec2& out) const;
@@ -36,7 +37,7 @@ public:
 
 private:
     bool blockFree(int bx, int by) const;
-    bool findFit(Vec2 p, int& bx, int& by) const;
+    bool findFit(Vec2 p, int& bx, int& by, int searchRadius = 6) const;
 
     int bw_ = 0, bh_ = 0;
     std::vector<uint8_t> free_;

@@ -518,7 +518,8 @@ private:
                 for (int k = 0; k < 110; ++k) {
                     const int x = startX + plan.doorSide * k, y = door - 4;
                     if (!world.inBounds(x, y) || x < kBorder + 6 || x >= w_ - kBorder - 6) break;
-                    if (world.at(x, y).mat == mat::Empty && nav.distanceAt({static_cast<float>(x), static_cast<float>(y)}) >= 0) {
+                    // Strict search: the cave must be reachable right where the passage meets it.
+                    if (world.at(x, y).mat == mat::Empty && nav.distanceAt({static_cast<float>(x), static_cast<float>(y)}, 2) >= 0) {
                         tunnelEnd = x;
                         break;
                     }
@@ -529,14 +530,18 @@ private:
             buildVault(world, plan, rng_, out.spawns);
             // A paved passage with timber lintels leads in from the caves.
             const int startX = plan.doorSide > 0 ? plan.x0 + plan.w : plan.x0 - 1;
-            const int x0 = std::min(startX, tunnelEnd), x1 = std::max(startX, tunnelEnd);
+            // Overshoot into the cave so no sliver of rock is left between passage and cave.
+            const int far = tunnelEnd + plan.doorSide * 8;
+            const int x0 = std::max(kBorder + 2, std::min(startX, far)), x1 = std::min(w_ - kBorder - 3, std::max(startX, far));
             for (int x = x0; x <= x1; ++x) {
-                for (int y = door - 12; y <= door; ++y)
-                    if (world.at(x, y).mat != mat::Bedrock && phaseOf(world.at(x, y).mat) == Phase::Solid) world.clear(x, y);
+                for (int y = door - kVaultDoorHeight + 1; y <= door; ++y) {
+                    const Phase ph = phaseOf(world.at(x, y).mat);
+                    if (world.at(x, y).mat != mat::Bedrock && (ph == Phase::Solid || ph == Phase::Powder)) world.clear(x, y);
+                }
                 if (phaseOf(world.at(x, door + 1).mat) == Phase::Solid && world.at(x, door + 1).mat != mat::Bedrock)
                     world.place(x, door + 1, mat::Brick);
-                if (std::abs(x - startX) % 14 < 2 && phaseOf(world.at(x, door - 13).mat) == Phase::Solid)
-                    world.place(x, door - 13, mat::Wood);
+                if (std::abs(x - startX) % 14 < 2 && phaseOf(world.at(x, door - kVaultDoorHeight).mat) == Phase::Solid)
+                    world.place(x, door - kVaultDoorHeight, mat::Wood);
             }
             placed.push_back({c.x, c.y, static_cast<float>(plan.w), static_cast<float>(plan.h)});
             out.vaults.push_back({static_cast<float>(plan.x0), static_cast<float>(plan.y0), static_cast<float>(plan.w), static_cast<float>(plan.h)});

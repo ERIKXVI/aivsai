@@ -34,9 +34,9 @@ bool NavGrid::fits(int bx, int by) const {
     return true;
 }
 
-bool NavGrid::findFit(Vec2 p, int& bx, int& by) const {
+bool NavGrid::findFit(Vec2 p, int& bx, int& by, int searchRadius) const {
     const int cx = static_cast<int>(p.x) / kBlock, cy = static_cast<int>(p.y) / kBlock;
-    for (int r = 0; r < 6; ++r)
+    for (int r = 0; r < searchRadius; ++r)
         for (int dy = -r; dy <= r; ++dy)
             for (int dx = -r; dx <= r; ++dx)
                 if (fits(cx + dx, cy + dy)) {
@@ -71,9 +71,9 @@ bool NavGrid::computeDistances(Vec2 goal) {
     return true;
 }
 
-int NavGrid::distanceAt(Vec2 p) const {
+int NavGrid::distanceAt(Vec2 p, int searchRadius) const {
     int bx = 0, by = 0;
-    if (!findFit(p, bx, by)) return kUnreachable;
+    if (!findFit(p, bx, by, searchRadius)) return kUnreachable;
     return dist_[static_cast<size_t>(by) * bw_ + bx];
 }
 

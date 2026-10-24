@@ -25,10 +25,13 @@ struct VaultPlan {
 };
 
 constexpr int kVaultWall = 3;
+/// Doorway and passage height: tall enough for the navigation grid's 3-block body test
+/// at any alignment, so the bot (and the reachability check) agree with the player.
+constexpr int kVaultDoorHeight = 16;
 
 /// Outer dimensions of a vault kind.
 void vaultSize(VaultKind kind, int& w, int& h);
-/// Bottom row of the doorway (a cell row inside the room); the doorway is 13 cells tall.
+/// Bottom row of the doorway (a cell row inside the room); see kVaultDoorHeight.
 int vaultDoorRow(const VaultPlan& plan);
 /// Picks a vault kind that suits the biome, avoiding kinds set in `usedMask`.
 VaultKind pickVaultKind(BiomeId biome, Rng& rng, uint32_t usedMask);

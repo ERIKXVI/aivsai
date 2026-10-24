@@ -16,6 +16,13 @@ TEST_CASE("generated levels are traversable from entrance to exit") {
             if (!ok) std::printf("    blocked: seed %u level %d\n", seed, level);
             CHECK(ok);
             CHECK(!layout.spawns.empty());
+            // Vaults must be reachable through their doorways.
+            for (const Rectf& v : layout.vaults) {
+                const Vec2 inside{v.x + v.w * 0.5f, v.y + v.h - 10.0f};
+                const bool open = pathExists(*layout.world, layout.playerStart, inside);
+                if (!open) std::printf("    sealed vault: seed %u level %d at %.0f,%.0f\n", seed, level, v.x, v.y);
+                CHECK(open);
+            }
         }
     }
 }
