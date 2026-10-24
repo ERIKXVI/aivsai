@@ -42,6 +42,8 @@ executable; choose *More info -> Run anyway*.
 | Fullscreen | `F11` or `Alt+Enter` | |
 | Performance overlay | `F3` | |
 
+Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-pad / A / B).
+
 ### How the alchemy works
 
 - **Wands** cast their spell cards in order. *Modifiers* (Damage Plus, Homing, Fire Trail...)
