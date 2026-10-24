@@ -8,6 +8,7 @@
 #include <cstdio>
 
 #include "app/App.hpp"
+#include "app/InputLatch.hpp"
 #include "core/Profiler.hpp"
 #include "render/ColorUtil.hpp"
 #include "scenes/MenuScene.hpp"
@@ -320,10 +321,10 @@ void GameScene::drawInventory() {
     auto spellAt = [&](int wand, int slotIndex) -> SpellId& {
         return wand < 0 ? run_.inventory[static_cast<size_t>(slotIndex)] : run_.wands[static_cast<size_t>(wand)].slots[static_cast<size_t>(slotIndex)];
     };
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && hover.wand != -2 && hover.spell != SpellId::None) {
+    if (input::mousePressed(MOUSE_BUTTON_LEFT) && hover.wand != -2 && hover.spell != SpellId::None) {
         drag_ = {true, hover.spell, hover.wand, hover.slot};
     }
-    if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) && hover.wand >= 0 && hover.spell != SpellId::None) {
+    if (input::mousePressed(MOUSE_BUTTON_RIGHT) && hover.wand >= 0 && hover.spell != SpellId::None) {
         if (run_.addSpell(hover.spell)) spellAt(hover.wand, hover.slot) = SpellId::None;
         app_.audio().play(Sfx::UiClick, 0.6f);
     }
@@ -421,11 +422,11 @@ void GameScene::drawEndScreen(bool victory) {
     if (a < 1.0f) return;
     float bw = 120.0f * s, bh = 18.0f * s;
     y += 10.0f * s;
-    if (ui::button({sw * 0.5f - bw - 4.0f * s, y, bw, bh}, victory ? "New Work" : "Try Again") || IsKeyPressed(KEY_ENTER)) {
+    if (ui::button({sw * 0.5f - bw - 4.0f * s, y, bw, bh}, victory ? "New Work" : "Try Again") || input::keyPressed(KEY_ENTER)) {
         RunState fresh = newRun(static_cast<uint32_t>(GetRandomValue(1, 0x7FFFFFFF)), run_.difficulty, false, run_.loadout);
         app_.setScene(std::make_unique<GameScene>(app_, std::move(fresh)));
     }
-    if (ui::button({sw * 0.5f + 4.0f * s, y, bw, bh}, "Main Menu") || IsKeyPressed(KEY_ESCAPE)) {
+    if (ui::button({sw * 0.5f + 4.0f * s, y, bw, bh}, "Main Menu") || input::keyPressed(KEY_ESCAPE)) {
         app_.setScene(std::make_unique<MenuScene>(app_));
     }
 }

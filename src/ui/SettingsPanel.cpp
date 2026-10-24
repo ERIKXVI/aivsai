@@ -4,6 +4,7 @@
 #include <string>
 
 #include "app/App.hpp"
+#include "app/InputLatch.hpp"
 #include "ui/Ui.hpp"
 
 namespace pm {
@@ -65,7 +66,7 @@ bool drawSettingsPanel(App& app) {
     if (changed) app.applySettings();
 
     bool back = ui::button({x, panelR.y + panelR.height - bh - 8.0f * s, bw, bh}, "Back");
-    if (back || IsKeyPressed(KEY_ESCAPE)) {
+    if (back || input::keyPressed(KEY_ESCAPE)) {
         saveSettings(st);
         return true;
     }

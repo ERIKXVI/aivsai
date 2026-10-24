@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "app/App.hpp"
+#include "app/InputLatch.hpp"
 #include "audio/Audio.hpp"
 #include "raylib.h"
 #include "scenes/MenuScene.hpp"
@@ -159,11 +160,11 @@ void SandboxScene::frame(float dt) {
     (void)dt;
     float wheel = GetMouseWheelMove();
     if (wheel != 0.0f) brushRadius_ = clamp(brushRadius_ + (wheel > 0 ? 1 : -1), 1, kMaxBrush);
-    if (IsKeyPressed(KEY_LEFT_BRACKET)) brushRadius_ = std::max(1, brushRadius_ - 1);
-    if (IsKeyPressed(KEY_RIGHT_BRACKET)) brushRadius_ = std::min(kMaxBrush, brushRadius_ + 1);
-    if (IsKeyPressed(KEY_P) || IsKeyPressed(KEY_SPACE)) paused_ = !paused_;
-    if (IsKeyPressed(KEY_X) || IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE)) explodeQueued_ = true;
-    if (IsKeyPressed(KEY_ESCAPE)) app_.setScene(std::make_unique<MenuScene>(app_));
+    if (input::keyPressed(KEY_LEFT_BRACKET)) brushRadius_ = std::max(1, brushRadius_ - 1);
+    if (input::keyPressed(KEY_RIGHT_BRACKET)) brushRadius_ = std::min(kMaxBrush, brushRadius_ + 1);
+    if (input::keyPressed(KEY_P) || input::keyPressed(KEY_SPACE)) paused_ = !paused_;
+    if (input::keyPressed(KEY_X) || input::mousePressed(MOUSE_BUTTON_MIDDLE)) explodeQueued_ = true;
+    if (input::keyPressed(KEY_ESCAPE)) app_.setScene(std::make_unique<MenuScene>(app_));
 }
 
 Rectangle SandboxScene::drawPalette() {
@@ -193,7 +194,7 @@ Rectangle SandboxScene::drawPalette() {
             DrawRectangleLinesEx(r, selected ? 2.0f * s * 0.5f + 1.0f : 1.0f, selected ? WHITE : Color{0, 0, 0, 160});
             if (ui::hovered(r)) {
                 hovered = m;
-                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) brush_ = m;
+                if (input::mousePressed(MOUSE_BUTTON_LEFT)) brush_ = m;
             }
             if (++col == kColumns) {
                 col = 0;

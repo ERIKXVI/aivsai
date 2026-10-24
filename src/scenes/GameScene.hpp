@@ -78,7 +78,7 @@ private:
     bool usingGamepad_ = false;  ///< last input came from a gamepad (for button prompts)
 
     // Input pressed between ticks is latched so nothing is lost at high frame rates.
-    bool latchJump_ = false, latchInteract_ = false, latchDrink_ = false;
+    bool latchJump_ = false, latchInteract_ = false, latchDrink_ = false, latchCast_ = false;
     int latchWand_ = -1, latchCycle_ = 0;
 
     // Inventory drag & drop.

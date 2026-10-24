@@ -4,6 +4,7 @@
 #include <string>
 
 #include "app/App.hpp"
+#include "app/InputLatch.hpp"
 #include "game/Enemy.hpp"
 #include "game/Perks.hpp"
 #include "game/Spells.hpp"
@@ -72,7 +73,7 @@ bool GrimoirePanel::draw(App& app) {
                                     p.totalGold);
     ui::text(footer, sw * 0.5f, r.y + r.height - 44.0f * s, small, ui::color::kTextDim, ui::Align::Center);
     return ui::button({sw * 0.5f - 50.0f * s, r.y + r.height - 24.0f * s, 100.0f * s, 16.0f * s}, "Back") ||
-           IsKeyPressed(KEY_ESCAPE);
+           input::keyPressed(KEY_ESCAPE);
 }
 
 void GrimoirePanel::drawSpells(App& app, float x, float y) {

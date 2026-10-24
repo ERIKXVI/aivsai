@@ -64,6 +64,8 @@ list(REMOVE_ITEM PM_SOURCES "${CMAKE_SOURCE_DIR}/src/main.cpp")
 add_library(pm_game STATIC ${PM_SOURCES} "${PM_EMBED_CPP}")
 target_include_directories(pm_game PUBLIC "${CMAKE_SOURCE_DIR}/src" "${PM_GEN_DIR}")
 target_link_libraries(pm_game PUBLIC raylib)
+# GLFW's header (raylib bundles GLFW) for the click latch hook.
+target_include_directories(pm_game PRIVATE "${raylib_SOURCE_DIR}/src/external/glfw/include")
 target_compile_definitions(pm_game PUBLIC
     PM_VERSION_STRING="${PROJECT_VERSION}"
     $<$<PLATFORM_ID:Windows>:NOMINMAX WIN32_LEAN_AND_MEAN>)

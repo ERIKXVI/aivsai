@@ -5,6 +5,7 @@
 #include <cstdio>
 
 #include "app/App.hpp"
+#include "app/InputLatch.hpp"
 #include "core/Profiler.hpp"
 #include "core/Timing.hpp"
 #include "gen/LevelGenerator.hpp"
@@ -101,13 +102,14 @@ void GameScene::advanceStage() {
 }
 
 void GameScene::latchInput() {
-    if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP) ||
+    if (input::keyPressed(KEY_SPACE) || input::keyPressed(KEY_W) || input::keyPressed(KEY_UP) ||
         IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN))
         latchJump_ = true;
-    if (IsKeyPressed(KEY_E) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT)) latchInteract_ = true;
-    if (IsKeyPressed(KEY_F) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT)) latchDrink_ = true;
+    if (input::keyPressed(KEY_E) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT)) latchInteract_ = true;
+    if (input::keyPressed(KEY_F) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT)) latchDrink_ = true;
+    if (input::mousePressed(MOUSE_BUTTON_LEFT)) latchCast_ = true; // a tap shorter than a frame still casts
     for (int i = 0; i < RunState::kMaxWands; ++i)
-        if (IsKeyPressed(KEY_ONE + i)) latchWand_ = i;
+        if (input::keyPressed(KEY_ONE + i)) latchWand_ = i;
     float wheel = GetMouseWheelMove();
     if (wheel > 0.0f) latchCycle_ -= 1;
     if (wheel < 0.0f) latchCycle_ += 1;
@@ -116,7 +118,7 @@ void GameScene::latchInput() {
 
     // Button prompts follow whichever device was used last.
     const Vector2 mouseDelta = GetMouseDelta();
-    if (GetKeyPressed() != 0 || IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || mouseDelta.x * mouseDelta.x + mouseDelta.y * mouseDelta.y > 4.0f) {
+    if (input::anyKeyPressed() || input::mousePressed(MOUSE_BUTTON_LEFT) || mouseDelta.x * mouseDelta.x + mouseDelta.y * mouseDelta.y > 4.0f) {
         usingGamepad_ = false;
     } else if (IsGamepadAvailable(0)) {
         const float lx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X), rx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X),
@@ -142,7 +144,7 @@ PlayerInput GameScene::gatherInput() {
                   (pad && IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN));
     in.downHeld = IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN);
     in.aim = scene_.screenToWorld(GetMousePosition());
-    in.castHeld = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+    in.castHeld = IsMouseButtonDown(MOUSE_BUTTON_LEFT) || latchCast_;
     in.sprayHeld = IsMouseButtonDown(MOUSE_BUTTON_RIGHT);
     in.absorbHeld = IsKeyDown(KEY_Q);
     if (pad) {
@@ -156,7 +158,7 @@ PlayerInput GameScene::gatherInput() {
     in.drinkPressed = latchDrink_;
     in.selectWand = latchWand_;
     in.cycleWand = latchCycle_;
-    latchJump_ = latchInteract_ = latchDrink_ = false;
+    latchJump_ = latchInteract_ = latchDrink_ = latchCast_ = false;
     latchWand_ = -1;
     latchCycle_ = 0;
     return in;
@@ -243,31 +245,31 @@ void GameScene::frame(float dt) {
     }
     titleTimer_ = std::max(0.0f, titleTimer_ - dt);
 
-    if (IsKeyPressed(KEY_F3)) debugOverlay_ = !debugOverlay_;
+    if (input::keyPressed(KEY_F3)) debugOverlay_ = !debugOverlay_;
     // Alt-tabbing away pauses the run.
     if (mode_ == Mode::Playing && !IsWindowFocused() && !app_.options().automated()) mode_ = Mode::Paused;
     if (mode_ == Mode::Playing) {
         latchInput();
-        if (IsKeyPressed(KEY_ESCAPE) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT)) mode_ = Mode::Paused;
-        else if (IsKeyPressed(KEY_TAB) || IsKeyPressed(KEY_I) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT))
+        if (input::keyPressed(KEY_ESCAPE) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT)) mode_ = Mode::Paused;
+        else if (input::keyPressed(KEY_TAB) || input::keyPressed(KEY_I) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT))
             mode_ = Mode::Inventory;
-        else if (!level_->isSanctum() && (IsKeyPressed(KEY_M) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN)))
+        else if (!level_->isSanctum() && (input::keyPressed(KEY_M) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN)))
             mode_ = Mode::Map;
     } else if (mode_ == Mode::Map) {
-        if (IsKeyPressed(KEY_M) || IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_TAB) ||
+        if (input::keyPressed(KEY_M) || input::keyPressed(KEY_ESCAPE) || input::keyPressed(KEY_TAB) ||
             IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT))
             mode_ = Mode::Playing;
     } else if (mode_ == Mode::Inventory) {
-        if (IsKeyPressed(KEY_TAB) || IsKeyPressed(KEY_I) || IsKeyPressed(KEY_ESCAPE) ||
+        if (input::keyPressed(KEY_TAB) || input::keyPressed(KEY_I) || input::keyPressed(KEY_ESCAPE) ||
             IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT)) {
             mode_ = Mode::Playing;
             drag_ = Drag{};
             for (Wand& w : run_.wands) w.resetDeck();
         }
     } else if (mode_ == Mode::Paused) {
-        if (IsKeyPressed(KEY_ESCAPE)) mode_ = Mode::Playing;
+        if (input::keyPressed(KEY_ESCAPE)) mode_ = Mode::Playing;
     } else if (mode_ == Mode::Settings) {
-        if (IsKeyPressed(KEY_ESCAPE)) mode_ = Mode::Paused;
+        if (input::keyPressed(KEY_ESCAPE)) mode_ = Mode::Paused;
     } else if (mode_ == Mode::Dead) {
         endTimer_ += dt;
     }

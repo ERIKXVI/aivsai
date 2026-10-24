@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdlib>
 
+#include "app/InputLatch.hpp"
 #include "app/Platform.hpp"
 #include "audio/Audio.hpp"
 #include "game/Run.hpp"
@@ -54,6 +55,7 @@ App::App(const LaunchOptions& options) : options_(options) {
         std::exit(1);
     }
     SetWindowMinSize(960, 540);
+    input::installLatch();
     SetExitKey(KEY_NULL);
 
     if (!options_.windowed && options_.width == 0) {
@@ -149,7 +151,8 @@ int App::run() {
             continue;
         }
 
-        if (IsKeyPressed(KEY_F11) || ((IsKeyDown(KEY_LEFT_ALT) || IsKeyDown(KEY_RIGHT_ALT)) && IsKeyPressed(KEY_ENTER))) {
+        input::beginFrame();
+        if (input::keyPressed(KEY_F11) || ((IsKeyDown(KEY_LEFT_ALT) || IsKeyDown(KEY_RIGHT_ALT)) && input::keyPressed(KEY_ENTER))) {
             toggleFullscreen();
         }
         if (GetScreenWidth() != screenW_ || GetScreenHeight() != screenH_) {

@@ -5,6 +5,7 @@
 #include <sstream>
 #include <vector>
 
+#include "app/InputLatch.hpp"
 #include "audio/Audio.hpp"
 
 namespace pm::ui {
@@ -115,7 +116,7 @@ bool button(Rectangle r, const std::string& label, bool enabled, bool focused) {
     int size = fontSize(g_scale);
     text(label, r.x + r.width * 0.5f, r.y + (r.height - static_cast<float>(size)) * 0.5f, size,
          enabled ? (hover ? WHITE : color::kText) : color::kTextDim, Align::Center);
-    bool clicked = enabled && hovered(r) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    bool clicked = enabled && hovered(r) && input::mousePressed(MOUSE_BUTTON_LEFT);
     if (clicked && g_audio) g_audio->play(Sfx::UiClick, 0.7f);
     (void)g_lastHover;
     return clicked;

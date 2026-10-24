@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "app/App.hpp"
+#include "app/InputLatch.hpp"
 #include "core/Timing.hpp"
 #include "game/Run.hpp"
 #include "scenes/GameScene.hpp"
@@ -289,7 +290,7 @@ void MenuScene::drawLoadouts() {
                     ix -= icon + 3.0f * s;
                 }
             }
-            if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            if (hover && input::mousePressed(MOUSE_BUTTON_LEFT)) {
                 if (isSelected) {
                     startRun(false, id);
                     return;
@@ -304,7 +305,7 @@ void MenuScene::drawLoadouts() {
         y += rowH + rowGap;
     }
     // Arrow keys move the selection between unlocked paths.
-    const int dir = (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S) ? 1 : 0) - (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W) ? 1 : 0);
+    const int dir = (input::keyPressed(KEY_DOWN) || input::keyPressed(KEY_S) ? 1 : 0) - (input::keyPressed(KEY_UP) || input::keyPressed(KEY_W) ? 1 : 0);
     if (dir != 0) {
         for (int step = 1; step < kLoadoutCount; ++step) {
             const int next = (static_cast<int>(selected) + dir * step + kLoadoutCount) % kLoadoutCount;
@@ -317,11 +318,11 @@ void MenuScene::drawLoadouts() {
     }
 
     const float bw = 100.0f * s, bh = 16.0f * s, by = r.y + r.height - 24.0f * s;
-    if (ui::button({sw * 0.5f - bw - 4.0f * s, by, bw, bh}, "Begin") || IsKeyPressed(KEY_ENTER)) {
+    if (ui::button({sw * 0.5f - bw - 4.0f * s, by, bw, bh}, "Begin") || input::keyPressed(KEY_ENTER)) {
         startRun(false, selected);
         return;
     }
-    if (ui::button({sw * 0.5f + 4.0f * s, by, bw, bh}, "Back") || IsKeyPressed(KEY_ESCAPE)) panel_ = Panel::Main;
+    if (ui::button({sw * 0.5f + 4.0f * s, by, bw, bh}, "Back") || input::keyPressed(KEY_ESCAPE)) panel_ = Panel::Main;
     if (!tipTitle.empty()) ui::tooltip(tipTitle, tipBody, ui::color::kAccent);
 }
 
@@ -374,7 +375,7 @@ void MenuScene::drawHelp() {
         y += static_cast<float>(size) + 1.0f * s;
         y += ui::textWrapped(tip.action, r.x + 12.0f * s, y, r.width - 24.0f * s, small, ui::color::kTextDim) + 4.0f * s;
     }
-    if (ui::button({sw * 0.5f - 50.0f * s, r.y + r.height - 24.0f * s, 100.0f * s, 16.0f * s}, "Back") || IsKeyPressed(KEY_ESCAPE))
+    if (ui::button({sw * 0.5f - 50.0f * s, r.y + r.height - 24.0f * s, 100.0f * s, 16.0f * s}, "Back") || input::keyPressed(KEY_ESCAPE))
         panel_ = Panel::Main;
 }
 
