@@ -14,6 +14,7 @@ namespace pm {
 namespace {
 
 constexpr int kBorder = 4;
+constexpr int kSkyRows = 200; ///< open sky added above the first stage
 
 /// Picks from a small weighted table; entries with zero weight are skipped.
 template <size_t N>
@@ -33,7 +34,10 @@ class Generator {
 public:
     Generator(BiomeId biome, int levelIndex, uint32_t seed, const GenOptions& opt)
         : w_(opt.width), h_(opt.height), opt_(opt), biome_(biome), b_(biomeDef(biome)), level_(levelIndex),
-          seed_(seed), rng_(seed) {}
+          seed_(seed), rng_(seed), surface_(levelIndex == 0) {
+        // The first stage begins outdoors on the mountainside, so it gets extra sky above.
+        if (surface_) h_ += kSkyRows;
+    }
 
     LevelLayout run(ThreadPool& pool) {
         open_.assign(static_cast<size_t>(w_) * h_, 0);
@@ -51,6 +55,7 @@ public:
         World& world = *out.world;
         paintMaterials(world, pool);
         placeVegetation(world);
+        if (surface_) placeTrees(world);
         placeStructures(world);
         placePools(world);
         placePowders(world);
@@ -68,6 +73,10 @@ public:
         out.playerStart = start_;
         out.exitPos = exit_;
         out.mainPath = path_;
+        if (surface_) {
+            out.skyline = skyline_;
+            out.surfaceY = surfaceY_;
+        }
         collectSpawns(world, out);
         return out;
     }
@@ -107,15 +116,45 @@ private:
         }
     }
 
+    void planSkyline() {
+        surfaceY_ = kSkyRows - 40;
+        skyline_.assign(static_cast<size_t>(w_), surfaceY_);
+        for (int x = 0; x < w_; ++x) {
+            float hills = noise::fbm(static_cast<float>(x) * 0.006f, 3.7f, seed_ ^ 0x51u, 3) * 34.0f;
+            float bumps = noise::perlin(static_cast<float>(x) * 0.05f, 1.1f, seed_ ^ 0x52u) * 4.0f;
+            skyline_[static_cast<size_t>(x)] = surfaceY_ + static_cast<int>(hills + bumps);
+        }
+    }
+
+    void flattenSkyline(int cx, int halfWidth, int height) {
+        for (int x = std::max(0, cx - halfWidth - 20); x <= std::min(w_ - 1, cx + halfWidth + 20); ++x) {
+            int d = std::abs(x - cx);
+            float t = d <= halfWidth ? 1.0f : 1.0f - static_cast<float>(d - halfWidth) / 20.0f;
+            int& h = skyline_[static_cast<size_t>(x)];
+            h = static_cast<int>(lerp(static_cast<float>(h), static_cast<float>(height), t));
+        }
+    }
+
     void planPath() {
         start_ = {static_cast<float>(w_) * rng_.range(0.3f, 0.7f), 56.0f};
+        if (surface_) {
+            planSkyline();
+            // The alchemist arrives on the surface and walks to a cave mouth nearby.
+            const int entranceX = static_cast<int>(static_cast<float>(w_) * rng_.range(0.4f, 0.6f));
+            const int dir = rng_.chance(0.5f) ? 1 : -1;
+            const int startX = entranceX - dir * 115;
+            const int ground = skyline_[static_cast<size_t>(startX)];
+            flattenSkyline(startX, 22, ground);
+            start_ = {static_cast<float>(startX), static_cast<float>(ground - 1)};
+            path_.push_back({static_cast<float>(entranceX), static_cast<float>(skyline_[static_cast<size_t>(entranceX)])});
+        }
         exit_ = {static_cast<float>(w_) * rng_.range(0.2f, 0.8f), static_cast<float>(h_ - 64)};
         const int legs = 6 + std::min(level_, 2);
-        path_.push_back(start_);
+        if (path_.empty()) path_.push_back(start_);
         bool left = rng_.chance(0.5f);
         for (int i = 1; i < legs; ++i) {
             float t = static_cast<float>(i) / static_cast<float>(legs);
-            float y = lerp(start_.y, exit_.y, t) + rng_.range(-25.0f, 25.0f);
+            float y = lerp(path_.front().y, exit_.y, t) + rng_.range(-25.0f, 25.0f);
             float x = left ? rng_.range(0.12f, 0.42f) : rng_.range(0.58f, 0.88f);
             left = !left;
             path_.push_back({x * static_cast<float>(w_), y});
@@ -147,7 +186,7 @@ private:
                 auto at = [&](int gx, int gy) { return coarse[static_cast<size_t>(gy) * gw + gx]; };
                 float v = lerp(lerp(at(ix, iy), at(ix + 1, iy), tx), lerp(at(ix, iy + 1), at(ix + 1, iy + 1), tx), ty);
                 v += noise::perlin(x * 0.06f, y * 0.06f, s ^ 0x1234u) * 0.06f;
-                if (v > threshold) open_[idx(x, y)] = 1;
+                if (v > threshold || aboveGround(x, y)) open_[idx(x, y)] = 1;
             }
         });
     }
@@ -210,16 +249,22 @@ private:
         open_.swap(next);
     }
 
+    bool aboveGround(int x, int y) const { return surface_ && y < skyline_[static_cast<size_t>(x)]; }
+
     void sealBorders() {
         for (int y = 0; y < h_; ++y) {
             for (int x = 0; x < w_; ++x) {
+                if (aboveGround(x, y)) {
+                    open_[idx(x, y)] = 1;
+                    continue;
+                }
                 if (x < kBorder || y < kBorder || x >= w_ - kBorder || y >= h_ - kBorder) open_[idx(x, y)] = 0;
             }
         }
     }
 
     void carvePockets() {
-        carveCircle(start_.x, start_.y, 20.0f, 2.0f);
+        if (!surface_) carveCircle(start_.x, start_.y, 20.0f, 2.0f);
         carveCircle(exit_.x, exit_.y - 10.0f, 30.0f, 2.0f);
         // Reach the start pocket from above the first path segment's top.
         sealBorders();
@@ -320,6 +365,49 @@ private:
                     break;
                 }
             }
+        }
+    }
+
+    void placeTrees(World& world) {
+        const float entranceX = path_.front().x;
+        for (int x = 20; x < w_ - 20; x += rng_.rangeInt(26, 60)) {
+            if (std::fabs(static_cast<float>(x) - entranceX) < 30.0f || std::fabs(static_cast<float>(x) - start_.x) < 14.0f) continue;
+            const int ground = skyline_[static_cast<size_t>(x)];
+            if (!isFloor(world, x, ground - 1)) continue;
+            const int height = rng_.rangeInt(16, 34);
+            const int top = ground - height;
+            // Trunk, slightly leaning, with a couple of branches.
+            float lean = rng_.range(-0.15f, 0.15f);
+            for (int y = ground - 1; y >= top; --y) {
+                int tx = x + static_cast<int>(lean * static_cast<float>(ground - y));
+                world.placeIfEmpty(tx, y, mat::Wood);
+                if (y > top + height / 2) world.placeIfEmpty(tx + 1, y, mat::Wood);
+            }
+            for (int b = 0; b < 2; ++b) {
+                int by = top + rng_.rangeInt(3, height / 2);
+                int dir = rng_.sign();
+                int bx = x + static_cast<int>(lean * static_cast<float>(ground - by));
+                for (int k = 1; k < rng_.rangeInt(4, 8); ++k) world.placeIfEmpty(bx + dir * k, by - k / 2, mat::Wood);
+            }
+            // Canopy of overlapping leaf blobs.
+            const int topX = x + static_cast<int>(lean * static_cast<float>(height));
+            for (int blob = 0; blob < 4; ++blob) {
+                int cx = topX + rng_.rangeInt(-7, 7), cy = top + rng_.rangeInt(-4, 5);
+                int r = rng_.rangeInt(5, 9);
+                for (int dy = -r; dy <= r; ++dy)
+                    for (int dx = -r; dx <= r; ++dx)
+                        if (dx * dx + dy * dy * 2 <= r * r && hash2(cx + dx, cy + dy, seed_) % 7u != 0u) {
+                            Cell c = makeCell(mat::Leaves, hash2(cx + dx, cy + dy, seed_ ^ 3u));
+                            if (world.inBounds(cx + dx, cy + dy) && world.at(cx + dx, cy + dy).mat == mat::Empty) world.at(cx + dx, cy + dy) = c;
+                        }
+            }
+        }
+        // Grass tufts along the surface.
+        for (int x = 0; x < w_; ++x) {
+            const int ground = skyline_[static_cast<size_t>(x)];
+            if (!isFloor(world, x, ground - 1) || hash2(x, 0, seed_) % 3u == 0u) continue;
+            int blades = 1 + static_cast<int>(hash2(x, 1, seed_) % 3u);
+            for (int k = 1; k <= blades; ++k) world.placeIfEmpty(x, ground - k, mat::Vine);
         }
     }
 
@@ -456,11 +544,20 @@ private:
             for (int y = ey - 40; y < ey; ++y)
                 if (world.inBounds(x, y) && phaseOf(world.at(x, y).mat) != Phase::Empty) world.clear(x, y);
         }
+        exit_.y = static_cast<float>(ey - 1);
+        if (surface_) {
+            // Solid ground under the arrival point, whatever the caves below did.
+            const int gx = static_cast<int>(start_.x), gy = static_cast<int>(start_.y) + 1;
+            for (int x = gx - 16; x <= gx + 16; ++x)
+                for (int y = gy; y < gy + 8; ++y)
+                    if (world.inBounds(x, y) && phaseOf(world.at(x, y).mat) == Phase::Empty)
+                        world.at(x, y) = makeCell(y == gy ? mat::Moss : mat::Soil, hash2(x, y, seed_));
+            return;
+        }
         int sy = static_cast<int>(start_.y) + 12;
         for (int x = static_cast<int>(start_.x) - 12; x <= static_cast<int>(start_.x) + 12; ++x) {
             for (int y = sy; y < sy + 4; ++y) world.place(x, y, b_.hardRock);
         }
-        exit_.y = static_cast<float>(ey - 1);
         start_.y = static_cast<float>(sy - 1);
     }
 
@@ -518,6 +615,8 @@ private:
             int x = rng_.rangeInt(12, w_ - 12), y = rng_.rangeInt(40, h_ - 20);
             Vec2 p{static_cast<float>(x), static_cast<float>(y)};
             if (!farFromEnds(p, 110.0f)) continue;
+            // Nothing lurks under the open sky; the first steps outside are peaceful.
+            if (surface_ && y < skyline_[static_cast<size_t>(x)] + 40) continue;
             if (ground < groundTarget && isFloor(world, x, y) && spaceAbove(world, x, y, 14, 4)) {
                 out.spawns.push_back({SpawnKind::GroundEnemy, p, difficultyAt(p.y)});
                 ++ground;
@@ -579,6 +678,9 @@ private:
     std::vector<Vec2> chambers_;
     std::vector<Vec2> pockets_;
     Vec2 start_, exit_;
+    bool surface_ = false;
+    int surfaceY_ = 0;
+    std::vector<int> skyline_;
 };
 
 } // namespace

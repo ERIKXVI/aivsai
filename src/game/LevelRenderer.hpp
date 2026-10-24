@@ -4,6 +4,7 @@
 
 #include "core/Math.hpp"
 #include "render/Background.hpp"
+#include "render/Sky.hpp"
 
 namespace pm {
 
@@ -27,6 +28,7 @@ private:
     const SpriteBank& sprites_;
     ThreadPool& pool_;
     Background background_;
+    Sky sky_;
 };
 
 } // namespace pm

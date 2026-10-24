@@ -32,6 +32,7 @@ struct LevelLayout {
     std::vector<Vec2> mainPath;       ///< polyline of the guaranteed route
     std::vector<SpawnPoint> spawns;
     int surfaceY = -1;                ///< > 0 when the level opens onto the sky
+    std::vector<int> skyline;         ///< per column: first ground row (surface levels only)
 };
 
 struct GenOptions {

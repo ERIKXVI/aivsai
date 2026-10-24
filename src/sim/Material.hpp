@@ -18,7 +18,7 @@ enum : MatId {
     Empty = 0,
     // Static solids
     Bedrock, Rock, Soil, Wood, Brick, Metal, Ice, Obsidian, Basalt, Coal, GoldOre, Crystal,
-    Glass, Moss, Fungus, SaltRock, Bone, Flesh, Sulphite, Rune, Vine, GlowVine,
+    Glass, Moss, Fungus, SaltRock, Bone, Flesh, Sulphite, Rune, Vine, GlowVine, Leaves,
     // Powders
     Sand, Gravel, Ash, Snow, Gunpowder, GoldDust, Salt, Sulphur, Spore,
     // Liquids

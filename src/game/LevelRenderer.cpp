@@ -53,6 +53,8 @@ void LevelRenderer::render(const Level& level, Vec2 camera, float alpha, float t
     scene_.beginAlbedo();
     ClearBackground(BLACK);
     background_.draw(v.originX, v.originY, v.texW, v.texH);
+    const LevelLayout& layout = level.layout();
+    sky_.draw(layout.skyline, layout.surfaceY, v.originX, v.originY, v.texW, v.texH, time, false);
     scene_.drawWorldAlbedo();
     drawProps(level, time, false);
     for (const auto& e : level.enemies())
@@ -62,6 +64,10 @@ void LevelRenderer::render(const Level& level, Vec2 camera, float alpha, float t
 
     // Emission.
     scene_.beginEmission();
+    if (!layout.skyline.empty()) {
+        gpu::BlendScope blend(gpu::Blend::AddColorKeepAlpha);
+        sky_.draw(layout.skyline, layout.surfaceY, v.originX, v.originY, v.texW, v.texH, time, true);
+    }
     drawProps(level, time, true);
     for (const auto& e : level.enemies())
         if (e->alive()) e->drawEmission(ctx);
@@ -79,6 +85,13 @@ void LevelRenderer::render(const Level& level, Vec2 camera, float alpha, float t
     lp.tintG = b.tint[1];
     lp.tintB = b.tint[2];
     lp.saturation = b.saturation;
+    if (layout.surfaceY > 0) {
+        // Moonlight when the view is near the surface.
+        const float boost = clamp((static_cast<float>(layout.surfaceY) + 90.0f - camera.y) / 150.0f, 0.0f, 1.0f);
+        lp.ambientR += boost * 0.14f;
+        lp.ambientG += boost * 0.17f;
+        lp.ambientB += boost * 0.30f;
+    }
     lp.damageFlash = level.playerHurtPulse() * 0.7f;
     const Player& pl = level.player();
     if (pl.alive() && pl.hp < pl.maxHp * 0.25f) lp.damageFlash = std::max(lp.damageFlash, 0.25f + 0.2f * std::sin(time * 6.0f));

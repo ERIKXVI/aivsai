@@ -138,6 +138,8 @@ void defineMaterials() {
         .glow(0x7a5cff, 40).flags(kAcidProof);
     Define(Vine, "Vine", Phase::Solid).hardness(5).colors(0x1f4a1c, 0x3f7a2c).opacity(60)
         .flammable(90, 30, Empty).flags(kOrganic | kDiggable | kNoCollide);
+    Define(Leaves, "Leaves", Phase::Solid).hardness(5).colors(0x1c3a22, 0x4a7a3a).opacity(110)
+        .flammable(120, 25, Empty).flags(kOrganic | kDiggable | kNoCollide);
     Define(GlowVine, "Glowvine", Phase::Solid).hardness(5).colors(0x4a2a8a, 0x9a70f0).opacity(40)
         .glow(0x8a60ff, 50).flammable(70, 30, Empty).flags(kOrganic | kDiggable | kNoCollide);
 
