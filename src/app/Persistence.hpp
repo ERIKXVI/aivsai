@@ -2,6 +2,8 @@
 // Player settings and the persistent profile (statistics across runs), stored as simple
 // key=value text files in the per-user data directory.
 
+#include <array>
+#include <cstdint>
 #include <string>
 
 namespace pm {
@@ -14,6 +16,7 @@ struct Settings {
     bool fullscreen = false;
     bool showFps = false;
     int difficulty = 1; ///< 0 Apprentice, 1 Adept, 2 Archmage
+    int loadout = 0;    ///< last chosen starting loadout
 };
 
 struct Profile {
@@ -25,6 +28,11 @@ struct Profile {
     int totalGold = 0;
     int lastDailySeed = 0;    ///< seed of the last daily rite attempted
     int bestDailyDepth = 0;
+    int chestsOpened = 0;
+    // Grimoire: what the alchemist has discovered across all runs.
+    uint64_t spellsSeen = 0;          ///< bit i set = SpellId i discovered
+    uint32_t perksSeen = 0;           ///< bit i set = PerkId i taken
+    std::array<int, 16> creatureKills{}; ///< indexed by EnemyType
 };
 
 /// Directory for settings and profile (created on demand). Falls back to the working

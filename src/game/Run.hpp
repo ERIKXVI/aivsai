@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "game/Loadouts.hpp"
 #include "game/Perks.hpp"
 #include "game/Spells.hpp"
 #include "game/Wand.hpp"
@@ -39,6 +40,7 @@ struct RunState {
     uint32_t seed = 0;
     bool daily = false;
     Difficulty difficulty = Difficulty::Adept;
+    LoadoutId loadout = LoadoutId::Apprentice;
     int levelIndex = 0;      ///< 0..4 = biomes, then victory
     bool inSanctum = false;
 
@@ -52,6 +54,14 @@ struct RunState {
     Flask flask;
     std::array<uint8_t, kPerkCount> perks{};
     RunStats stats;
+    uint64_t spellsSeen = 0;            ///< discoveries this run, merged into the profile
+    std::array<int, 16> killsByType{};  ///< indexed by EnemyType
+
+    void noteSpell(SpellId s) { spellsSeen |= 1ull << static_cast<unsigned>(s); }
+    void noteWand(const Wand& w) {
+        for (SpellId s : w.slots)
+            if (s != SpellId::None) noteSpell(s);
+    }
 
     bool hasPerk(PerkId p) const { return perks[static_cast<size_t>(p)] > 0; }
     int perkCount(PerkId p) const { return perks[static_cast<size_t>(p)]; }
@@ -66,6 +76,6 @@ struct RunState {
     float castSpeedMul() const;
 };
 
-RunState newRun(uint32_t seed, Difficulty difficulty, bool daily);
+RunState newRun(uint32_t seed, Difficulty difficulty, bool daily, LoadoutId loadout = LoadoutId::Apprentice);
 
 } // namespace pm

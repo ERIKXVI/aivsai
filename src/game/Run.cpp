@@ -5,6 +5,7 @@
 namespace pm {
 
 bool RunState::addSpell(SpellId s) {
+    noteSpell(s);
     for (SpellId& slot : inventory) {
         if (slot == SpellId::None) {
             slot = s;
@@ -56,7 +57,7 @@ float RunState::castSpeedMul() const {
     return std::pow(0.8f, static_cast<float>(perkCount(PerkId::PerpetualMotion)));
 }
 
-RunState newRun(uint32_t seed, Difficulty difficulty, bool daily) {
+RunState newRun(uint32_t seed, Difficulty difficulty, bool daily, LoadoutId loadout) {
     RunState r;
     r.seed = seed;
     r.daily = daily;
@@ -67,12 +68,14 @@ RunState newRun(uint32_t seed, Difficulty difficulty, bool daily) {
     r.addSpell(SpellId::BouncingBurst);
     r.flask.mat = mat::Water;
     r.flask.amount = 500;
+    equipLoadout(r, loadout);
     if (difficulty == Difficulty::Apprentice) {
-        r.maxHp = r.hp = 170.0f;
+        r.maxHp += 50.0f;
         r.addSpell(SpellId::DamageUp);
     } else if (difficulty == Difficulty::Archmage) {
-        r.maxHp = r.hp = 90.0f;
+        r.maxHp -= 30.0f;
     }
+    r.hp = r.maxHp;
     return r;
 }
 

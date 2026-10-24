@@ -4,6 +4,7 @@
 // the next card as a payload released on impact. All tuning lives in Spells.cpp.
 
 #include <cstdint>
+#include <string>
 
 #include "core/Math.hpp"
 #include "sim/Material.hpp"
@@ -106,6 +107,8 @@ struct SpellDef {
 };
 
 const SpellDef& spellDef(SpellId id);
+/// Description plus mana, damage and delay figures, for tooltips.
+std::string spellDetails(SpellId id);
 const char* damageTypeName(DamageType t);
 
 } // namespace pm

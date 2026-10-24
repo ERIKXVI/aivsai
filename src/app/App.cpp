@@ -17,7 +17,7 @@ namespace pm {
 namespace {
 
 /// Replaces the first wand's spells with a comma-separated list of spell names.
-void applyLoadout(RunState& run, const std::string& list) {
+void applyTestWand(RunState& run, const std::string& list) {
     Wand& w = run.wands[0];
     w.slots.clear();
     size_t start = 0;
@@ -112,9 +112,10 @@ int App::run() {
         setScene(std::make_unique<SandboxScene>(*this));
     } else if (options_.startRun) {
         uint32_t seed = options_.seed ? options_.seed : static_cast<uint32_t>(GetRandomValue(1, 0x7FFFFFFF));
-        RunState run = newRun(seed, static_cast<Difficulty>(clamp(settings_.difficulty, 0, 2)), false);
+        RunState run = newRun(seed, static_cast<Difficulty>(clamp(settings_.difficulty, 0, 2)), false,
+                              static_cast<LoadoutId>(clamp(options_.startLoadout, 0, kLoadoutCount - 1)));
         run.levelIndex = clamp(options_.startLevel, 0, 4);
-        if (!options_.loadout.empty()) applyLoadout(run, options_.loadout);
+        if (!options_.testWand.empty()) applyTestWand(run, options_.testWand);
         run.inSanctum = options_.startInSanctum;
         if (run.inSanctum) run.gold = 900;
         setScene(std::make_unique<GameScene>(*this, std::move(run)));

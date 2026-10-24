@@ -31,29 +31,6 @@ std::string formatTime(float seconds) {
     return buf;
 }
 
-std::string spellDetails(SpellId id) {
-    const SpellDef& d = spellDef(id);
-    std::string body = d.description;
-    char buf[160];
-    std::snprintf(buf, sizeof(buf), "  Mana %d.", static_cast<int>(d.mana));
-    body += buf;
-    if (d.type == SpellType::Projectile) {
-        if (d.proj.damage > 0.0f) {
-            std::snprintf(buf, sizeof(buf), " Damage %d (%s).", static_cast<int>(d.proj.damage), damageTypeName(d.proj.damageType));
-            body += buf;
-        }
-        if (d.proj.explosionRadius > 0.0f) {
-            std::snprintf(buf, sizeof(buf), " Blast %d.", static_cast<int>(d.proj.explosionDamage));
-            body += buf;
-        }
-    }
-    if (d.castDelay != 0.0f) {
-        std::snprintf(buf, sizeof(buf), " Delay %+.2fs.", d.castDelay);
-        body += buf;
-    }
-    return body;
-}
-
 } // namespace
 
 GameScene::GameScene(App& app, RunState run)
@@ -63,6 +40,8 @@ GameScene::GameScene(App& app, RunState run)
 
 GameScene::~GameScene() {
     if (pending_.valid()) pending_.wait();
+    // Closing the window mid-run still counts the run and keeps its discoveries.
+    recordProfile(false);
     if (app_.options().autoplay) {
         const Profiler& prof = Profiler::instance();
         for (int i = 0; i < static_cast<int>(ProfileSection::Count); ++i) {
@@ -697,7 +676,7 @@ void GameScene::drawEndScreen(bool victory) {
     float bw = 120.0f * s, bh = 18.0f * s;
     y += 10.0f * s;
     if (ui::button({sw * 0.5f - bw - 4.0f * s, y, bw, bh}, victory ? "New Work" : "Try Again") || IsKeyPressed(KEY_ENTER)) {
-        RunState fresh = newRun(static_cast<uint32_t>(GetRandomValue(1, 0x7FFFFFFF)), run_.difficulty, false);
+        RunState fresh = newRun(static_cast<uint32_t>(GetRandomValue(1, 0x7FFFFFFF)), run_.difficulty, false, run_.loadout);
         app_.setScene(std::make_unique<GameScene>(app_, std::move(fresh)));
     }
     if (ui::button({sw * 0.5f + 4.0f * s, y, bw, bh}, "Main Menu") || IsKeyPressed(KEY_ESCAPE)) {
@@ -735,7 +714,7 @@ void GameScene::drawLoading() {
 }
 
 void GameScene::recordProfile(bool victory) {
-    if (profileRecorded_) return;
+    if (profileRecorded_ || app_.options().automated()) return;
     profileRecorded_ = true;
     Profile& p = app_.profile();
     p.runs++;
@@ -747,6 +726,15 @@ void GameScene::recordProfile(bool victory) {
         if (p.bestTime <= 0.0f || run_.stats.time < p.bestTime) p.bestTime = run_.stats.time;
     }
     if (run_.daily) p.bestDailyDepth = std::max(p.bestDailyDepth, run_.levelIndex + 1);
+    p.chestsOpened += run_.stats.chestsOpened;
+    // Grimoire discoveries.
+    p.spellsSeen |= run_.spellsSeen;
+    for (const Wand& w : run_.wands)
+        for (SpellId s : w.slots)
+            if (s != SpellId::None) p.spellsSeen |= 1ull << static_cast<unsigned>(s);
+    for (size_t i = 0; i < run_.perks.size(); ++i)
+        if (run_.perks[i] > 0) p.perksSeen |= 1u << i;
+    for (size_t i = 0; i < p.creatureKills.size(); ++i) p.creatureKills[i] += run_.killsByType[i];
     saveProfile(p);
 }
 

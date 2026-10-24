@@ -22,7 +22,8 @@ pm::LaunchOptions parseArgs(int argc, char** argv) {
         else if (std::strcmp(a, "--god") == 0) o.god = true;
         else if (std::strcmp(a, "--seed") == 0) o.seed = static_cast<uint32_t>(std::strtoul(next(), nullptr, 10));
         else if (std::strcmp(a, "--level") == 0) o.startLevel = std::atoi(next());
-        else if (std::strcmp(a, "--loadout") == 0) o.loadout = next();
+        else if (std::strcmp(a, "--wand") == 0) o.testWand = next();
+        else if (std::strcmp(a, "--path") == 0) o.startLoadout = std::atoi(next());
         else if (std::strcmp(a, "--sanctum") == 0) o.startInSanctum = true;
         else if (std::strcmp(a, "--ui") == 0) o.openUi = next();
         else if (std::strcmp(a, "--capture") == 0) {

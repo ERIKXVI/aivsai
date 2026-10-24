@@ -374,6 +374,7 @@ void Level::onEnemyKilled(Enemy& e) {
     const EnemyDef& d = e.def();
     if (e.team == Team::Monster) {
         run_.stats.kills++;
+        run_.killsByType[static_cast<size_t>(e.type())]++;
         if (run_.hasPerk(PerkId::Vampirism) && player_->alive()) {
             player_->hp = std::min(player_->maxHp, player_->hp + 4.0f * run_.perkCount(PerkId::Vampirism));
             run_.hp = player_->hp;

@@ -50,8 +50,12 @@ executable; choose *More info -> Run anyway*.
   Vitae heals.
 - **Sanctums** between stages fully heal you and offer a shop and a choice of perks
   (22 perks, from *Salamander Skin* to a homunculus companion).
-- **Runs** are seeded. The *Daily Rite* gives everyone the same seed for the day, and three
-  difficulties tune the challenge. Statistics persist between runs.
+- **Runs** are seeded. The *Daily Rite* gives everyone the same seed and kit for the day, and
+  three difficulties tune the challenge.
+- **Paths:** milestones unlock four more starting loadouts - the *Pyromancer*, *Geomancer*,
+  *Stormcaller* and *Hermeticist* - each with its own wands, flask and gifts.
+- **The Grimoire** records every spell discovered, creature slain and perk taken across all
+  of your runs.
 - The **Alchemy Sandbox** on the title screen lets you paint every material freely.
 
 ## Building from source

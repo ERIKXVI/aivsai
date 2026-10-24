@@ -23,14 +23,18 @@ struct LaunchOptions {
     bool god = false;         ///< player cannot die (coverage tests)
     uint32_t seed = 0;        ///< 0 = random
     int startLevel = 0;       ///< stage to begin a --play run on (testing)
-    std::string loadout;      ///< comma-separated spell names for the first wand (testing)
+    int startLoadout = 0;     ///< starting loadout (LoadoutId) for a --play run
+    std::string testWand;     ///< comma-separated spell names for the first wand (testing)
     bool startInSanctum = false; ///< begin the --play run in a sanctum (testing)
-    std::string openUi;       ///< "inventory" or "pause": open that screen once loaded (testing)
+    std::string openUi;       ///< open a screen once loaded: inventory, pause, transmuter (in a run) or loadout, grimoire (menu)
     int captureFrame = -1;    ///< save a screenshot after this many frames, then quit (testing)
     std::string capturePath = "capture.png";
     int captureEvery = 0;     ///< also save numbered screenshots every N frames (testing)
     int quitAfter = -1;       ///< quit after this many frames (testing)
     int width = 0, height = 0;
+
+    /// Automated sessions (bot, captures) must not touch the player's profile.
+    bool automated() const { return autoplay || captureFrame >= 0 || captureEvery > 0 || quitAfter >= 0; }
 };
 
 class App {

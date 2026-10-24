@@ -311,6 +311,7 @@ void Level::interact() {
     case PickupType::Wand: {
         pay();
         Wand w = std::move(*p.wand);
+        run_.noteWand(w);
         p.dead = true;
         if (static_cast<int>(run_.wands.size()) < RunState::kMaxWands) {
             run_.wands.push_back(std::move(w));

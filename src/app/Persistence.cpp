@@ -1,5 +1,6 @@
 #include "app/Persistence.hpp"
 
+#include <array>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -58,6 +59,16 @@ std::string str(T v) {
     return ss.str();
 }
 
+template <size_t N>
+std::string joinInts(const std::array<int, N>& values) {
+    std::string out;
+    for (size_t i = 0; i < N; ++i) {
+        if (i) out += ',';
+        out += std::to_string(values[i]);
+    }
+    return out;
+}
+
 std::string pathFor(const char* name) { return (fs::path(dataDirectory()) / name).string(); }
 
 } // namespace
@@ -88,6 +99,7 @@ Settings loadSettings() {
     read(kv, "fullscreen", s.fullscreen);
     read(kv, "show_fps", s.showFps);
     read(kv, "difficulty", s.difficulty);
+    read(kv, "loadout", s.loadout);
     return s;
 }
 
@@ -98,7 +110,8 @@ void saveSettings(const Settings& s) {
                                         {"screen_shake", str(s.screenShake)},
                                         {"fullscreen", str(s.fullscreen)},
                                         {"show_fps", str(s.showFps)},
-                                        {"difficulty", str(s.difficulty)}});
+                                        {"difficulty", str(s.difficulty)},
+                                        {"loadout", str(s.loadout)}});
 }
 
 Profile loadProfile() {
@@ -112,6 +125,14 @@ Profile loadProfile() {
     read(kv, "total_gold", p.totalGold);
     read(kv, "last_daily_seed", p.lastDailySeed);
     read(kv, "best_daily_depth", p.bestDailyDepth);
+    read(kv, "chests_opened", p.chestsOpened);
+    read(kv, "spells_seen", p.spellsSeen);
+    read(kv, "perks_seen", p.perksSeen);
+    if (auto it = kv.find("creature_kills"); it != kv.end()) {
+        std::istringstream ss(it->second);
+        std::string item;
+        for (size_t i = 0; i < p.creatureKills.size() && std::getline(ss, item, ','); ++i) p.creatureKills[i] = std::atoi(item.c_str());
+    }
     return p;
 }
 
@@ -123,7 +144,11 @@ void saveProfile(const Profile& p) {
                                        {"total_kills", str(p.totalKills)},
                                        {"total_gold", str(p.totalGold)},
                                        {"last_daily_seed", str(p.lastDailySeed)},
-                                       {"best_daily_depth", str(p.bestDailyDepth)}});
+                                       {"best_daily_depth", str(p.bestDailyDepth)},
+                                       {"chests_opened", str(p.chestsOpened)},
+                                       {"spells_seen", str(p.spellsSeen)},
+                                       {"perks_seen", str(p.perksSeen)},
+                                       {"creature_kills", joinInts(p.creatureKills)}});
 }
 
 } // namespace pm

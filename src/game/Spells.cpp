@@ -1,6 +1,7 @@
 #include "game/Spells.hpp"
 
 #include <array>
+#include <cstdio>
 
 namespace pm {
 
@@ -465,6 +466,29 @@ const SpellTable& table() {
 } // namespace
 
 const SpellDef& spellDef(SpellId id) { return table().defs[static_cast<size_t>(id)]; }
+
+std::string spellDetails(SpellId id) {
+    const SpellDef& d = spellDef(id);
+    std::string body = d.description;
+    char buf[160];
+    std::snprintf(buf, sizeof(buf), "  Mana %d.", static_cast<int>(d.mana));
+    body += buf;
+    if (d.type == SpellType::Projectile) {
+        if (d.proj.damage > 0.0f) {
+            std::snprintf(buf, sizeof(buf), " Damage %d (%s).", static_cast<int>(d.proj.damage), damageTypeName(d.proj.damageType));
+            body += buf;
+        }
+        if (d.proj.explosionRadius > 0.0f) {
+            std::snprintf(buf, sizeof(buf), " Blast %d.", static_cast<int>(d.proj.explosionDamage));
+            body += buf;
+        }
+    }
+    if (d.castDelay != 0.0f) {
+        std::snprintf(buf, sizeof(buf), " Delay %+.2fs.", d.castDelay);
+        body += buf;
+    }
+    return body;
+}
 
 const char* damageTypeName(DamageType t) {
     static constexpr const char* kNames[] = {"Physical", "Fire", "Explosion", "Ice", "Electric", "Acid", "Toxic", "Holy"};

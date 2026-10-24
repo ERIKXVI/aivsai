@@ -40,6 +40,9 @@ uint32_t dailySeed() {
 MenuScene::MenuScene(App& app) : Scene(app), rng_(static_cast<uint64_t>(std::time(nullptr))) {
     buildWorld();
     background_.setBiome(BiomeId::Sanctum, 7u);
+    const std::string& ui = app.options().openUi;
+    if (ui == "loadout") panel_ = Panel::Loadout;
+    else if (ui == "grimoire") panel_ = Panel::Grimoire;
 }
 
 void MenuScene::buildWorld() {
@@ -93,14 +96,19 @@ void MenuScene::buildWorld() {
     w.wakeAll();
 }
 
-void MenuScene::startRun(bool daily) {
+Milestones MenuScene::milestones() const {
+    const Profile& p = app_.profile();
+    return Milestones{p.deepest, p.victories, p.chestsOpened, p.totalKills};
+}
+
+void MenuScene::startRun(bool daily, LoadoutId loadout) {
     Difficulty diff = static_cast<Difficulty>(clamp(app_.settings().difficulty, 0, 2));
     uint32_t seed = daily ? dailySeed() : static_cast<uint32_t>(GetRandomValue(1, 0x7FFFFFFF));
     if (daily) {
         app_.profile().lastDailySeed = static_cast<int>(seed);
         saveProfile(app_.profile());
     }
-    app_.setScene(std::make_unique<GameScene>(app_, newRun(seed, diff, daily)));
+    app_.setScene(std::make_unique<GameScene>(app_, newRun(seed, diff, daily, loadout)));
 }
 
 void MenuScene::tick() {
@@ -179,6 +187,10 @@ void MenuScene::render(float alpha) {
         if (drawSettingsPanel(app_)) panel_ = Panel::Main;
         break;
     case Panel::Help: drawHelp(); break;
+    case Panel::Loadout: drawLoadouts(); break;
+    case Panel::Grimoire:
+        if (grimoire_.draw(app_)) panel_ = Panel::Main;
+        break;
     }
 }
 
@@ -190,11 +202,14 @@ void MenuScene::drawMain() {
     ui::text("a falling-sand alchemy roguelite", sw * 0.5f, sub.y, ui::fontSize(ui::scale()), Color{210, 190, 240, 230},
              ui::Align::Center);
 
-    float bw = 150.0f * s, bh = 18.0f * s, gap = 5.0f * s;
-    float x = sw * 0.5f - bw * 0.5f, y = sh * 0.46f;
-    if (ui::button({x, y, bw, bh}, "Begin the Great Work")) startRun(false);
+    float bw = 150.0f * s, bh = 18.0f * s, gap = 4.0f * s;
+    float x = sw * 0.5f - bw * 0.5f, y = sh * 0.44f;
+    if (ui::button({x, y, bw, bh}, "Begin the Great Work")) panel_ = Panel::Loadout;
     y += bh + gap;
-    if (ui::button({x, y, bw, bh}, "Daily Rite")) startRun(true);
+    // Everyone attempts the daily rite with the same seed and the same kit.
+    if (ui::button({x, y, bw, bh}, "Daily Rite")) startRun(true, LoadoutId::Apprentice);
+    if (ui::hovered({x, y, bw, bh}))
+        ui::tooltip("Daily Rite", "Today's seed, the same for every alchemist, with the Apprentice's kit.", ui::color::kGold);
     y += bh + gap;
     Settings& st = app_.settings();
     int d = clamp(st.difficulty, 0, 2);
@@ -205,6 +220,8 @@ void MenuScene::drawMain() {
     if (ui::hovered({x, y, bw, bh})) ui::tooltip(kDifficultyNames[d], kDifficultyHints[d], ui::color::kGold);
     y += bh + gap;
     if (ui::button({x, y, bw, bh}, "Alchemy Sandbox")) app_.setScene(std::make_unique<SandboxScene>(app_));
+    y += bh + gap;
+    if (ui::button({x, y, bw, bh}, "Grimoire")) panel_ = Panel::Grimoire;
     y += bh + gap;
     if (ui::button({x, y, bw, bh}, "How to Play")) panel_ = Panel::Help;
     y += bh + gap;
@@ -218,6 +235,93 @@ void MenuScene::drawMain() {
     ui::text(stats, sw * 0.5f, sh - static_cast<float>(small) - 8.0f * s, small, Color{180, 170, 190, 220}, ui::Align::Center);
     ui::text("v" PM_VERSION_STRING, sw - 6.0f * s, sh - static_cast<float>(small) - 8.0f * s, small, Color{120, 110, 130, 200},
              ui::Align::Right);
+}
+
+void MenuScene::drawLoadouts() {
+    const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
+    const float s = static_cast<float>(ui::scale());
+    const int size = ui::fontSize(ui::scale());
+    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const Milestones m = milestones();
+    Settings& st = app_.settings();
+    auto selected = static_cast<LoadoutId>(clamp(st.loadout, 0, kLoadoutCount - 1));
+    if (!loadoutUnlocked(selected, m)) selected = LoadoutId::Apprentice;
+
+    DrawRectangle(0, 0, app_.screenWidth(), app_.screenHeight(), Color{0, 0, 0, 150});
+    const float rowH = 36.0f * s, rowGap = 4.0f * s;
+    Rectangle r{sw * 0.5f - 210.0f * s, sh * 0.5f - 130.0f * s, 420.0f * s, 260.0f * s};
+    ui::panel(r);
+    ui::text("CHOOSE YOUR PATH", sw * 0.5f, r.y + 8.0f * s, ui::fontSize(ui::scale() + 1), ui::color::kGold, ui::Align::Center);
+
+    float y = r.y + 28.0f * s;
+    std::string tipTitle, tipBody;
+    for (int i = 0; i < kLoadoutCount; ++i) {
+        const auto id = static_cast<LoadoutId>(i);
+        const LoadoutDef& def = loadoutDef(id);
+        const bool unlocked = loadoutUnlocked(id, m);
+        const bool isSelected = id == selected;
+        Rectangle row{r.x + 10.0f * s, y, r.width - 20.0f * s, rowH};
+        const bool hover = unlocked && ui::hovered(row);
+        ui::panel(row, isSelected ? Color{58, 42, 86, 240} : Color{24, 19, 32, 230},
+                  isSelected ? ui::color::kGold : (hover ? ui::color::kAccent : ui::color::kPanelBorder));
+        const float tx = row.x + 8.0f * s;
+        if (unlocked) {
+            ui::text(def.name, tx, row.y + 5.0f * s, size, isSelected ? ui::color::kGold : ui::color::kText);
+            ui::text(def.description, tx, row.y + 7.0f * s + static_cast<float>(size), small, ui::color::kTextDim);
+            // Starting kit preview: the first wand's spells.
+            const float icon = 14.0f * s;
+            float ix = row.x + row.width - 8.0f * s - icon;
+            if (def.randomKit) {
+                ui::text("?", ix + icon * 0.5f, row.y + (rowH - static_cast<float>(size)) * 0.5f, size, ui::color::kAccent,
+                         ui::Align::Center);
+            } else {
+                const RunState kit = newRun(1, Difficulty::Adept, false, id);
+                const std::vector<SpellId>& slots = kit.wands[static_cast<size_t>(def.signatureWand)].slots;
+                for (auto it = slots.rbegin(); it != slots.rend(); ++it) {
+                    if (*it == SpellId::None) continue;
+                    Rectangle ir{ix, row.y + (rowH - icon) * 0.5f, icon, icon};
+                    ui::spellIcon(*it, ir);
+                    if (ui::hovered(ir)) {
+                        tipTitle = spellDef(*it).name;
+                        tipBody = spellDetails(*it);
+                    }
+                    ix -= icon + 3.0f * s;
+                }
+            }
+            if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                if (isSelected) {
+                    startRun(false, id);
+                    return;
+                }
+                st.loadout = i;
+                saveSettings(st);
+            }
+        } else {
+            ui::text("Sealed", tx, row.y + 5.0f * s, size, Color{110, 100, 120, 255});
+            ui::text(loadoutRequirement(id, m), tx, row.y + 7.0f * s + static_cast<float>(size), small, ui::color::kTextDim);
+        }
+        y += rowH + rowGap;
+    }
+    // Arrow keys move the selection between unlocked paths.
+    const int dir = (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S) ? 1 : 0) - (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W) ? 1 : 0);
+    if (dir != 0) {
+        for (int step = 1; step < kLoadoutCount; ++step) {
+            const int next = (static_cast<int>(selected) + dir * step + kLoadoutCount) % kLoadoutCount;
+            if (loadoutUnlocked(static_cast<LoadoutId>(next), m)) {
+                st.loadout = next;
+                saveSettings(st);
+                break;
+            }
+        }
+    }
+
+    const float bw = 100.0f * s, bh = 16.0f * s, by = r.y + r.height - 24.0f * s;
+    if (ui::button({sw * 0.5f - bw - 4.0f * s, by, bw, bh}, "Begin") || IsKeyPressed(KEY_ENTER)) {
+        startRun(false, selected);
+        return;
+    }
+    if (ui::button({sw * 0.5f + 4.0f * s, by, bw, bh}, "Back") || IsKeyPressed(KEY_ESCAPE)) panel_ = Panel::Main;
+    if (!tipTitle.empty()) ui::tooltip(tipTitle, tipBody, ui::color::kAccent);
 }
 
 void MenuScene::drawHelp() {
