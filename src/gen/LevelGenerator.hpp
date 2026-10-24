@@ -14,7 +14,7 @@ namespace pm {
 class World;
 class ThreadPool;
 
-enum class SpawnKind : uint8_t { GroundEnemy, AirEnemy, Chest, Potion, Spell, Lantern, Altar, Transmuter };
+enum class SpawnKind : uint8_t { GroundEnemy, AirEnemy, Chest, Potion, Spell, Lantern, Altar, Transmuter, Wand, Guardian };
 
 struct SpawnPoint {
     SpawnKind kind;
@@ -31,6 +31,7 @@ struct LevelLayout {
     Vec2 exitPos;
     std::vector<Vec2> mainPath;       ///< polyline of the guaranteed route
     std::vector<SpawnPoint> spawns;
+    std::vector<Rectf> vaults;        ///< outer bounds of the set-piece rooms
     int surfaceY = -1;                ///< > 0 when the level opens onto the sky
     std::vector<int> skyline;         ///< per column: first ground row (surface levels only)
 };

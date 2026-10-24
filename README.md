@@ -48,6 +48,9 @@ executable; choose *More info -> Run anyway*.
 - **The flask** absorbs any liquid or powder (`Q`) and pours it back out (right mouse): carry
   water to douse fires, acid to dissolve walls, oil to set traps. Drinking has effects too -
   Vitae heals.
+- **Vaults** hide off the main route: an alchemist's laboratory with a brimming cauldron, a
+  powder magazine waiting for a spark, a flooded crypt, a guarded treasury and a healing
+  spring.
 - **Sanctums** between stages fully heal you and offer a shop and a choice of perks
   (22 perks, from *Salamander Skin* to a homunculus companion).
 - **Runs** are seeded. The *Daily Rite* gives everyone the same seed and kit for the day, and

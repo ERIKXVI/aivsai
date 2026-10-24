@@ -88,6 +88,11 @@ void GameScene::finishLoading() {
     bot_ = Bot{};
     hints_.reset();
     mode_ = Mode::Playing;
+    if (app_.options().teleportX >= 0.0f) level_->debugTeleport({app_.options().teleportX, app_.options().teleportY});
+    if (app_.options().openUi == "vault" && !level_->layout().vaults.empty()) {
+        const Rectf& v = level_->layout().vaults.front();
+        level_->debugTeleport({v.x + v.w * 0.5f, v.y + v.h - 12.0f});
+    }
     if (app_.options().openUi == "transmuter" && !level_->transmuters().empty()) {
         level_->debugTeleport(level_->transmuters().front().pos + Vec2{-30.0f, -8.0f});
         camera_.reset(level_->player().body.pos);

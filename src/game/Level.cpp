@@ -28,6 +28,7 @@ void Level::populate() {
     const int tier = std::min(4, layout_.levelIndex);
     const bool lucky = run_.hasPerk(PerkId::LuckyDay);
     int shopIndex = 0;
+    int guardians = 0;
     std::vector<PerkId> offered;
     for (const SpawnPoint& s : layout_.spawns) {
         switch (s.kind) {
@@ -41,6 +42,17 @@ void Level::populate() {
             if (t != EnemyType::Worm && rng_.chance(eliteChance)) e.makeElite();
             break;
         }
+        case SpawnKind::Guardian: {
+            // The first guardian of a vault is elite; shallow stages only post one.
+            if (guardians > 0 && layout_.levelIndex < 2) break;
+            EnemyType t = pickEnemy(layout_.levelIndex, false, 1.0f, rng_);
+            for (int tries = 0; tries < 6 && t == EnemyType::Worm; ++tries) t = pickEnemy(layout_.levelIndex, false, 1.0f, rng_);
+            if (t == EnemyType::Worm) t = EnemyType::Ghoul;
+            Enemy& e = spawnEnemy(t, {s.pos.x, s.pos.y - enemyDef(t).halfH});
+            if (guardians++ % 2 == 0) e.makeElite();
+            break;
+        }
+        case SpawnKind::Wand: pickups_.push_back(makeWandPickup(s.pos - Vec2{0.0f, 6.0f}, makeRandomWand(std::min(4, tier + 1), rng_))); break;
         case SpawnKind::Chest: pickups_.push_back(makeChest(s.pos - Vec2{0.0f, 4.0f})); break;
         case SpawnKind::Potion:
             pickups_.push_back(makePotion(s.pos - Vec2{0.0f, 5.0f}, randomPotionMaterial(tier, rng_), 700));

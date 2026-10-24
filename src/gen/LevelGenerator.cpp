@@ -7,6 +7,7 @@
 #include "core/Rng.hpp"
 #include "core/ThreadPool.hpp"
 #include "gen/Navigation.hpp"
+#include "gen/Vaults.hpp"
 #include "sim/World.hpp"
 
 namespace pm {
@@ -80,6 +81,7 @@ public:
         }
         collectSpawns(world, out);
         placeTransmuter(world, out);
+        placeVaults(world, out);
         return out;
     }
 
@@ -468,6 +470,77 @@ private:
             }
             out.spawns.push_back({SpawnKind::Transmuter, {static_cast<float>(x), static_cast<float>(y)}, 0.5f});
             return;
+        }
+    }
+
+    /// True if every cell of the rectangle is solid ground the vault may replace.
+    bool solidRect(const World& world, int x0, int y0, int w, int h) const {
+        for (int y = y0; y < y0 + h; y += 2)
+            for (int x = x0; x < x0 + w; x += 2) {
+                if (!world.inBounds(x, y) || isOpen(x, y)) return false;
+                const MatId m = world.at(x, y).mat;
+                if (m == mat::Bedrock || m == mat::Rune || phaseOf(m) != Phase::Solid) return false;
+            }
+        return true;
+    }
+
+    void placeVaults(World& world, LevelLayout& out) {
+        NavGrid nav;
+        nav.build(world);
+        if (!nav.computeDistances(start_)) return;
+        const int wanted = level_ >= 4 ? 1 : 2;
+        const int top = (surface_ ? kSkyRows : 0) + 70;
+        uint32_t used = 0;
+        std::vector<Rectf> placed;
+        for (int attempt = 0; attempt < 500 && static_cast<int>(placed.size()) < wanted; ++attempt) {
+            VaultPlan plan;
+            plan.kind = pickVaultKind(biome_, rng_, used);
+            vaultSize(plan.kind, plan.w, plan.h);
+            if (w_ - 2 * kBorder - 40 < plan.w || h_ - top - 60 < plan.h) return;
+            plan.x0 = rng_.rangeInt(kBorder + 20, w_ - kBorder - 20 - plan.w);
+            plan.y0 = rng_.rangeInt(top, h_ - kBorder - 40 - plan.h);
+            const Vec2 c{static_cast<float>(plan.x0) + plan.w * 0.5f, static_cast<float>(plan.y0) + plan.h * 0.5f};
+            const float extent = static_cast<float>(std::max(plan.w, plan.h)) * 0.5f;
+            if ((c - start_).length() < 170.0f || (c - exit_).length() < 120.0f || distanceToPath(c) < extent + 30.0f) continue;
+            if (arena_.w > 0.0f && (c - Vec2{arena_.x, arena_.y}).length() < arena_.w + extent + 30.0f) continue;
+            bool overlaps = false;
+            for (const Rectf& r : placed)
+                overlaps |= std::fabs(r.x - c.x) < (r.w + plan.w) * 0.5f + 30.0f && std::fabs(r.y - c.y) < (r.h + plan.h) * 0.5f + 30.0f;
+            if (overlaps || !solidRect(world, plan.x0 - 4, plan.y0 - 4, plan.w + 8, plan.h + 8)) continue;
+
+            // The doorway must tunnel through to caves the player can actually reach.
+            const int door = vaultDoorRow(plan);
+            int tunnelEnd = -1;
+            const int firstSide = rng_.sign();
+            for (int s = 0; s < 2 && tunnelEnd < 0; ++s) {
+                plan.doorSide = s == 0 ? firstSide : -firstSide;
+                const int startX = plan.doorSide > 0 ? plan.x0 + plan.w : plan.x0 - 1;
+                for (int k = 0; k < 110; ++k) {
+                    const int x = startX + plan.doorSide * k, y = door - 4;
+                    if (!world.inBounds(x, y) || x < kBorder + 6 || x >= w_ - kBorder - 6) break;
+                    if (world.at(x, y).mat == mat::Empty && nav.distanceAt({static_cast<float>(x), static_cast<float>(y)}) >= 0) {
+                        tunnelEnd = x;
+                        break;
+                    }
+                }
+            }
+            if (tunnelEnd < 0) continue;
+
+            buildVault(world, plan, rng_, out.spawns);
+            // A paved passage with timber lintels leads in from the caves.
+            const int startX = plan.doorSide > 0 ? plan.x0 + plan.w : plan.x0 - 1;
+            const int x0 = std::min(startX, tunnelEnd), x1 = std::max(startX, tunnelEnd);
+            for (int x = x0; x <= x1; ++x) {
+                for (int y = door - 12; y <= door; ++y)
+                    if (world.at(x, y).mat != mat::Bedrock && phaseOf(world.at(x, y).mat) == Phase::Solid) world.clear(x, y);
+                if (phaseOf(world.at(x, door + 1).mat) == Phase::Solid && world.at(x, door + 1).mat != mat::Bedrock)
+                    world.place(x, door + 1, mat::Brick);
+                if (std::abs(x - startX) % 14 < 2 && phaseOf(world.at(x, door - 13).mat) == Phase::Solid)
+                    world.place(x, door - 13, mat::Wood);
+            }
+            placed.push_back({c.x, c.y, static_cast<float>(plan.w), static_cast<float>(plan.h)});
+            out.vaults.push_back({static_cast<float>(plan.x0), static_cast<float>(plan.y0), static_cast<float>(plan.w), static_cast<float>(plan.h)});
+            used |= 1u << static_cast<unsigned>(plan.kind);
         }
     }
 
