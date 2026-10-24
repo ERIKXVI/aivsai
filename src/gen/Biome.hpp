@@ -51,5 +51,7 @@ const BiomeDef& biomeDef(BiomeId id);
 
 /// The biome visited at a given level index of a run (0-based).
 BiomeId biomeForDepth(int levelIndex);
+/// Roman numeral of a stage ("I".."V") for titles and the HUD.
+const char* stageNumeral(int levelIndex);
 
 } // namespace pm

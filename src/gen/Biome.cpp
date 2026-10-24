@@ -1,5 +1,7 @@
 #include "gen/Biome.hpp"
 
+#include <algorithm>
+
 namespace pm {
 
 namespace {
@@ -93,6 +95,11 @@ BiomeId biomeForDepth(int levelIndex) {
     if (levelIndex < 0) levelIndex = 0;
     if (levelIndex > 4) levelIndex = 4;
     return kOrder[levelIndex];
+}
+
+const char* stageNumeral(int levelIndex) {
+    static constexpr const char* kNumerals[] = {"I", "II", "III", "IV", "V"};
+    return kNumerals[std::clamp(levelIndex, 0, 4)];
 }
 
 } // namespace pm

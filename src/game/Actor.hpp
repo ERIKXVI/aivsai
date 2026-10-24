@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 
 #include "game/Body.hpp"
 #include "game/Spells.hpp"
@@ -81,5 +82,9 @@ protected:
     /// Scale applied to burn damage (players burn more slowly than monsters).
     virtual float burnDps() const { return 10.0f; }
 };
+
+/// What killed an actor, for the death screen: "Slain by a Fire Imp", "Undone by lava",
+/// "Undone by your own Bomb". Empty if nothing was recorded.
+std::string deathCause(const Actor& victim);
 
 } // namespace pm

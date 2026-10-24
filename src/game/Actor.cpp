@@ -1,5 +1,9 @@
 #include "game/Actor.hpp"
 
+#include <algorithm>
+#include <cctype>
+#include <cstring>
+
 #include "core/Timing.hpp"
 #include "game/Level.hpp"
 
@@ -83,6 +87,21 @@ void Actor::updateStatus(Level& level, const Environment& env) {
         status.poisoned -= dt;
         applyDamage(level, {4.0f * dt, DamageType::Toxic, {}, Team::Monster, false, true, "poison"});
     }
+}
+
+/// "Slain by a Fire Imp", "Undone by lava", "Undone by your own Bomb"...
+std::string deathCause(const Actor& victim) {
+    if (victim.lastHitCause == nullptr) return {};
+    std::string cause = victim.lastHitCause;
+    if (victim.lastHitSelf) return "Undone by your own " + cause;
+    for (int i = 0; i < static_cast<int>(EnemyType::Count); ++i) {
+        if (cause != enemyDef(static_cast<EnemyType>(i)).name) continue;
+        if (cause.rfind("The ", 0) == 0) return "Slain by the " + cause.substr(4);
+        const bool vowel = std::strchr("AEIOU", cause[0]) != nullptr;
+        return std::string("Slain by ") + (vowel ? "an " : "a ") + cause;
+    }
+    std::transform(cause.begin(), cause.end(), cause.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return "Undone by " + cause;
 }
 
 } // namespace pm
