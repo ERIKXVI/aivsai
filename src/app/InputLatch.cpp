@@ -26,7 +26,9 @@ void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
 } // namespace
 
 void installLatch() {
-    auto* window = static_cast<GLFWwindow*>(GetWindowHandle());
+    // GetWindowHandle() is the native handle on Windows (an HWND), not the GLFW window;
+    // raylib's window is the one whose context is current on this thread.
+    GLFWwindow* window = glfwGetCurrentContext();
     if (window != nullptr) g_previous = glfwSetMouseButtonCallback(window, onMouseButton);
 }
 
