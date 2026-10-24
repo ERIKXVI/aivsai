@@ -67,7 +67,7 @@ The descent follows the four stages of the alchemical Great Work:
 ## Onboarding
 
 - A controls card for the first half minute of the first stage.
-- One-time contextual hints, remembered in the profile: absorbing liquids, slotting a new
+- Contextual hints, each shown once per launch (and switchable off): absorbing liquids, slotting a new
   spell, healing with Vitae, sanctums, circles, the compass, gold ore and (immediately,
   because it kills) how to douse flames. Button prompts follow the last-used device.
 - How to Play summarises controls and the rules of matter; the Alchemy Sandbox lets
