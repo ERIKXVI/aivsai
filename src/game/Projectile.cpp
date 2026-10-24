@@ -11,6 +11,13 @@ namespace {
 
 using namespace projflag;
 
+/// What to blame for a projectile's damage: the creature that cast it, else the spell.
+const char* projectileCause(const Level& level, const Projectile& p) {
+    if (p.team == Team::Monster)
+        if (const char* name = level.actorName(p.ownerId)) return name;
+    return p.spell == SpellId::None ? nullptr : spellDef(p.spell).name;
+}
+
 Rgba hexRgba(uint32_t hex, uint8_t a = 255) {
     return {static_cast<uint8_t>((hex >> 16) & 0xFF), static_cast<uint8_t>((hex >> 8) & 0xFF),
             static_cast<uint8_t>(hex & 0xFF), a};
@@ -33,6 +40,7 @@ void impact(Level& level, Projectile& p, Vec2 at) {
         e.incendiary = fiery;
         e.team = p.team;
         e.knockback = 120.0f + d.explosionRadius * 9.0f;
+        e.cause = projectileCause(level, p);
         level.explode(at, e);
     }
     if (d.spawnMat != mat::Empty && d.spawnAmount > 0) level.spawnBlob(at, d.spawnMat, d.spawnAmount, p.vel * -0.15f);
@@ -80,7 +88,7 @@ void hitActor(Level& level, Projectile& p, Actor& a) {
         crit = true;
     }
     Vec2 kb = p.vel.lengthSq() > 1.0f ? p.vel.normalized() * d.knockback : Vec2{};
-    if (dmg > 0.0f) a.applyDamage(level, {dmg, d.damageType, kb, p.team, crit});
+    if (dmg > 0.0f) a.applyDamage(level, {dmg, d.damageType, kb, p.team, crit, false, projectileCause(level, p)});
     if (((d.flags & kIncendiary) || d.damageType == DamageType::Fire) && a.status.wet <= 0.0f) a.status.burning = std::max(a.status.burning, 3.0f);
     if (d.flags & kFreezing) a.status.chilled = 2.5f;
     if (d.flags & kElectric) a.status.shocked = 0.4f;

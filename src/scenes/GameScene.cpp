@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
+#include <cctype>
 
 #include "app/App.hpp"
 #include "core/Profiler.hpp"
@@ -22,6 +24,21 @@ constexpr const char* kStageNumerals[] = {"I", "II", "III", "IV", "V"};
 Color hexColor(uint32_t hex, uint8_t a = 255) {
     return Color{static_cast<unsigned char>((hex >> 16) & 0xFF), static_cast<unsigned char>((hex >> 8) & 0xFF),
                  static_cast<unsigned char>(hex & 0xFF), a};
+}
+
+/// "Slain by a Fire Imp", "Undone by lava", "Undone by your own Bomb"...
+std::string deathCause(const Actor& victim) {
+    if (victim.lastHitCause == nullptr) return {};
+    std::string cause = victim.lastHitCause;
+    if (victim.lastHitSelf) return "Undone by your own " + cause;
+    for (int i = 0; i < static_cast<int>(EnemyType::Count); ++i) {
+        if (cause != enemyDef(static_cast<EnemyType>(i)).name) continue;
+        if (cause.rfind("The ", 0) == 0) return "Slain by the " + cause.substr(4);
+        const bool vowel = std::strchr("AEIOU", cause[0]) != nullptr;
+        return std::string("Slain by ") + (vowel ? "an " : "a ") + cause;
+    }
+    std::transform(cause.begin(), cause.end(), cause.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return "Undone by " + cause;
 }
 
 std::string formatTime(float seconds) {
@@ -204,7 +221,9 @@ void GameScene::stepLevel() {
         if (autoplay) logAutoplay(TextFormat("stage %d%s cleared at %.1fs", run_.levelIndex, run_.inSanctum ? " (sanctum)" : "", run_.stats.time));
         break;
     case LevelEvent::PlayerDied:
-        if (autoplay) logAutoplay(TextFormat("died on stage %d at %.1fs, kills %d", run_.levelIndex, run_.stats.time, run_.stats.kills));
+        if (autoplay)
+            logAutoplay(TextFormat("died on stage %d at %.1fs, kills %d - %s", run_.levelIndex, run_.stats.time, run_.stats.kills,
+                                   deathCause(level_->player()).c_str()));
         mode_ = Mode::Dead;
         endTimer_ = 0.0f;
         slowMo_ = 0.35f;
@@ -289,7 +308,7 @@ void GameScene::render(float alpha) {
         const float a = (mode_ == Mode::Playing || mode_ == Mode::Dead) ? alpha : 1.0f;
         Vec2 cam = camera_.position(level_->shake(), time_, app_.settings().screenShake);
         levelRenderer_.render(*level_, cam, a, time_, app_.screenWidth(), app_.screenHeight());
-        drawWorldOverlays(a);
+        if (mode_ != Mode::Dead && mode_ != Mode::Victory) drawWorldOverlays(a);
         if (mode_ == Mode::Playing) drawCompass(a);
         if (mode_ != Mode::Victory) drawHud();
         if (mode_ == Mode::Playing) hints_.draw(static_cast<float>(app_.screenWidth()), static_cast<float>(app_.screenHeight()), usingGamepad_);
@@ -670,10 +689,17 @@ void GameScene::drawEndScreen(bool victory) {
                               : "Your matter returns to the prima materia...";
     ui::text(title, sw * 0.5f, sh * 0.2f, ui::fontSize(ui::scale() * 3), victory ? Color{255, 220, 120, al} : Color{230, 80, 80, al},
              ui::Align::Center);
-    ui::text(sub, sw * 0.5f, sh * 0.2f + static_cast<float>(ui::fontSize(ui::scale() * 3)) + 8.0f * s, ui::fontSize(ui::scale()),
-             Color{210, 200, 220, al}, ui::Align::Center);
+    const float subY = sh * 0.2f + static_cast<float>(ui::fontSize(ui::scale() * 3)) + 8.0f * s;
+    ui::text(sub, sw * 0.5f, subY, ui::fontSize(ui::scale()), Color{210, 200, 220, al}, ui::Align::Center);
+    if (!victory && level_) {
+        const std::string cause = deathCause(level_->player());
+        if (!cause.empty())
+            ui::text(cause, sw * 0.5f, subY + static_cast<float>(ui::fontSize(ui::scale())) * 1.6f, ui::fontSize(ui::scale()),
+                     Color{255, 150, 110, al}, ui::Align::Center);
+    }
 
     const RunStats& st = run_.stats;
+    const float lineH = static_cast<float>(ui::fontSize(ui::scale())) * 1.35f;
     std::string reached = run_.levelIndex <= 4 ? biomeDef(biomeForDepth(run_.levelIndex)).name : "The Athanor";
     std::string lines[] = {
         std::string("Reached: ") + (run_.inSanctum ? "Sanctum after " : "") + reached,
@@ -684,10 +710,10 @@ void GameScene::drawEndScreen(bool victory) {
         "Chests opened: " + std::to_string(st.chestsOpened),
         TextFormat("Seed: %u%s", run_.seed, run_.daily ? " (Daily Rite)" : ""),
     };
-    float y = sh * 0.38f;
+    float y = std::max(sh * 0.38f, subY + lineH * 3.0f);
     for (const std::string& l : lines) {
         ui::text(l, sw * 0.5f, y, ui::fontSize(ui::scale()), Color{220, 210, 200, al}, ui::Align::Center);
-        y += static_cast<float>(ui::fontSize(ui::scale())) * 1.35f;
+        y += lineH;
     }
     if (a < 1.0f) return;
     float bw = 120.0f * s, bh = 18.0f * s;

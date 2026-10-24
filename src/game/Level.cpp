@@ -114,6 +114,12 @@ LevelEvent Level::pollEvent() {
     return e;
 }
 
+const char* Level::actorName(uint32_t id) const {
+    for (const auto& e : enemies_)
+        if (e->id == id) return e->def().name;
+    return nullptr;
+}
+
 const Enemy* Level::boss() const {
     for (const auto& e : enemies_)
         if (e->type() == EnemyType::Boss && e->alive()) return e.get();
@@ -222,6 +228,7 @@ void Level::handleSimEvents() {
         spec.incendiary = true;
         spec.team = Team::Monster;
         spec.hurtsOwner = true;
+        spec.cause = "a gunpowder blast";
         explode(c.sum / n, spec);
     }
 }

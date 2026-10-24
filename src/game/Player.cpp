@@ -86,7 +86,7 @@ void Player::tick(Level& level) {
         breath_ = std::max(0.0f, breath_ - dt / 9.0f);
         if (breath_ <= 0.0f) {
             drownTimer_ += dt;
-            applyDamage(level, {12.0f * dt, DamageType::Physical, {}, Team::Monster, false, true});
+            applyDamage(level, {12.0f * dt, DamageType::Physical, {}, Team::Monster, false, true, "drowning"});
         }
     } else {
         breath_ = std::min(1.0f, breath_ + dt / 2.0f);
@@ -284,9 +284,9 @@ void Player::handleFlask(Level& level) {
         case mat::Oil: status.oiled = 10.0f; break;
         case mat::Lava:
             status.burning = 6.0f;
-            applyDamage(level, {30.0f, DamageType::Fire, {}, Team::Monster});
+            applyDamage(level, {30.0f, DamageType::Fire, {}, Team::Monster, false, false, "a draught of lava"});
             break;
-        case mat::Acid: applyDamage(level, {25.0f * fraction, DamageType::Acid, {}, Team::Monster}); break;
+        case mat::Acid: applyDamage(level, {25.0f * fraction, DamageType::Acid, {}, Team::Monster, false, false, "a draught of acid"}); break;
         case mat::Toxic: status.poisoned = 8.0f; break;
         case mat::Blood: hp = std::min(maxHp, hp + 4.0f * fraction); break;
         case mat::Midas:

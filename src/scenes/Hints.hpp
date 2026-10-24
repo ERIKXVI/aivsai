@@ -10,7 +10,8 @@ namespace pm {
 class Level;
 struct RunState;
 
-enum class Hint : uint8_t { Absorb, Satchel, Heal, Sanctum, Transmuter, Compass, Gold, Count };
+// Values are bit positions in the saved profile: append new hints, never reorder.
+enum class Hint : uint8_t { Absorb, Satchel, Heal, Sanctum, Transmuter, Compass, Gold, Burning, Count };
 
 class HintTracker {
 public:

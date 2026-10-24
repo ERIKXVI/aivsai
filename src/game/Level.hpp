@@ -31,6 +31,7 @@ struct ExplosionSpec {
     Team team = Team::Player;
     float knockback = 260.0f;
     bool hurtsOwner = true;    ///< player explosions also hurt the player
+    const char* cause = nullptr; ///< reported on the death screen
 };
 
 struct LightFlash {
@@ -140,7 +141,9 @@ public:
     void addShake(float amount) { shake_ = std::min(1.0f, shake_ + amount); }
     void addFloatText(Vec2 pos, const std::string& text, uint32_t color, float scale = 1.0f);
     void damageRadius(Vec2 pos, float radius, float damage, DamageType type, Team team, float knockback,
-                      bool hurtsOwnTeam);
+                      bool hurtsOwnTeam, const char* cause = nullptr);
+    /// Name of the creature with this id (for death causes), or nullptr.
+    const char* actorName(uint32_t id) const;
     void bleed(Vec2 pos, MatId blood, int amount, Vec2 dir);
     Actor* nearestHostile(Vec2 pos, Team team, float range, uint32_t excludeId = 0);
     bool lineOfSight(Vec2 a, Vec2 b) const;

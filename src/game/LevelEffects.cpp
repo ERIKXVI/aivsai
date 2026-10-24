@@ -126,7 +126,8 @@ void Level::explode(Vec2 c, const ExplosionSpec& s) {
     if (s.radius >= 18.0f) addHitStop(3);
     audio_.playAt(s.radius >= 15.0f ? Sfx::ExplosionBig : Sfx::ExplosionSmall, c, std::min(1.0f, 0.5f + s.radius / 30.0f),
                   rng_.range(0.9f, 1.1f));
-    damageRadius(c, s.radius * 1.25f, s.damage, DamageType::Explosion, s.team, s.knockback, s.hurtsOwner);
+    damageRadius(c, s.radius * 1.25f, s.damage, DamageType::Explosion, s.team, s.knockback, s.hurtsOwner,
+                 s.cause ? s.cause : "an explosion");
     if (s.incendiary) {
         for (auto& e : enemies_)
             if (e->alive() && (e->body.pos - c).length() < s.radius && e->status.wet <= 0.0f) e->status.burning = 3.0f;
@@ -220,7 +221,7 @@ void Level::electrify(Vec2 pos, float damage, Team team) {
         if (!touching) return;
         float dmg = damage * (a.status.wet > 0.0f ? 1.5f : 1.0f);
         a.status.shocked = 0.5f;
-        a.applyDamage(*this, {dmg, DamageType::Electric, {0.0f, -60.0f}, team});
+        a.applyDamage(*this, {dmg, DamageType::Electric, {0.0f, -60.0f}, team, false, false, "electricity"});
     };
     if (!visited.empty()) {
         if (player_->alive()) shock(*player_);
@@ -233,7 +234,7 @@ void Level::electrify(Vec2 pos, float damage, Team team) {
         }
         addFlash(pos, 0xb0c8ff, 2.0f, 90.0f, 0.25f);
     }
-    damageRadius(pos, 6.0f, damage * 0.5f, DamageType::Electric, team, 40.0f, false);
+    damageRadius(pos, 6.0f, damage * 0.5f, DamageType::Electric, team, 40.0f, false, "electricity");
 }
 
 void Level::freezeArea(Vec2 pos, float radius) {
@@ -291,7 +292,7 @@ void Level::transmuteArea(Vec2 pos, float radius) {
 }
 
 void Level::damageRadius(Vec2 pos, float radius, float damage, DamageType type, Team team, float knockback,
-                         bool hurtsOwnTeam) {
+                         bool hurtsOwnTeam, const char* cause) {
     auto hit = [&](Actor& a) {
         if (!a.alive()) return;
         Vec2 to = a.body.pos - pos;
@@ -301,7 +302,7 @@ void Level::damageRadius(Vec2 pos, float radius, float damage, DamageType type, 
         float dmg = damage * f;
         if (team == Team::Player && a.team == Team::Player) dmg *= 0.35f; // self-inflicted blasts sting less
         Vec2 kb = (d > 0.1f ? to / d : Vec2{0.0f, -1.0f}) * knockback * f + Vec2{0.0f, -knockback * 0.35f * f};
-        a.applyDamage(*this, {dmg, type, kb, team});
+        a.applyDamage(*this, {dmg, type, kb, team, false, false, cause});
     };
     if (player_->alive() && (team != Team::Player || hurtsOwnTeam)) hit(*player_);
     for (size_t i = 0; i < enemies_.size(); ++i) {
@@ -403,6 +404,7 @@ void Level::onEnemyKilled(Enemy& e) {
             s.damage = 25.0f;
             s.team = Team::Player;
             s.hurtsOwner = false;
+            s.cause = "a volatile corpse";
             explode(e.body.pos, s);
         }
     }

@@ -127,7 +127,7 @@ void Enemy::contactPlayer(Level& level) {
     if (!touching) return;
     Vec2 kb = Vec2{sign(pl.body.pos.x - body.pos.x) * 140.0f, -90.0f};
     float scale = 1.0f + 0.1f * static_cast<float>(level.layout().levelIndex);
-    pl.applyDamage(level, {def_->contactDamage * scale * damageScale(), def_->contactType, kb, Team::Monster});
+    pl.applyDamage(level, {def_->contactDamage * scale * damageScale(), def_->contactType, kb, Team::Monster, false, false, def_->name});
     if (def_->contactType == DamageType::Ice) pl.status.chilled = 2.0f;
     contactDamageCooldown = 0.7f;
     if (level.run().hasPerk(PerkId::Thorns))
@@ -367,6 +367,7 @@ void Enemy::tickBrute(Level& level, Vec2 toPlayer, bool sees) {
             s.team = Team::Monster;
             s.knockback = 320.0f;
             s.hurtsOwner = false;
+            s.cause = def_->name;
             level.explode(body.pos + Vec2{0.0f, body.halfH}, s);
             level.addShake(0.5f);
         }
@@ -516,6 +517,7 @@ void Enemy::onKilled(Level& level, const DamageInfo&) {
         s.incendiary = true;
         s.team = Team::Monster;
         s.hurtsOwner = true;
+        s.cause = def_->name;
         level.explode(body.pos, s);
     }
     if (type_ == EnemyType::Boss) {

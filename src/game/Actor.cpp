@@ -11,6 +11,10 @@ float Actor::applyDamage(Level& level, const DamageInfo& info) {
     float dealt = info.amount * resist[static_cast<size_t>(info.type)];
     if (dealt <= 0.0f) return 0.0f;
     hp -= dealt;
+    if (info.cause) {
+        lastHitCause = info.cause;
+        lastHitSelf = info.source == team;
+    }
     if (!info.silent) {
         hurtFlash = 0.12f;
         body.vel += info.knockback;
@@ -48,7 +52,7 @@ void Actor::updateStatus(Level& level, const Environment& env) {
 
     if (status.burning > 0.0f) {
         status.burning -= dt;
-        if (!fireImmune) applyDamage(level, {burnDps() * dt, DamageType::Fire, {}, Team::Monster, false, true});
+        if (!fireImmune) applyDamage(level, {burnDps() * dt, DamageType::Fire, {}, Team::Monster, false, true, "flames"});
         // Burning creatures shed flames and set flammable surroundings alight.
         Rng& rng = level.rng();
         if (rng.chance(0.5f)) {
@@ -70,14 +74,14 @@ void Actor::updateStatus(Level& level, const Environment& env) {
         if (m.flags & matflag::kHot) t = DamageType::Fire;
         else if (m.flags & matflag::kCorrosive) t = DamageType::Acid;
         else t = DamageType::Toxic;
-        float dealt = applyDamage(level, {env.contactDps * dt, t, {}, Team::Monster, false, true});
+        float dealt = applyDamage(level, {env.contactDps * dt, t, {}, Team::Monster, false, true, m.name});
         if (dealt > 0.0f && level.rng().chance(0.08f)) hurtFlash = 0.06f;
     }
 
     if (env.healing && hp < maxHp) hp = std::min(maxHp, hp + 18.0f * dt);
     if (status.poisoned > 0.0f) {
         status.poisoned -= dt;
-        applyDamage(level, {4.0f * dt, DamageType::Toxic, {}, Team::Monster, false, true});
+        applyDamage(level, {4.0f * dt, DamageType::Toxic, {}, Team::Monster, false, true, "poison"});
     }
 }
 

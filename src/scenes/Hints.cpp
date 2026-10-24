@@ -32,6 +32,8 @@ constexpr HintText kTexts[static_cast<int>(Hint::Count)] = {
      "The arrow at the edge of the screen always points towards the portal"},
     {"Gold ore crumbles into gold dust when blasted - walk over the dust to collect it",
      "Gold ore crumbles into gold dust when blasted - walk over the dust to collect it"},
+    {"You are burning! Drink water from your flask with F, or dive into water",
+     "You are burning! Drink water from your flask with X, or dive into water"},
 };
 
 int satchelCount(const RunState& run) {
@@ -64,6 +66,12 @@ void HintTracker::show(Hint h) {
 
 void HintTracker::update(const Level& level, const RunState& run, float dt) {
     if (baselineSpells_ < 0) baselineSpells_ = satchelCount(run);
+    // Burning is urgent enough to replace whatever is showing.
+    const Player& player = level.player();
+    if (!seen(Hint::Burning) && player.status.burning > 0.0f && player.resist[static_cast<size_t>(DamageType::Fire)] > 0.0f) {
+        show(Hint::Burning);
+        return;
+    }
     if (active_ != Hint::Count) {
         timer_ -= dt;
         if (timer_ <= 0.0f) active_ = Hint::Count;
@@ -71,7 +79,6 @@ void HintTracker::update(const Level& level, const RunState& run, float dt) {
     }
     const float t = level.time();
     if (t < 2.0f) return;
-    const Player& player = level.player();
     if (level.isSanctum()) {
         if (!seen(Hint::Sanctum)) show(Hint::Sanctum);
         return;

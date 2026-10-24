@@ -23,6 +23,7 @@ struct DamageInfo {
     Team source = Team::Monster;
     bool crit = false;
     bool silent = false;      ///< damage over time: no flash, sound or number
+    const char* cause = nullptr; ///< what dealt it, for the death screen (static string)
 };
 
 struct StatusEffects {
@@ -69,6 +70,8 @@ public:
     bool dead = false;
     bool flying = false;
     uint32_t id = 0;
+    const char* lastHitCause = nullptr; ///< cause of the most recent damage taken
+    bool lastHitSelf = false;           ///< ...and whether it came from the actor's own side
 
 protected:
     /// Burning, liquids, contact damage and status timers. Call once per tick.
