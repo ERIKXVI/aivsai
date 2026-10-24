@@ -1,5 +1,9 @@
 #include "sim/World.hpp"
 
+#include <algorithm>
+#include <cmath>
+#include <map>
+
 #include "core/ThreadPool.hpp"
 #include "sim/ChunkUpdater.hpp"
 
@@ -115,6 +119,27 @@ void World::step(ThreadPool& pool) {
             updater.run();
         });
     }
+}
+
+float SimBlast::radius() const { return std::min(26.0f, 4.0f + std::sqrt(static_cast<float>(grains)) * 2.2f); }
+
+std::vector<SimBlast> World::takeBlasts() {
+    std::map<uint32_t, SimBlast> clusters;
+    for (const SimEvent& e : events_) {
+        if (e.type != SimEvent::Type::Explosion) continue;
+        const uint32_t key = (static_cast<uint32_t>(e.x / 14) << 16) | static_cast<uint32_t>(e.y / 14);
+        SimBlast& b = clusters[key];
+        b.center += Vec2{static_cast<float>(e.x), static_cast<float>(e.y)};
+        ++b.grains;
+    }
+    events_.clear();
+    std::vector<SimBlast> blasts;
+    blasts.reserve(clusters.size());
+    for (auto& [key, b] : clusters) {
+        b.center = b.center / static_cast<float>(b.grains);
+        blasts.push_back(b);
+    }
+    return blasts;
 }
 
 } // namespace pm

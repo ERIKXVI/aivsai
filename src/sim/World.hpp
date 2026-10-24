@@ -40,6 +40,13 @@ struct SimEvent {
     float power = 0.0f;
 };
 
+/// A blast merged from the per-grain explosion events of burning gunpowder.
+struct SimBlast {
+    Vec2 center;
+    int grains = 0;
+    float radius() const;
+};
+
 class World {
 public:
     static constexpr int kChunkShift = 6;
@@ -88,6 +95,9 @@ public:
     /// Events raised during the last step(s). The game layer clears this after handling.
     std::vector<SimEvent>& events() { return events_; }
     void pushEvent(const SimEvent& e);
+    /// Merges pending explosion events into blasts per region (in a deterministic order)
+    /// and clears all events.
+    std::vector<SimBlast> takeBlasts();
 
     /// Rectangle (in cells) that was simulated last tick for chunk (cx, cy); for debugging.
     const DirtyRect& chunkActiveRect(int cx, int cy) const { return chunks_[cy * cw_ + cx].current; }

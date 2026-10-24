@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
-#include <unordered_map>
 
 #include "core/Profiler.hpp"
 #include "core/Timing.hpp"
@@ -215,33 +214,18 @@ void Level::updateEntities(const PlayerInput& input, float dt) {
 }
 
 void Level::handleSimEvents() {
-    auto& events = world().events();
-    if (events.empty()) return;
-    // Burning gunpowder reports one event per grain; merge them into blasts per region.
-    struct Cluster {
-        Vec2 sum;
-        int count = 0;
-    };
-    std::unordered_map<uint32_t, Cluster> clusters;
-    for (const SimEvent& e : events) {
-        if (e.type != SimEvent::Type::Explosion) continue;
-        uint32_t key = (static_cast<uint32_t>(e.x / 14) << 16) | static_cast<uint32_t>(e.y / 14);
-        Cluster& c = clusters[key];
-        c.sum += Vec2{static_cast<float>(e.x), static_cast<float>(e.y)};
-        ++c.count;
-    }
-    events.clear();
-    for (auto& [key, c] : clusters) {
+    if (world().events().empty()) return;
+    // Burning gunpowder reports one event per grain; the world merges them into blasts.
+    for (const SimBlast& b : world().takeBlasts()) {
         ExplosionSpec spec;
-        float n = static_cast<float>(c.count);
-        spec.radius = std::min(26.0f, 4.0f + std::sqrt(n) * 2.2f);
-        spec.damage = std::min(110.0f, 12.0f + n * 1.2f);
+        spec.radius = b.radius();
+        spec.damage = std::min(110.0f, 12.0f + static_cast<float>(b.grains) * 1.2f);
         spec.power = 150;
         spec.incendiary = true;
         spec.team = Team::Monster;
         spec.hurtsOwner = true;
         spec.cause = "a gunpowder blast";
-        explode(c.sum / n, spec);
+        explode(b.center, spec);
     }
 }
 
