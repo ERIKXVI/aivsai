@@ -113,7 +113,8 @@ reacting to combat intensity, with fire/water/lava ambience mixed in.
 
 ### Testing tools
 
-- `pm_tests` - unit tests for simulation invariants, generation connectivity and determinism.
+- `pm_tests` - unit tests for simulation invariants, generation (route and vault
+  reachability, determinism), the spell table, deck casting and starting loadouts.
 - `PrimaMateria --play --autoplay --turbo [--god] [--seed N] [--level N]` - an autopilot
   plays through runs headlessly as an end-to-end smoke test.
 - `pm_genpreview <dir>` renders full level maps; `pm_audiopreview <dir>` renders every sound
@@ -125,12 +126,12 @@ reacting to combat intensity, with fire/water/lava ambience mixed in.
 src/app      application shell, settings and profile persistence
 src/core     math, RNG, noise, thread pool, profiler
 src/sim      materials, cells, world/chunk scheduler, particles
-src/gen      biomes, level generator, navigation grid
-src/game     player, enemies, spells, wands, projectiles, level logic, rendering glue
+src/gen      biomes, level generator, vaults, navigation grid
+src/game     player, enemies, spells, wands, loadouts, projectiles, level logic, rendering glue
 src/render   lighting pipeline, sprites, sky, backgrounds
 src/audio    sound synthesis and generative music
-src/ui       immediate-mode UI widgets
-src/scenes   menu, game and sandbox screens
+src/ui       immediate-mode UI widgets, Grimoire and map panels
+src/scenes   menu, game (HUD, hints) and sandbox screens
 shaders/     GLSL sources embedded into the executable at build time
 tests/       unit tests        tools/  developer tools        docs/  design notes
 ```
