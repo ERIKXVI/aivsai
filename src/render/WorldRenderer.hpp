@@ -15,6 +15,14 @@ namespace pm {
 
 class World;
 
+/// Aggregated emission of a 16x16 block of cells; bright blocks become point lights so
+/// that lava pools and fires cast proper shadowed light.
+struct EmissiveBlock {
+    float x = 0, y = 0;      ///< emission-weighted centre (world cells)
+    float r = 0, g = 0, b = 0; ///< summed emission
+    float weight = 0;        ///< summed intensity
+};
+
 class WorldRenderer {
 public:
     WorldRenderer() = default;
@@ -41,6 +49,9 @@ public:
     int originY() const { return oy_; }
     const Texture2D& colorTexture() const { return colorTex_; }
     const Texture2D& emissionTexture() const { return emitTex_; }
+    const std::vector<EmissiveBlock>& emissiveBlocks() const { return blocks_; }
+
+    static constexpr int kBlockShift = 4;
 
 private:
     void release();
@@ -49,6 +60,8 @@ private:
     int ox_ = 0, oy_ = 0;
     std::vector<Rgba> color_;
     std::vector<Rgba> emission_;
+    std::vector<EmissiveBlock> blocks_;
+    int blocksW_ = 0, blocksH_ = 0;
     Texture2D colorTex_{};
     Texture2D emitTex_{};
 };

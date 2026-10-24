@@ -1,5 +1,6 @@
 #include "render/SceneRenderer.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 #include "EmbeddedShaders.hpp"
@@ -89,6 +90,21 @@ void SceneRenderer::addLight(const PointLight& light) {
         ly - light.radius > view_.texH)
         return;
     lights_.push_back(light);
+}
+
+void SceneRenderer::addEmissiveLights(int maxLights) {
+    std::vector<const EmissiveBlock*> blocks;
+    for (const EmissiveBlock& b : world_.emissiveBlocks())
+        if (b.weight > 2500.0f) blocks.push_back(&b);
+    const size_t count = std::min(blocks.size(), static_cast<size_t>(std::max(0, maxLights)));
+    std::partial_sort(blocks.begin(), blocks.begin() + static_cast<long>(count), blocks.end(),
+                      [](const EmissiveBlock* a, const EmissiveBlock* b) { return a->weight > b->weight; });
+    for (size_t i = 0; i < count; ++i) {
+        const EmissiveBlock& b = *blocks[i];
+        const float total = b.r + b.g + b.b;
+        const float k = clamp(std::sqrt(b.weight) / 140.0f, 0.2f, 2.2f) * 3.0f / total;
+        addLight(PointLight{{b.x, b.y}, b.r * k, b.g * k, b.b * k, 35.0f + std::sqrt(b.weight) * 0.22f, 2.5f});
+    }
 }
 
 void SceneRenderer::runLightPass() {

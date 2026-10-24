@@ -1,0 +1,49 @@
+#pragma once
+// Projectiles launched by wands (player) and monsters.
+
+#include <array>
+#include <memory>
+
+#include "game/Actor.hpp"
+#include "game/Wand.hpp"
+
+namespace pm {
+
+struct Projectile {
+    SpellId spell = SpellId::None;
+    ProjectileDef def;
+    Vec2 pos, prevPos, vel;
+    float age = 0.0f;
+    Team team = Team::Player;
+    uint32_t ownerId = 0;
+    float critChance = 0.0f;
+    int bouncesLeft = 0;
+    int chainsLeft = 0;     ///< arc sparks: jumps to further foes
+    float damageMul = 1.0f; ///< caster's damage multiplier (perks, difficulty)
+    Vec2 beamEnd;           ///< hitscan beams: end point for drawing
+    float trailAccum = 0.0f;
+    float hitCooldown = 0.0f;
+    std::shared_ptr<CastShot> payload;
+    std::array<uint32_t, 8> hitIds{};
+    int hitCount = 0;
+    bool dead = false;
+
+    bool alreadyHit(uint32_t actorId) const {
+        for (int i = 0; i < hitCount; ++i)
+            if (hitIds[static_cast<size_t>(i)] == actorId) return true;
+        return false;
+    }
+    void rememberHit(uint32_t actorId) {
+        hitIds[static_cast<size_t>(hitCount % 8)] = actorId;
+        if (hitCount < 8) ++hitCount;
+    }
+};
+
+/// Resolves an instant (hitscan) projectile: traces the ray, applies hits and impact
+/// effects, and leaves the projectile alive briefly so the beam can be drawn.
+void fireHitscan(Level& level, Projectile& p, float range);
+/// Advances one projectile by a tick: movement, collisions, trails and impact effects.
+void updateProjectile(Level& level, Projectile& p, float dt);
+void drawProjectile(const Projectile& p, DrawContext& ctx, uint32_t tick);
+
+} // namespace pm

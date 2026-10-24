@@ -120,6 +120,9 @@ void WorldRenderer::resize(int width, int height) {
 void WorldRenderer::build(const World& world, int originX, int originY, uint32_t tick) {
     ox_ = originX;
     oy_ = originY;
+    blocksW_ = (w_ >> kBlockShift) + 1;
+    blocksH_ = (h_ >> kBlockShift) + 1;
+    blocks_.assign(static_cast<size_t>(blocksW_) * blocksH_, EmissiveBlock{});
     const Rgba outside{0, 0, 0, 255};
     for (int ty = 0; ty < h_; ++ty) {
         const int wy = oy_ + ty;
@@ -143,7 +146,19 @@ void WorldRenderer::build(const World& world, int originX, int originY, uint32_t
                 erow[tx] = Rgba{0, 0, 0, 0};
             } else {
                 crow[tx] = cellColor(c, wx, wy, tick);
-                erow[tx] = cellEmission(c, wx, wy, tick);
+                const Rgba e = cellEmission(c, wx, wy, tick);
+                erow[tx] = e;
+                const int intensity = e.r + e.g + e.b;
+                if (intensity > 60) {
+                    EmissiveBlock& b = blocks_[static_cast<size_t>(ty >> kBlockShift) * blocksW_ + (tx >> kBlockShift)];
+                    const float k = static_cast<float>(intensity);
+                    b.x += static_cast<float>(wx) * k;
+                    b.y += static_cast<float>(wy) * k;
+                    b.r += e.r;
+                    b.g += e.g;
+                    b.b += e.b;
+                    b.weight += k;
+                }
             }
         }
     }
@@ -173,6 +188,12 @@ void WorldRenderer::upload() {
     if (!colorTex_.id) return;
     UpdateTexture(colorTex_, color_.data());
     UpdateTexture(emitTex_, emission_.data());
+    // Finish the emissive block centroids.
+    for (EmissiveBlock& b : blocks_) {
+        if (b.weight <= 0.0f) continue;
+        b.x /= b.weight;
+        b.y /= b.weight;
+    }
 }
 
 } // namespace pm

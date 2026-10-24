@@ -4,13 +4,15 @@
 #include <memory>
 #include <string>
 
+#include "app/Persistence.hpp"
 #include "app/Scene.hpp"
 #include "core/ThreadPool.hpp"
+#include "core/Timing.hpp"
 
 namespace pm {
 
-constexpr int kTickRate = 60;
-constexpr float kTickDt = 1.0f / static_cast<float>(kTickRate);
+class Audio;
+class SpriteBank;
 
 struct LaunchOptions {
     bool sandbox = false;     ///< start directly in the alchemy sandbox
@@ -20,6 +22,8 @@ struct LaunchOptions {
     uint32_t seed = 0;        ///< 0 = random
     int captureFrame = -1;    ///< save a screenshot after this many frames, then quit (testing)
     std::string capturePath = "capture.png";
+    int captureEvery = 0;     ///< also save numbered screenshots every N frames (testing)
+    int quitAfter = -1;       ///< quit after this many frames (testing)
     int width = 0, height = 0;
 };
 
@@ -38,6 +42,12 @@ public:
     void requestQuit() { quit_ = true; }
 
     ThreadPool& pool() { return pool_; }
+    Audio& audio() { return *audio_; }
+    const SpriteBank& sprites() const { return *sprites_; }
+    Settings& settings() { return settings_; }
+    Profile& profile() { return profile_; }
+    /// Pushes volume settings to the audio system.
+    void applySettings();
     const LaunchOptions& options() const { return options_; }
     int screenWidth() const { return screenW_; }
     int screenHeight() const { return screenH_; }
@@ -51,6 +61,10 @@ private:
 
     LaunchOptions options_;
     ThreadPool pool_;
+    Settings settings_;
+    Profile profile_;
+    std::unique_ptr<Audio> audio_;
+    std::unique_ptr<SpriteBank> sprites_;
     std::unique_ptr<Scene> scene_;
     std::unique_ptr<Scene> pendingScene_;
     int screenW_ = 0, screenH_ = 0;

@@ -1,0 +1,72 @@
+// Monster data and spawn tables.
+
+#include "game/Enemy.hpp"
+
+namespace pm {
+
+namespace {
+
+using R = std::array<float, static_cast<int>(DamageType::Count)>;
+// Resistance order: Physical, Fire, Explosion, Ice, Electric, Acid, Toxic, Holy.
+constexpr R kNormal{1, 1, 1, 1, 1, 1, 1, 1};
+
+// clang-format off
+const EnemyDef kEnemies[static_cast<int>(EnemyType::Count)] = {
+    {"Slime",          SpriteId::Slime,      Behaviour::Hopper,    22, 5.0f, 3.5f,  55,  8, DamageType::Physical, SpellId::None,      1.3f, 150, mat::Slime,  6, false, 0,        {1, 1.2f, 1, 1, 1, 0.5f, 0, 1}},
+    {"Frost Slime",    SpriteId::Slime,      Behaviour::Hopper,    32, 5.0f, 3.5f,  60, 10, DamageType::Ice,      SpellId::None,      1.1f, 160, mat::Brine,  9, false, 0x80d0ff, {1, 2.0f, 1, 0, 1, 0.7f, 0.5f, 1}},
+    {"Cave Bat",       SpriteId::Bat,        Behaviour::Flyer,     12, 5.0f, 3.0f, 100,  6, DamageType::Physical, SpellId::None,      0.0f, 190, mat::Blood,  4, true,  0,        kNormal},
+    {"Ghoul Miner",    SpriteId::Ghoul,      Behaviour::Walker,    42, 3.5f, 6.0f,  40, 12, DamageType::Physical, SpellId::None,      1.0f, 170, mat::Blood, 12, false, 0xffe090, {0.9f, 1.2f, 1, 1, 1, 1, 1, 1.5f}},
+    {"Sapper",         SpriteId::Ghoul,      Behaviour::Walker,    36, 3.5f, 6.0f,  36, 10, DamageType::Physical, SpellId::Dynamite,  3.2f, 210, mat::Blood, 18, false, 0xffe090, {0.9f, 1.2f, 0.7f, 1, 1, 1, 1, 1.5f}},
+    {"Fire Imp",       SpriteId::Imp,        Behaviour::Caster,    28, 4.0f, 5.0f,  72,  8, DamageType::Fire,     SpellId::FireBolt,  1.9f, 230, mat::Ichor, 15, true,  0xff8030, {1, 0, 1, 2.0f, 1, 1, 1, 1}},
+    {"Frost Wraith",   SpriteId::Wraith,     Behaviour::Caster,    34, 4.5f, 6.0f,  60,  8, DamageType::Ice,      SpellId::IceShard,  2.1f, 230, mat::Water, 16, true,  0x80e0ff, {0.8f, 1.6f, 1, 0, 1, 1, 0, 1.5f}},
+    {"Spore Shroom",   SpriteId::Shroom,     Behaviour::Spore,     30, 5.0f, 6.0f,   0,  5, DamageType::Toxic,    SpellId::None,      2.8f, 100, mat::Spore,  8, false, 0xa070ff, {1, 1.6f, 1, 1, 1, 1, 0, 1}},
+    {"Crystal Sentinel",SpriteId::Turret,    Behaviour::Turret,    46, 5.0f, 6.5f,   0,  6, DamageType::Physical, SpellId::SparkBolt, 1.2f, 220, mat::Salt,  20, false, 0x60e0ff, {0.7f, 1, 1.2f, 1, 0.5f, 1, 0, 1}},
+    {"Bomb Beetle",    SpriteId::Beetle,     Behaviour::Kamikaze,  14, 5.0f, 3.0f,  62,  0, DamageType::Explosion,SpellId::None,      0.0f, 160, mat::Gunpowder, 8, false, 0xffb040, kNormal},
+    {"Rock Worm",      SpriteId::WormHead,   Behaviour::Burrower,  95, 4.5f, 4.5f,  70, 16, DamageType::Physical, SpellId::None,      0.0f, 260, mat::Blood, 30, true,  0,        {0.9f, 1, 0.8f, 1, 1, 1.2f, 1, 1}},
+    {"Basalt Golem",   SpriteId::Golem,      Behaviour::Brute,    170, 6.5f, 8.0f,  26, 22, DamageType::Physical, SpellId::None,      3.0f, 190, mat::Gravel, 45, false, 0xff8c3c, {0.6f, 0.5f, 0.7f, 1.2f, 1, 1.5f, 0, 1}},
+    {"Homunculus",     SpriteId::Homunculus, Behaviour::Companion, 70, 4.0f, 5.0f,  80,  0, DamageType::Physical, SpellId::SparkBolt, 0.55f, 160, mat::Blood, 0, false, 0,        kNormal},
+    {"The Rebis",      SpriteId::Boss,       Behaviour::Boss,    2200, 11.0f, 10.0f, 45, 25, DamageType::Physical, SpellId::Fireball,  2.4f, 400, mat::Ichor, 400, true, 0xffc860, {1, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 1}},
+};
+// clang-format on
+
+struct SpawnEntry {
+    EnemyType type;
+    float weight;
+    float minDifficulty;
+};
+
+// Ground and air tables per stage.
+const std::vector<SpawnEntry> kGround[5] = {
+    {{EnemyType::Slime, 40, 0}, {EnemyType::Ghoul, 30, 0}, {EnemyType::Shroom, 15, 0.2f}, {EnemyType::Beetle, 8, 0.5f}},
+    {{EnemyType::FrostSlime, 35, 0}, {EnemyType::Ghoul, 20, 0}, {EnemyType::Turret, 20, 0.2f}, {EnemyType::Golem, 8, 0.6f}},
+    {{EnemyType::Sapper, 30, 0}, {EnemyType::Beetle, 25, 0}, {EnemyType::Shroom, 20, 0}, {EnemyType::Worm, 8, 0.4f}, {EnemyType::Slime, 10, 0}},
+    {{EnemyType::Beetle, 25, 0}, {EnemyType::Golem, 20, 0.2f}, {EnemyType::Worm, 15, 0.2f}, {EnemyType::Turret, 15, 0}, {EnemyType::Sapper, 15, 0}},
+    {{EnemyType::Golem, 25, 0}, {EnemyType::Turret, 20, 0}, {EnemyType::Worm, 15, 0}, {EnemyType::Sapper, 15, 0}, {EnemyType::Beetle, 15, 0}},
+};
+const std::vector<SpawnEntry> kAir[5] = {
+    {{EnemyType::Bat, 85, 0}, {EnemyType::Imp, 15, 0.7f}},
+    {{EnemyType::Wraith, 50, 0}, {EnemyType::Bat, 40, 0}},
+    {{EnemyType::Bat, 40, 0}, {EnemyType::Imp, 45, 0}},
+    {{EnemyType::Imp, 70, 0}, {EnemyType::Wraith, 25, 0}},
+    {{EnemyType::Imp, 50, 0}, {EnemyType::Wraith, 50, 0}},
+};
+
+} // namespace
+
+const EnemyDef& enemyDef(EnemyType type) { return kEnemies[static_cast<int>(type)]; }
+
+EnemyType pickEnemy(int levelIndex, bool air, float difficulty, Rng& rng) {
+    const auto& table = (air ? kAir : kGround)[clamp(levelIndex, 0, 4)];
+    float total = 0.0f;
+    for (const SpawnEntry& e : table)
+        if (difficulty >= e.minDifficulty) total += e.weight;
+    float r = rng.uniform() * total;
+    for (const SpawnEntry& e : table) {
+        if (difficulty < e.minDifficulty) continue;
+        if (r < e.weight) return e.type;
+        r -= e.weight;
+    }
+    return table.front().type;
+}
+
+} // namespace pm

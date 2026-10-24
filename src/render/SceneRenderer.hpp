@@ -74,6 +74,9 @@ public:
     void endEmission();
 
     void addLight(const PointLight& light);
+    /// Turns the brightest emissive regions of the world layer (lava, fire, glowing fungus)
+    /// into shadow-casting point lights. Call after the world layer is uploaded.
+    void addEmissiveLights(int maxLights);
     int lightCount() const { return static_cast<int>(lights_.size()); }
 
     /// Runs lighting, glow and composite, drawing to the current framebuffer (the screen).

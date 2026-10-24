@@ -22,6 +22,11 @@ pm::LaunchOptions parseArgs(int argc, char** argv) {
         else if (std::strcmp(a, "--capture") == 0) {
             o.captureFrame = std::atoi(next());
             o.capturePath = next();
+        } else if (std::strcmp(a, "--capture-every") == 0) {
+            o.captureEvery = std::atoi(next());
+            o.capturePath = next();
+        } else if (std::strcmp(a, "--frames") == 0) {
+            o.quitAfter = std::atoi(next());
         } else if (std::strcmp(a, "--size") == 0) {
             o.width = std::atoi(next());
             o.height = std::atoi(next());

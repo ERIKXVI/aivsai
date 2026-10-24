@@ -47,7 +47,7 @@ void ChunkUpdater::run() {
             wake(x, y);
             return;
         }
-        if (defs_[c.mat].phase == Phase::Solid && !(c.flags & kBurning)) return;
+        if (defs_[c.mat].phase == Phase::Solid && !(c.flags & (kBurning | kElectric))) return;
         updateCell(x, y);
     };
 
@@ -125,7 +125,13 @@ bool ChunkUpdater::canRise(uint16_t density, MatId target) const {
 }
 
 void ChunkUpdater::updateCell(int x, int y) {
-    if (at(x, y).flags & kBurning) {
+    Cell& self = at(x, y);
+    if (self.flags & kElectric) {
+        // Electric charge lingers for a few ticks, then dissipates.
+        if (rng_.chance256(70)) self.flags &= static_cast<uint8_t>(~kElectric);
+        wake(x, y);
+    }
+    if (self.flags & kBurning) {
         if (updateBurning(x, y)) return;
     }
     if (updateReactions(x, y)) return;
