@@ -119,8 +119,10 @@ endif()
 # ---------------------------------------------------------------------------
 # Developer tools
 # ---------------------------------------------------------------------------
-option(PM_BUILD_TOOLS "Build developer tools (level preview renderer)" ON)
+option(PM_BUILD_TOOLS "Build developer tools (level and audio preview)" ON)
 if(PM_BUILD_TOOLS)
     add_executable(pm_genpreview tools/genpreview.cpp)
     target_link_libraries(pm_genpreview PRIVATE pm_game)
+    add_executable(pm_audiopreview tools/audiopreview.cpp)
+    target_link_libraries(pm_audiopreview PRIVATE pm_game)
 endif()

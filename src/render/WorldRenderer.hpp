@@ -13,6 +13,7 @@
 
 namespace pm {
 
+class ThreadPool;
 class World;
 
 /// Aggregated emission of a 16x16 block of cells; bright blocks become point lights so
@@ -35,7 +36,8 @@ public:
     void resize(int width, int height);
 
     /// Fills the CPU buffers with the world region whose top-left cell is (originX, originY).
-    void build(const World& world, int originX, int originY, uint32_t tick);
+    /// When a pool is given the rows are converted in parallel.
+    void build(const World& world, int originX, int originY, uint32_t tick, ThreadPool* pool = nullptr);
 
     /// Writes a pixel into the buffers in world coordinates (ignored when off-screen).
     void stamp(int worldX, int worldY, Rgba color, Rgba emission);
@@ -55,6 +57,7 @@ public:
 
 private:
     void release();
+    void buildRows(const World& world, int rowBegin, int rowEnd, uint32_t tick);
 
     int w_ = 0, h_ = 0;
     int ox_ = 0, oy_ = 0;

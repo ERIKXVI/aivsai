@@ -105,7 +105,7 @@ struct Allpass {
 
 } // namespace
 
-struct MusicEngine::State {
+struct MusicSynth::State {
     Rng rng{0xC0FFEEu};
     int samplesPerStep = kRate * 60 / 80 / 4;
     int stepCounter = 0;
@@ -185,11 +185,26 @@ struct MusicEngine::State {
     }
 };
 
-MusicEngine::MusicEngine() : state_(new State()) {
+MusicSynth::MusicSynth() : state_(std::make_unique<State>()) { state_->setChord(); }
+
+MusicSynth::~MusicSynth() = default;
+
+void MusicSynth::setMood(int root, int mode, float intensity) {
+    root_.store(root);
+    mode_.store(clamp(mode, 0, kModes - 1));
+    intensity_.store(clamp(intensity, 0.0f, 1.0f));
+}
+
+void MusicSynth::setAmbient(float fire, float water, float lava) {
+    fire_.store(clamp(fire, 0.0f, 1.0f));
+    water_.store(clamp(water, 0.0f, 1.0f));
+    lava_.store(clamp(lava, 0.0f, 1.0f));
+}
+
+MusicEngine::MusicEngine() {
     SetAudioStreamBufferSizeDefault(4096);
     stream_ = LoadAudioStream(kRate, 32, 2);
     if (!IsAudioStreamValid(stream_)) return;
-    state_->setChord();
     g_engine.store(this);
     SetAudioStreamCallback(stream_, &MusicEngine::streamCallback);
     PlayAudioStream(stream_);
@@ -202,22 +217,7 @@ MusicEngine::~MusicEngine() {
         g_engine.store(nullptr);
         UnloadAudioStream(stream_);
     }
-    delete state_;
 }
-
-void MusicEngine::setMood(int root, int mode, float intensity) {
-    root_.store(root);
-    mode_.store(clamp(mode, 0, kModes - 1));
-    intensity_.store(clamp(intensity, 0.0f, 1.0f));
-}
-
-void MusicEngine::setAmbient(float fire, float water, float lava) {
-    fire_.store(clamp(fire, 0.0f, 1.0f));
-    water_.store(clamp(water, 0.0f, 1.0f));
-    lava_.store(clamp(lava, 0.0f, 1.0f));
-}
-
-void MusicEngine::update(float) {}
 
 void MusicEngine::streamCallback(void* buffer, unsigned int frames) {
     MusicEngine* e = g_engine.load();
@@ -226,10 +226,10 @@ void MusicEngine::streamCallback(void* buffer, unsigned int frames) {
         for (unsigned i = 0; i < frames * 2; ++i) out[i] = 0.0f;
         return;
     }
-    e->render(out, frames);
+    e->synth_.render(out, frames);
 }
 
-void MusicEngine::render(float* out, unsigned int frames) {
+void MusicSynth::render(float* out, unsigned int frames) {
     State& s = *state_;
     const float volume = volume_.load();
     const int wantRoot = root_.load(), wantMode = mode_.load();
@@ -272,7 +272,7 @@ void MusicEngine::render(float* out, unsigned int frames) {
 
         s.dronePhase += s.droneFreq / kRate;
         s.dronePhase -= std::floor(s.dronePhase);
-        float drone = std::sin(s.dronePhase * kTau) * 0.06f * (0.8f + 0.2f * std::sin(s.lfoPhase * kTau * 3.0f));
+        float drone = std::sin(s.dronePhase * kTau) * 0.045f * (0.8f + 0.2f * std::sin(s.lfoPhase * kTau * 3.0f));
 
         s.bassPhase += s.bassFreq / kRate;
         s.bassPhase -= std::floor(s.bassPhase);

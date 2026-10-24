@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "core/Rng.hpp"
+#include "core/ThreadPool.hpp"
 #include "sim/World.hpp"
 
 namespace pm {
@@ -117,48 +118,68 @@ void WorldRenderer::resize(int width, int height) {
     SetTextureWrap(emitTex_, TEXTURE_WRAP_CLAMP);
 }
 
-void WorldRenderer::build(const World& world, int originX, int originY, uint32_t tick) {
+void WorldRenderer::build(const World& world, int originX, int originY, uint32_t tick, ThreadPool* pool) {
     ox_ = originX;
     oy_ = originY;
     blocksW_ = (w_ >> kBlockShift) + 1;
     blocksH_ = (h_ >> kBlockShift) + 1;
     blocks_.assign(static_cast<size_t>(blocksW_) * blocksH_, EmissiveBlock{});
+    // Each job fills one band of block rows, so emissive blocks are never shared.
+    if (pool) {
+        pool->parallelFor(blocksH_, [&](int band) { buildRows(world, band << kBlockShift, std::min(h_, (band + 1) << kBlockShift), tick); });
+    } else {
+        buildRows(world, 0, h_, tick);
+    }
+}
+
+void WorldRenderer::buildRows(const World& world, int rowBegin, int rowEnd, uint32_t tick) {
+    const MaterialTables& mt = materials();
     const Rgba outside{0, 0, 0, 255};
-    for (int ty = 0; ty < h_; ++ty) {
+    const Rgba void_{12, 10, 16, 255};
+    for (int ty = rowBegin; ty < rowEnd; ++ty) {
         const int wy = oy_ + ty;
         Rgba* crow = color_.data() + static_cast<size_t>(ty) * w_;
         Rgba* erow = emission_.data() + static_cast<size_t>(ty) * w_;
         if (wy < 0 || wy >= world.height()) {
-            std::fill(crow, crow + w_, Rgba{12, 10, 16, 255});
+            std::fill(crow, crow + w_, void_);
             std::fill(erow, erow + w_, outside);
             continue;
         }
+        EmissiveBlock* blockRow = blocks_.data() + static_cast<size_t>(ty >> kBlockShift) * blocksW_;
+        const Cell* cells = &world.at(0, wy);
         for (int tx = 0; tx < w_; ++tx) {
             const int wx = ox_ + tx;
             if (wx < 0 || wx >= world.width()) {
-                crow[tx] = Rgba{12, 10, 16, 255};
+                crow[tx] = void_;
                 erow[tx] = outside;
                 continue;
             }
-            const Cell& c = world.at(wx, wy);
+            const Cell& c = cells[wx];
             if (c.mat == mat::Empty) {
                 crow[tx] = Rgba{0, 0, 0, 0};
                 erow[tx] = Rgba{0, 0, 0, 0};
-            } else {
-                crow[tx] = cellColor(c, wx, wy, tick);
-                const Rgba e = cellEmission(c, wx, wy, tick);
-                erow[tx] = e;
-                const int intensity = e.r + e.g + e.b;
-                if (intensity > 60) {
-                    EmissiveBlock& b = blocks_[static_cast<size_t>(ty >> kBlockShift) * blocksW_ + (tx >> kBlockShift)];
-                    const float k = static_cast<float>(intensity);
-                    b.x += static_cast<float>(wx) * k;
-                    b.y += static_cast<float>(wy) * k;
-                    b.r += e.r;
-                    b.g += e.g;
-                    b.b += e.b;
-                    b.weight += k;
-                }
+                continue;
+            }
+            const MaterialDef& d = mt.defs[c.mat];
+            // Fast path: plain static matter needs only a palette lookup.
+            if (d.phase == Phase::Solid && d.glow.a == 0 && !(c.flags & (cellflag::kBurning | cellflag::kElectric))) {
+                crow[tx] = mt.palette[c.mat][c.var];
+                erow[tx] = Rgba{0, 0, 0, d.opacity};
+                continue;
+            }
+            crow[tx] = cellColor(c, wx, wy, tick);
+            const Rgba e = cellEmission(c, wx, wy, tick);
+            erow[tx] = e;
+            const int intensity = e.r + e.g + e.b;
+            if (intensity > 60) {
+                EmissiveBlock& b = blockRow[tx >> kBlockShift];
+                const float k = static_cast<float>(intensity);
+                b.x += static_cast<float>(wx) * k;
+                b.y += static_cast<float>(wy) * k;
+                b.r += e.r;
+                b.g += e.g;
+                b.b += e.b;
+                b.weight += k;
             }
         }
     }

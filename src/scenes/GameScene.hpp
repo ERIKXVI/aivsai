@@ -44,6 +44,7 @@ private:
     void drawTitleCard();
     void drawLoading();
     void drawControlsHint();
+    void drawDebugOverlay();
 
     RunState run_;
     std::unique_ptr<Level> level_;
@@ -63,6 +64,7 @@ private:
     float slowMo_ = 1.0f;
     float tickAccumulator_ = 0.0f;
     bool profileRecorded_ = false;
+    bool debugOverlay_ = false;
 
     // Input pressed between ticks is latched so nothing is lost at high frame rates.
     bool latchJump_ = false, latchInteract_ = false, latchDrink_ = false;

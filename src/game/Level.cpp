@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <unordered_map>
 
+#include "core/Profiler.hpp"
 #include "core/Timing.hpp"
 
 namespace pm {
@@ -111,38 +112,24 @@ const Enemy* Level::boss() const {
 }
 
 void Level::tick(const PlayerInput& input) {
+    ScopedTimer tickTimer(ProfileSection::Tick);
     const float dt = kTickDt;
     input_ = input;
     ++ticks_;
     time_ += dt;
     if (player_->alive()) run_.stats.time += dt;
 
-    player_->setInput(input);
-    if (player_->alive()) player_->tick(*this);
-    else player_->body.prevPos = player_->body.pos;
+    updateEntities(input, dt);
 
-    const Vec2 playerPos = player_->body.pos;
-    for (auto& e : enemies_) {
-        if (!e->alive()) continue;
-        if ((e->body.pos - playerPos).lengthSq() > kEnemyActiveRange * kEnemyActiveRange && !e->aggro() &&
-            e->type() != EnemyType::Companion) {
-            e->body.prevPos = e->body.pos;
-            continue;
-        }
-        e->tick(*this);
+    {
+        ScopedTimer simTimer(ProfileSection::Simulation);
+        world().step(pool_);
     }
-
-    for (size_t i = 0; i < projectiles_.size(); ++i) {
-        if (!projectiles_[i].dead) updateProjectile(*this, projectiles_[i], dt);
-    }
-    projectiles_.erase(std::remove_if(projectiles_.begin(), projectiles_.end(), [](const Projectile& p) { return p.dead; }),
-                       projectiles_.end());
-    for (Projectile& p : pendingProjectiles_) projectiles_.push_back(std::move(p));
-    pendingProjectiles_.clear();
-
-    world().step(pool_);
     handleSimEvents();
-    particles_.update(world(), dt);
+    {
+        ScopedTimer particleTimer(ProfileSection::Particles);
+        particles_.update(world(), dt);
+    }
     updatePickups(dt);
     if (input.interactPressed && player_->alive()) interact();
     updateEffects(dt);
@@ -169,6 +156,34 @@ void Level::tick(const PlayerInput& input) {
 
     updateIntensity();
     audio_.setListener(player_->body.pos);
+}
+
+void Level::updateEntities(const PlayerInput& input, float dt) {
+    ScopedTimer timer(ProfileSection::Entities);
+    player_->setInput(input);
+    if (player_->alive()) player_->tick(*this);
+    else player_->body.prevPos = player_->body.pos;
+
+    // Index loops: creatures and projectiles may spawn more of themselves while updating.
+    const Vec2 playerPos = player_->body.pos;
+    for (size_t i = 0; i < enemies_.size(); ++i) {
+        Enemy& e = *enemies_[i];
+        if (!e.alive()) continue;
+        const bool far = (e.body.pos - playerPos).lengthSq() > kEnemyActiveRange * kEnemyActiveRange;
+        if (far && !e.aggro() && e.type() != EnemyType::Companion) {
+            e.body.prevPos = e.body.pos; // dormant until the player comes near
+            continue;
+        }
+        e.tick(*this);
+    }
+
+    for (size_t i = 0; i < projectiles_.size(); ++i) {
+        if (!projectiles_[i].dead) updateProjectile(*this, projectiles_[i], dt);
+    }
+    projectiles_.erase(std::remove_if(projectiles_.begin(), projectiles_.end(), [](const Projectile& p) { return p.dead; }),
+                       projectiles_.end());
+    for (Projectile& p : pendingProjectiles_) projectiles_.push_back(std::move(p));
+    pendingProjectiles_.clear();
 }
 
 void Level::handleSimEvents() {

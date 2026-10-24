@@ -5,6 +5,7 @@
 #include <cstdio>
 
 #include "app/App.hpp"
+#include "core/Profiler.hpp"
 #include "core/Timing.hpp"
 #include "gen/LevelGenerator.hpp"
 #include "render/Sprites.hpp"
@@ -56,12 +57,19 @@ std::string spellDetails(SpellId id) {
 } // namespace
 
 GameScene::GameScene(App& app, RunState run)
-    : Scene(app), run_(std::move(run)), levelRenderer_(scene_, app.sprites()) {
+    : Scene(app), run_(std::move(run)), levelRenderer_(scene_, app.sprites(), app.pool()) {
     requestLevel();
 }
 
 GameScene::~GameScene() {
     if (pending_.valid()) pending_.wait();
+    if (app_.options().autoplay) {
+        const Profiler& prof = Profiler::instance();
+        for (int i = 0; i < static_cast<int>(ProfileSection::Count); ++i) {
+            auto sec = static_cast<ProfileSection>(i);
+            std::printf("[profile] %-12s avg %6.3f ms  peak %6.3f ms\n", Profiler::name(sec), prof.average(sec), prof.peak(sec));
+        }
+    }
 }
 
 void GameScene::requestLevel() {
@@ -227,6 +235,7 @@ void GameScene::frame(float dt) {
     }
     titleTimer_ = std::max(0.0f, titleTimer_ - dt);
 
+    if (IsKeyPressed(KEY_F3)) debugOverlay_ = !debugOverlay_;
     if (mode_ == Mode::Playing) {
         latchInput();
         if (IsKeyPressed(KEY_ESCAPE) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT)) mode_ = Mode::Paused;
@@ -261,6 +270,7 @@ void GameScene::frame(float dt) {
 
 void GameScene::render(float alpha) {
     ui::beginFrame(app_.screenWidth(), app_.screenHeight());
+    ScopedTimer renderTimer(ProfileSection::Render);
     ClearBackground(BLACK);
     if (level_) {
         const float a = (mode_ == Mode::Playing || mode_ == Mode::Dead) ? alpha : 1.0f;
@@ -290,7 +300,7 @@ void GameScene::render(float alpha) {
         DrawRectangle(0, 0, app_.screenWidth(), app_.screenHeight(), Color{0, 0, 0, static_cast<unsigned char>(fade_ * 255.0f)});
     }
     if (mode_ == Mode::Loading) drawLoading();
-    if (app_.settings().showFps) ui::text(TextFormat("%d FPS", GetFPS()), 8.0f, static_cast<float>(app_.screenHeight()) - 30.0f, ui::fontSize(2), GREEN);
+    if (app_.settings().showFps || debugOverlay_) drawDebugOverlay();
 }
 
 void GameScene::drawWorldOverlays(float alpha) {
@@ -632,6 +642,26 @@ void GameScene::drawEndScreen(bool victory) {
     }
     if (ui::button({sw * 0.5f + 4.0f * s, y, bw, bh}, "Main Menu") || IsKeyPressed(KEY_ESCAPE)) {
         app_.setScene(std::make_unique<MenuScene>(app_));
+    }
+}
+
+void GameScene::drawDebugOverlay() {
+    const float s = static_cast<float>(ui::scale());
+    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    float x = 10.0f * s, y = static_cast<float>(app_.screenHeight()) * 0.45f;
+    ui::text(TextFormat("%d FPS", GetFPS()), x, y, small, GREEN);
+    y += static_cast<float>(small) * 1.3f;
+    if (!debugOverlay_) return;
+    const Profiler& prof = Profiler::instance();
+    for (int i = 0; i < static_cast<int>(ProfileSection::Count); ++i) {
+        auto sec = static_cast<ProfileSection>(i);
+        ui::text(TextFormat("%-12s %5.2f ms (peak %5.2f)", Profiler::name(sec), prof.average(sec), prof.peak(sec)), x, y, small, GREEN);
+        y += static_cast<float>(small) * 1.2f;
+    }
+    if (level_) {
+        ui::text(TextFormat("chunks %d  particles %zu  projectiles %zu  enemies %zu", level_->world().activeChunkCount(),
+                            level_->particles().count(), level_->projectiles().size(), level_->enemies().size()),
+                 x, y, small, GREEN);
     }
 }
 

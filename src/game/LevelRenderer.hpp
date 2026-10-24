@@ -10,10 +10,12 @@ namespace pm {
 class Level;
 class SceneRenderer;
 class SpriteBank;
+class ThreadPool;
 
 class LevelRenderer {
 public:
-    LevelRenderer(SceneRenderer& scene, const SpriteBank& sprites) : scene_(scene), sprites_(sprites) {}
+    LevelRenderer(SceneRenderer& scene, const SpriteBank& sprites, ThreadPool& pool)
+        : scene_(scene), sprites_(sprites), pool_(pool) {}
 
     void render(const Level& level, Vec2 camera, float alpha, float time, int screenW, int screenH);
 
@@ -23,6 +25,7 @@ private:
 
     SceneRenderer& scene_;
     const SpriteBank& sprites_;
+    ThreadPool& pool_;
     Background background_;
 };
 

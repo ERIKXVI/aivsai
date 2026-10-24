@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "core/Profiler.hpp"
 #include "game/Level.hpp"
 #include "render/SceneRenderer.hpp"
 #include "render/Sprites.hpp"
@@ -34,11 +35,17 @@ void LevelRenderer::render(const Level& level, Vec2 camera, float alpha, float t
     const World& world = level.world();
 
     WorldRenderer& layer = scene_.worldLayer();
-    layer.build(world, v.originX, v.originY, world.tick());
-    level.particles().draw(layer);
     DrawContext ctx{sprites_, scene_, alpha, time};
-    for (const Projectile& p : level.projectiles()) drawProjectile(p, ctx, level.ticks());
-    layer.upload();
+    {
+        ScopedTimer buildTimer(ProfileSection::WorldBuild);
+        layer.build(world, v.originX, v.originY, world.tick(), &pool_);
+        level.particles().draw(layer);
+        for (const Projectile& p : level.projectiles()) drawProjectile(p, ctx, level.ticks());
+    }
+    {
+        ScopedTimer uploadTimer(ProfileSection::Upload);
+        layer.upload();
+    }
 
     background_.setBiome(level.biome(), level.layout().seed);
 

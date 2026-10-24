@@ -129,6 +129,7 @@ public:
 
 private:
     void populate();
+    void updateEntities(const PlayerInput& input, float dt);
     void handleSimEvents();
     void updatePickups(float dt);
     void interact();
