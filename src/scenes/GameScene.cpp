@@ -10,6 +10,7 @@
 #include "core/Profiler.hpp"
 #include "core/Timing.hpp"
 #include "gen/LevelGenerator.hpp"
+#include "render/ColorUtil.hpp"
 #include "render/Sprites.hpp"
 #include "scenes/MenuScene.hpp"
 #include "ui/SettingsPanel.hpp"
@@ -20,11 +21,6 @@ namespace pm {
 namespace {
 
 constexpr const char* kStageNumerals[] = {"I", "II", "III", "IV", "V"};
-
-Color hexColor(uint32_t hex, uint8_t a = 255) {
-    return Color{static_cast<unsigned char>((hex >> 16) & 0xFF), static_cast<unsigned char>((hex >> 8) & 0xFF),
-                 static_cast<unsigned char>(hex & 0xFF), a};
-}
 
 /// "Slain by a Fire Imp", "Undone by lava", "Undone by your own Bomb"...
 std::string deathCause(const Actor& victim) {
@@ -87,6 +83,7 @@ void GameScene::finishLoading() {
     camera_.reset(level_->player().body.pos);
     bot_ = Bot{};
     hints_.reset();
+    minimap_.reset(*level_);
     mode_ = Mode::Playing;
     if (app_.options().teleportX >= 0.0f) level_->debugTeleport({app_.options().teleportX, app_.options().teleportY});
     if (app_.options().openUi == "vault" && !level_->layout().vaults.empty()) {
@@ -96,6 +93,10 @@ void GameScene::finishLoading() {
     if (app_.options().openUi == "transmuter" && !level_->transmuters().empty()) {
         level_->debugTeleport(level_->transmuters().front().pos + Vec2{-30.0f, -8.0f});
         camera_.reset(level_->player().body.pos);
+    }
+    if (app_.options().openUi == "map") {
+        minimap_.revealAll(*level_);
+        mode_ = Mode::Map;
     }
     if (app_.options().openUi == "inventory") mode_ = Mode::Inventory;
     else if (app_.options().openUi == "pause") mode_ = Mode::Paused;
@@ -218,6 +219,7 @@ void GameScene::stepLevel() {
         bot_.clearStuck();
     }
     level_->tick(in);
+    minimap_.update(*level_);
     if (mode_ == Mode::Playing && !autoplay) hints_.update(*level_, run_, kTickDt);
 
     switch (level_->pollEvent()) {
@@ -278,6 +280,12 @@ void GameScene::frame(float dt) {
         if (IsKeyPressed(KEY_ESCAPE) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT)) mode_ = Mode::Paused;
         else if (IsKeyPressed(KEY_TAB) || IsKeyPressed(KEY_I) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT))
             mode_ = Mode::Inventory;
+        else if (!level_->isSanctum() && (IsKeyPressed(KEY_M) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN)))
+            mode_ = Mode::Map;
+    } else if (mode_ == Mode::Map) {
+        if (IsKeyPressed(KEY_M) || IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_TAB) ||
+            IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT))
+            mode_ = Mode::Playing;
     } else if (mode_ == Mode::Inventory) {
         if (IsKeyPressed(KEY_TAB) || IsKeyPressed(KEY_I) || IsKeyPressed(KEY_ESCAPE) ||
             IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT)) {
@@ -323,6 +331,7 @@ void GameScene::render(float alpha) {
 
     switch (mode_) {
     case Mode::Inventory: drawInventory(); break;
+    case Mode::Map: minimap_.drawFull(*level_, static_cast<float>(app_.screenWidth()), static_cast<float>(app_.screenHeight()), time_); break;
     case Mode::Paused: drawPauseMenu(); break;
     case Mode::Settings:
         DrawRectangle(0, 0, app_.screenWidth(), app_.screenHeight(), Color{0, 0, 0, 150});
@@ -458,6 +467,8 @@ void GameScene::drawHud() {
     ui::text(TextFormat("%d gold", run_.gold), sw - 10.0f * s, 10.0f * s, size, ui::color::kGold, ui::Align::Right);
     std::string stage = run_.inSanctum ? "Sanctum" : std::string(kStageNumerals[std::min(4, run_.levelIndex)]) + ". " + biomeDef(level_->biome()).name;
     ui::text(stage, sw - 10.0f * s, 10.0f * s + static_cast<float>(size) + 2.0f * s, small, ui::color::kTextDim, ui::Align::Right);
+    if (!level_->isSanctum() && mode_ != Mode::Map)
+        minimap_.drawCorner(*level_, sw, 10.0f * s + static_cast<float>(size + small) + 8.0f * s, time_);
 
     // Wands and the active deck.
     const float icon = 13.0f * s;
@@ -533,9 +544,9 @@ void GameScene::drawControlsHint() {
     float a = clamp(std::min((t - 1.0f) * 2.0f, (30.0f - t) / 2.0f), 0.0f, 1.0f);
     if (a <= 0.0f) return;
     static constexpr const char* kKeyboard[] = {"A/D move   W/Space jump - hold to levitate", "Mouse aim   LMB cast   1-4 / wheel switch wand",
-                                                "Wand 2 digs through rock   Tab edit wands", "E interact   Esc pause   Follow the arrow to the portal"};
+                                                "Wand 2 digs through rock   Tab edit wands", "E interact   M map   Follow the arrow to the portal"};
     static constexpr const char* kGamepad[] = {"Left stick move   A jump - hold to levitate", "Right stick aim   RT cast   LB / RB switch wand",
-                                               "Wand 2 digs through rock   Back edit wands", "B interact   Start pause   Follow the arrow to the portal"};
+                                               "Wand 2 digs through rock   Back edit wands", "B interact   D-pad down map   Follow the arrow"};
     const auto& lines = usingGamepad_ ? kGamepad : kKeyboard;
     float x = 10.0f * s, y = 60.0f * s;
     Rectangle r{x - 4.0f * s, y - 4.0f * s, 170.0f * s, (static_cast<float>(small) * 1.3f) * 4.0f + 8.0f * s};

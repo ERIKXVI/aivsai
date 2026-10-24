@@ -15,6 +15,7 @@
 #include "game/Run.hpp"
 #include "render/SceneRenderer.hpp"
 #include "scenes/Hints.hpp"
+#include "ui/Minimap.hpp"
 
 namespace pm {
 
@@ -28,7 +29,7 @@ public:
     void render(float alpha) override;
 
 private:
-    enum class Mode { Loading, Playing, Inventory, Paused, Settings, Dead, Victory };
+    enum class Mode { Loading, Playing, Inventory, Map, Paused, Settings, Dead, Victory };
 
     void requestLevel();
     void stepLevel();
@@ -58,6 +59,7 @@ private:
     FollowCamera camera_;
     Bot bot_;
     HintTracker hints_;
+    Minimap minimap_;
     Mode mode_ = Mode::Loading;
 
     float fade_ = 1.0f;          ///< 1 = black

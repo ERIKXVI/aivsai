@@ -7,6 +7,7 @@
 #include "game/Enemy.hpp"
 #include "game/Perks.hpp"
 #include "game/Spells.hpp"
+#include "render/ColorUtil.hpp"
 #include "render/Sprites.hpp"
 #include "ui/Ui.hpp"
 
@@ -26,11 +27,6 @@ int countBits(uint64_t v) {
 }
 
 bool spellKnown(const Profile& p, int i) { return (p.spellsSeen >> i) & 1ull; }
-
-Color hexToColor(uint32_t hex) {
-    return Color{static_cast<unsigned char>((hex >> 16) & 0xFF), static_cast<unsigned char>((hex >> 8) & 0xFF),
-                 static_cast<unsigned char>(hex & 0xFF), 255};
-}
 
 } // namespace
 
@@ -151,14 +147,14 @@ void GrimoirePanel::drawPerks(App& app, float x, float y) {
         const bool known = (p.perksSeen >> i) & 1u;
         const float px = x + static_cast<float>(i / kRows) * colW, py = y + static_cast<float>(i % kRows) * rowH;
         Rectangle gem{px, py + (static_cast<float>(small) - 7.0f * s) * 0.5f, 7.0f * s, 7.0f * s};
-        DrawRectangleRec(gem, known ? hexToColor(def.color) : Color{50, 44, 58, 255});
+        DrawRectangleRec(gem, known ? hexColor(def.color) : Color{50, 44, 58, 255});
         DrawRectangleLinesEx(gem, 1.0f, Color{0, 0, 0, 160});
         ui::text(known ? def.name : "? ? ?", px + 12.0f * s, py, small, known ? ui::color::kText : ui::color::kTextDim);
         if (ui::hovered({px, py, colW - 10.0f * s, rowH})) hovered = i;
     }
     if (hovered >= 0) {
         const PerkDef& def = perkDef(static_cast<PerkId>(hovered));
-        if ((p.perksSeen >> hovered) & 1u) ui::tooltip(def.name, def.description, hexToColor(def.color));
+        if ((p.perksSeen >> hovered) & 1u) ui::tooltip(def.name, def.description, hexColor(def.color));
         else ui::tooltip("Unknown perk", "Take it at a sanctum altar or a transmutation circle to record it.", ui::color::kTextDim);
     }
 }

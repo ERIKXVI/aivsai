@@ -4,6 +4,7 @@
 
 #include "core/Timing.hpp"
 #include "game/Level.hpp"
+#include "render/ColorUtil.hpp"
 #include "render/SceneRenderer.hpp"
 
 namespace pm {
@@ -14,11 +15,6 @@ constexpr int kWormSegments = 9;
 constexpr float kWormSpacing = 5.5f;
 
 float sign(float v) { return v < 0.0f ? -1.0f : 1.0f; }
-
-Color hexColor(uint32_t hex, uint8_t a = 255) {
-    return Color{static_cast<unsigned char>((hex >> 16) & 0xFF), static_cast<unsigned char>((hex >> 8) & 0xFF),
-                 static_cast<unsigned char>(hex & 0xFF), a};
-}
 
 } // namespace
 

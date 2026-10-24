@@ -35,6 +35,7 @@ executable; choose *More info -> Run anyway*.
 | Drink from the flask | `F` | X |
 | Pick up, open, buy | `E` | B |
 | Edit wands (drag & drop spells) | `Tab` | Back |
+| Map | `M` | D-pad down |
 | Pause | `Esc` | Start |
 | Fullscreen | `F11` or `Alt+Enter` | |
 | Performance overlay | `F3` | |

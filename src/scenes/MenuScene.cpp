@@ -43,6 +43,7 @@ MenuScene::MenuScene(App& app) : Scene(app), rng_(static_cast<uint64_t>(std::tim
     const std::string& ui = app.options().openUi;
     if (ui == "loadout") panel_ = Panel::Loadout;
     else if (ui == "grimoire") panel_ = Panel::Grimoire;
+    else if (ui == "help") panel_ = Panel::Help;
 }
 
 void MenuScene::buildWorld() {
@@ -330,32 +331,49 @@ void MenuScene::drawHelp() {
     const int size = ui::fontSize(ui::scale());
     const int small = ui::fontSize(std::max(1, ui::scale() - 1));
     DrawRectangle(0, 0, app_.screenWidth(), app_.screenHeight(), Color{0, 0, 0, 150});
-    Rectangle r{sw * 0.5f - 200.0f * s, sh * 0.5f - 130.0f * s, 400.0f * s, 260.0f * s};
+    Rectangle r{sw * 0.5f - 210.0f * s, sh * 0.5f - 140.0f * s, 420.0f * s, 280.0f * s};
     ui::panel(r);
     ui::text("HOW TO PLAY", sw * 0.5f, r.y + 8.0f * s, ui::fontSize(ui::scale() + 1), ui::color::kGold, ui::Align::Center);
-    float y = r.y + 30.0f * s;
-    const char* controls[] = {
-        "A / D  -  move                  W / Space  -  jump, hold to levitate",
-        "Mouse  -  aim                   Left click  -  cast the active wand",
-        "1-4 / wheel  -  switch wand     Tab  -  edit wands (drag spells)",
-        "Right click  -  pour your flask  Q  -  absorb liquids and powders",
-        "F  -  drink from the flask       E  -  pick up / open / buy",
+
+    // Controls as a two-column key / action table.
+    struct Binding {
+        const char* keys;
+        const char* action;
     };
-    for (const char* c : controls) {
-        ui::text(c, r.x + 12.0f * s, y, small, ui::color::kText);
-        y += static_cast<float>(small) * 1.35f;
+    static constexpr Binding kBindings[] = {
+        {"A / D", "move"},          {"Right click", "pour the flask"},
+        {"W / Space", "jump, hold to levitate"}, {"Q (hold)", "absorb into the flask"},
+        {"Mouse", "aim"},           {"F", "drink from the flask"},
+        {"Left click", "cast"},     {"E", "pick up, open, buy"},
+        {"1-4 / wheel", "switch wand"}, {"M", "map"},
+        {"Tab", "edit wands"},      {"Esc", "pause"},
+    };
+    const float rowH = static_cast<float>(small) * 1.45f;
+    const float colW = (r.width - 24.0f * s) * 0.5f, keyW = 62.0f * s;
+    float y = r.y + 30.0f * s;
+    for (size_t i = 0; i < std::size(kBindings); ++i) {
+        const float cx = r.x + 12.0f * s + static_cast<float>(i % 2) * colW, cy = y + static_cast<float>(i / 2) * rowH;
+        ui::text(kBindings[i].keys, cx + keyW, cy, small, ui::color::kGold, ui::Align::Right);
+        ui::text(kBindings[i].action, cx + keyW + 8.0f * s, cy, small, ui::color::kText);
     }
-    y += 6.0f * s;
-    ui::text("The alchemist's craft", r.x + 12.0f * s, y, size, ui::color::kAccent);
-    y += static_cast<float>(size) + 4.0f * s;
-    const char* tips =
-        "Every pixel is matter. Fire spreads through wood, oil and gunpowder. Water cools lava into obsidian. "
-        "Acid eats stone. Gold ore crumbles into gold dust when blasted - walk over it to collect. "
-        "Wands cast their spells in order: modifiers boost the next projectile, multicasts fire several at once, "
-        "and trigger spells release the next spell where they land. Transmutation circles grant a perk when you "
-        "pour the material they crave into them with your flask. Reach the portal at the bottom of each "
-        "stage; rest and shop in the sanctum between stages; complete the Great Work in the Athanor.";
-    ui::textWrapped(tips, r.x + 12.0f * s, y, r.width - 24.0f * s, small, ui::color::kTextDim);
+    y += rowH * static_cast<float>((std::size(kBindings) + 1) / 2) + 8.0f * s;
+
+    // The rules of matter, one short paragraph each.
+    static constexpr Binding kTips[] = {
+        {"Matter", "Every pixel is simulated. Fire spreads through wood, oil and gunpowder; water cools lava into obsidian; "
+                   "acid eats stone. Blast gold ore and walk over the dust to collect it."},
+        {"Wands", "Spells cast in order. Modifiers boost the next projectile, multicasts fire several at once and triggers "
+                  "release the next spell where they land."},
+        {"Flask", "Carry any liquid or powder. Douse fires, dissolve walls, set oil traps - or drink: Vitae heals. "
+                  "Pour what a transmutation circle craves into it to earn a perk."},
+        {"The Work", "Find the portal at the bottom of each stage. Sanctums between stages heal you and sell spells. "
+                     "Vaults hide treasure off the main route."},
+    };
+    for (const Binding& tip : kTips) {
+        ui::text(tip.keys, r.x + 12.0f * s, y, size, ui::color::kAccent);
+        y += static_cast<float>(size) + 1.0f * s;
+        y += ui::textWrapped(tip.action, r.x + 12.0f * s, y, r.width - 24.0f * s, small, ui::color::kTextDim) + 4.0f * s;
+    }
     if (ui::button({sw * 0.5f - 50.0f * s, r.y + r.height - 24.0f * s, 100.0f * s, 16.0f * s}, "Back") || IsKeyPressed(KEY_ESCAPE))
         panel_ = Panel::Main;
 }

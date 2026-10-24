@@ -27,7 +27,7 @@ constexpr Color kMana{80, 150, 255, 255};
 constexpr Color kDanger{255, 90, 80, 255};
 } // namespace color
 
-/// Integer UI scale derived from the window height (1080p -> 2).
+/// Integer UI scale derived from the window size (720p -> 2, 1080p -> 3).
 void beginFrame(int screenW, int screenH);
 int scale();
 int screenW();

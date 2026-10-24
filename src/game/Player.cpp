@@ -4,6 +4,7 @@
 
 #include "core/Timing.hpp"
 #include "game/Level.hpp"
+#include "render/ColorUtil.hpp"
 #include "render/SceneRenderer.hpp"
 #include "render/Sprites.hpp"
 #include "rlgl.h"
@@ -25,11 +26,6 @@ constexpr float kMaxFallSpeed = 420.0f;
 constexpr int kSprayPerTick = 7;
 constexpr int kAbsorbPerTick = 30;
 constexpr int kDrinkAmount = 100;
-
-Color toColor(uint32_t hex, uint8_t a = 255) {
-    return Color{static_cast<unsigned char>((hex >> 16) & 0xFF), static_cast<unsigned char>((hex >> 8) & 0xFF),
-                 static_cast<unsigned char>(hex & 0xFF), a};
-}
 
 } // namespace
 
@@ -386,7 +382,7 @@ void Player::drawAlbedo(DrawContext& ctx) const {
         for (int i = 0; i <= w.length; ++i) {
             Vec2 q = hand + aimDir_ * static_cast<float>(i);
             Vector2 lq = ctx.scene.layerPos(q);
-            Color c = i >= w.length - 1 ? toColor(w.gemColor) : toColor(w.handleColor);
+            Color c = i >= w.length - 1 ? hexColor(w.gemColor) : hexColor(w.handleColor);
             DrawPixel(static_cast<int>(std::floor(lq.x)), static_cast<int>(std::floor(lq.y)), c);
         }
     }
@@ -404,7 +400,7 @@ void Player::drawEmission(DrawContext& ctx) const {
         const Wand& w = run_.wands[static_cast<size_t>(run_.activeWand)];
         Vec2 tip = Vec2{p.x + (facingRight_ ? 1.5f : -1.5f), p.y + 0.5f} + aimDir_ * static_cast<float>(w.length);
         Vector2 lt = ctx.scene.layerPos(tip);
-        Color g = toColor(w.gemColor);
+        Color g = hexColor(w.gemColor);
         if (castFlash_ > 0.0f) g = WHITE;
         DrawPixel(static_cast<int>(std::floor(lt.x)), static_cast<int>(std::floor(lt.y)), g);
     }
@@ -415,7 +411,7 @@ void Player::addLights(DrawContext& ctx) const {
     ctx.scene.addLight(PointLight{{p.x, p.y - 3.0f}, 2.6f, 2.2f, 1.75f, 150.0f, 3.0f});
     if (castFlash_ > 0.0f && !run_.wands.empty()) {
         const Wand& w = run_.wands[static_cast<size_t>(run_.activeWand)];
-        Color g = toColor(w.gemColor);
+        Color g = hexColor(w.gemColor);
         float k = castFlash_ / 0.08f * 2.5f;
         ctx.scene.addLight(PointLight{wandTip(), g.r / 255.0f * k, g.g / 255.0f * k, g.b / 255.0f * k, 45.0f, 1.0f});
     }

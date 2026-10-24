@@ -26,7 +26,9 @@ bool sameRect(Rectangle a, Rectangle b) {
 void beginFrame(int screenW, int screenH) {
     g_screenW = screenW;
     g_screenH = screenH;
-    g_scale = std::max(1, static_cast<int>(std::floor(static_cast<float>(screenH) / 400.0f + 0.25f)));
+    // Every screen is laid out for a 640x360 design area (480 wide at minimum), so the
+    // scale is the largest integer that still fits it: 720p -> 2, 1080p -> 3, 1440p -> 4.
+    g_scale = std::max(1, std::min(screenH / 360, screenW / 480));
 }
 
 int scale() { return g_scale; }

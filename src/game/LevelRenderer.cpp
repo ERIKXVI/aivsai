@@ -5,17 +5,13 @@
 
 #include "core/Profiler.hpp"
 #include "game/Level.hpp"
+#include "render/ColorUtil.hpp"
 #include "render/SceneRenderer.hpp"
 #include "render/Sprites.hpp"
 
 namespace pm {
 
 namespace {
-
-Color hexColor(uint32_t hex, uint8_t a = 255) {
-    return Color{static_cast<unsigned char>((hex >> 16) & 0xFF), static_cast<unsigned char>((hex >> 8) & 0xFF),
-                 static_cast<unsigned char>(hex & 0xFF), a};
-}
 
 Color spellColor(SpellId s) {
     switch (spellDef(s).type) {

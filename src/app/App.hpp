@@ -26,7 +26,7 @@ struct LaunchOptions {
     int startLoadout = 0;     ///< starting loadout (LoadoutId) for a --play run
     std::string testWand;     ///< comma-separated spell names for the first wand (testing)
     bool startInSanctum = false; ///< begin the --play run in a sanctum (testing)
-    std::string openUi;       ///< open a screen once loaded: inventory, pause, transmuter, vault (in a run) or loadout, grimoire (menu)
+    std::string openUi;       ///< open a screen once loaded: inventory, pause, transmuter, vault, map (in a run) or loadout, grimoire (menu)
     int captureFrame = -1;    ///< save a screenshot after this many frames, then quit (testing)
     std::string capturePath = "capture.png";
     int captureEvery = 0;     ///< also save numbered screenshots every N frames (testing)
