@@ -5,6 +5,7 @@
 #include <future>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "app/Scene.hpp"
 #include "game/Bot.hpp"
@@ -71,6 +72,8 @@ private:
     float slowMo_ = 1.0f;
     float tickAccumulator_ = 0.0f;
     bool profileRecorded_ = false;
+    std::string discoveries_;                ///< new Grimoire entries this run ("2 spells, 1 perk")
+    std::vector<std::string> unlockedPaths_; ///< starting paths unlocked by this run
     bool debugOverlay_ = false;
     bool usingGamepad_ = false;  ///< last input came from a gamepad (for button prompts)
 

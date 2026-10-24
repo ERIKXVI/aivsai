@@ -407,6 +407,17 @@ void GameScene::drawEndScreen(bool victory) {
         ui::text(l, sw * 0.5f, y, ui::fontSize(ui::scale()), Color{220, 210, 200, al}, ui::Align::Center);
         y += lineH;
     }
+    // Lasting progress: new Grimoire entries and unlocked paths.
+    if (!discoveries_.empty()) {
+        ui::text("New in the Grimoire: " + discoveries_, sw * 0.5f, y + lineH * 0.3f, ui::fontSize(ui::scale()),
+                 Color{190, 160, 255, al}, ui::Align::Center);
+        y += lineH * 1.3f;
+    }
+    for (const std::string& path : unlockedPaths_) {
+        ui::text("Path unlocked: the " + path, sw * 0.5f, y + lineH * 0.3f, ui::fontSize(ui::scale()), Color{255, 210, 110, al},
+                 ui::Align::Center);
+        y += lineH * 1.3f;
+    }
     if (a < 1.0f) return;
     float bw = 120.0f * s, bh = 18.0f * s;
     y += 10.0f * s;
