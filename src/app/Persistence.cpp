@@ -15,7 +15,7 @@ namespace fs = std::filesystem;
 
 using KeyValues = std::map<std::string, std::string>;
 
-KeyValues readFile(const std::string& path) {
+KeyValues readFile(const fs::path& path) {
     KeyValues kv;
     std::ifstream in(path);
     std::string line;
@@ -27,9 +27,10 @@ KeyValues readFile(const std::string& path) {
     return kv;
 }
 
-void writeFile(const std::string& path, const KeyValues& kv) {
+void writeFile(const fs::path& path, const KeyValues& kv) {
     // Write to a temporary file first so a crash never leaves a truncated profile.
-    const std::string tmp = path + ".tmp";
+    fs::path tmp = path;
+    tmp += ".tmp";
     {
         std::ofstream out(tmp, std::ios::trunc);
         if (!out) return;
@@ -69,22 +70,23 @@ std::string joinInts(const std::array<int, N>& values) {
     return out;
 }
 
-std::string pathFor(const char* name) { return (fs::path(dataDirectory()) / name).string(); }
+fs::path pathFor(const char* name) { return dataDirectory() / name; }
 
 } // namespace
 
-std::string dataDirectory() {
-    static const std::string dir = [] {
+const fs::path& dataDirectory() {
+    static const fs::path dir = [] {
         fs::path base;
 #if defined(_WIN32)
-        if (const char* appData = std::getenv("APPDATA")) base = fs::path(appData) / "PrimaMateria";
+        // Wide API so user names outside the ANSI code page still resolve.
+        if (const wchar_t* appData = _wgetenv(L"APPDATA")) base = fs::path(appData) / L"PrimaMateria";
 #else
         if (const char* xdg = std::getenv("XDG_DATA_HOME")) base = fs::path(xdg) / "PrimaMateria";
         else if (const char* home = std::getenv("HOME")) base = fs::path(home) / ".local" / "share" / "PrimaMateria";
 #endif
         std::error_code ec;
-        if (!base.empty() && (fs::create_directories(base, ec) || fs::exists(base, ec))) return base.string();
-        return std::string(".");
+        if (!base.empty() && (fs::create_directories(base, ec) || fs::exists(base, ec))) return base;
+        return fs::path(".");
     }();
     return dir;
 }

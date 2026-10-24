@@ -73,6 +73,7 @@ target_link_libraries(pm_game PUBLIC Threads::Threads)
 
 if(MSVC)
     target_compile_options(pm_game PRIVATE /W4 /permissive- /utf-8 /wd4100 /wd4244 /wd4267 /wd4305)
+    target_compile_definitions(pm_game PRIVATE _CRT_SECURE_NO_WARNINGS)
     target_compile_options(pm_game PUBLIC $<$<CONFIG:Release>:/O2 /Oi /GL /fp:fast>)
     target_link_options(pm_game PUBLIC $<$<CONFIG:Release>:/LTCG>)
 else()
@@ -98,7 +99,8 @@ if(MSVC)
     # Keep a standard main() while using the GUI subsystem (no console window).
     target_link_options(PrimaMateria PRIVATE /ENTRY:mainCRTStartup)
 elseif(MINGW)
-    target_link_options(PrimaMateria PRIVATE -static -static-libgcc -static-libstdc++)
+    # Every executable (game, tests, tools) links the runtime statically: no DLLs to ship.
+    target_link_options(pm_game INTERFACE -static -static-libgcc -static-libstdc++)
 endif()
 set_target_properties(PrimaMateria PROPERTIES
     OUTPUT_NAME "PrimaMateria"

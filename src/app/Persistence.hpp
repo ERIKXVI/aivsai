@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstdint>
+#include <filesystem>
 #include <string>
 
 namespace pm {
@@ -38,7 +39,7 @@ struct Profile {
 
 /// Directory for settings and profile (created on demand). Falls back to the working
 /// directory if the platform location is unavailable.
-std::string dataDirectory();
+const std::filesystem::path& dataDirectory();
 
 Settings loadSettings();
 void saveSettings(const Settings& s);
