@@ -77,7 +77,8 @@ private:
     std::string discoveries_;                ///< new Grimoire entries this run ("2 spells, 1 perk")
     std::vector<std::string> unlockedPaths_; ///< starting paths unlocked by this run
     bool debugOverlay_ = false;
-    bool usingGamepad_ = false;  ///< last input came from a gamepad (for button prompts)
+    bool usingGamepad_ = false;
+    float heartbeat_ = 0.0f;     ///< seconds until the next low-health heartbeat  ///< last input came from a gamepad (for button prompts)
 
     // Input pressed between ticks is latched so nothing is lost at high frame rates.
     bool latchJump_ = false, latchInteract_ = false, latchDrink_ = false, latchCast_ = false;

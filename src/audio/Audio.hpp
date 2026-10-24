@@ -43,6 +43,7 @@ enum class Sfx : uint8_t {
     Freeze,
     Squish,
     Roar,
+    Heartbeat,
     Count
 };
 

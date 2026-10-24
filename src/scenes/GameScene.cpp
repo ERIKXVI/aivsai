@@ -248,6 +248,16 @@ void GameScene::frame(float dt) {
     titleTimer_ = std::max(0.0f, titleTimer_ - dt);
 
     if (input::keyPressed(KEY_F3)) debugOverlay_ = !debugOverlay_;
+    // A heartbeat quickens as the alchemist nears death.
+    if (mode_ == Mode::Playing && level_->player().alive() && level_->player().hp < level_->player().maxHp * 0.25f) {
+        heartbeat_ -= dt;
+        if (heartbeat_ <= 0.0f) {
+            app_.audio().play(Sfx::Heartbeat, 0.8f);
+            heartbeat_ = 0.55f + 0.6f * level_->player().hp / (level_->player().maxHp * 0.25f);
+        }
+    } else {
+        heartbeat_ = 0.0f;
+    }
     // Alt-tabbing away pauses the run.
     if (mode_ == Mode::Playing && !IsWindowFocused() && !app_.options().automated()) mode_ = Mode::Paused;
     if (mode_ == Mode::Playing) {

@@ -438,6 +438,18 @@ Wave build(Sfx sfx) {
         s.add(n);
         return s.finish();
     }
+    case Sfx::Heartbeat: {
+        // Lub-dub: two low thumps.
+        Synth s(0.45f);
+        Layer lub = tone(Osc::Sine, 0.14f, 70, 42, 0.55f);
+        lub.decayPower = 2.5f;
+        s.add(lub);
+        Layer dub = tone(Osc::Sine, 0.12f, 62, 38, 0.4f);
+        dub.start = 0.2f;
+        dub.decayPower = 2.5f;
+        s.add(dub);
+        return s.finish();
+    }
     case Sfx::Count: break;
     }
     return Wave{};
