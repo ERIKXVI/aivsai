@@ -27,6 +27,8 @@ void SceneRenderer::releaseTargets() {
 }
 
 void SceneRenderer::beginFrame(Vec2 cameraCenter, int screenW, int screenH, float zoom) {
+    screenW = std::max(1, screenW);
+    screenH = std::max(1, screenH);
     ViewInfo v;
     v.screenW = screenW;
     v.screenH = screenH;

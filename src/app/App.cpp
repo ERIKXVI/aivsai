@@ -132,6 +132,15 @@ int App::run() {
         last = now;
         time_ += frameDt;
 
+        // A minimised window reports a 0x0 size on Windows and cannot be drawn into: keep the
+        // event loop alive cheaply until it is restored (the run pauses on focus loss).
+        if (IsWindowMinimized() || GetScreenWidth() <= 0 || GetScreenHeight() <= 0) {
+            PollInputEvents();
+            WaitTime(0.05);
+            last = GetTime();
+            continue;
+        }
+
         if (IsKeyPressed(KEY_F11) || ((IsKeyDown(KEY_LEFT_ALT) || IsKeyDown(KEY_RIGHT_ALT)) && IsKeyPressed(KEY_ENTER))) {
             toggleFullscreen();
         }

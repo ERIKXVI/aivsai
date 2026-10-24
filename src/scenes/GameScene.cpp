@@ -244,6 +244,8 @@ void GameScene::frame(float dt) {
     titleTimer_ = std::max(0.0f, titleTimer_ - dt);
 
     if (IsKeyPressed(KEY_F3)) debugOverlay_ = !debugOverlay_;
+    // Alt-tabbing away pauses the run.
+    if (mode_ == Mode::Playing && !IsWindowFocused() && !app_.options().automated()) mode_ = Mode::Paused;
     if (mode_ == Mode::Playing) {
         latchInput();
         if (IsKeyPressed(KEY_ESCAPE) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT)) mode_ = Mode::Paused;
