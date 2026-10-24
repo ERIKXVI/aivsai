@@ -60,6 +60,9 @@ The descent follows the four stages of the alchemical Great Work:
   Pyromancer (reach stage 3), Geomancer (open 12 chests), Stormcaller (slay 250
   creatures) and Hermeticist (complete the Great Work, rolls a powerful wand per seed).
 - **Daily Rite**: one seed per day with the Apprentice kit, so attempts are comparable.
+- **Suspended runs**: every stage start saves the run; Save & Quit (or closing the window)
+  resumes there later. Levels regenerate from their seed, so a resume replays the stage
+  from its start rather than duplicating loot already taken.
 
 ## Onboarding
 
@@ -104,7 +107,7 @@ The descent follows the four stages of the alchemical Great Work:
 - `src/audio/`  sound synthesis and generative music
 - `src/ui/`     immediate-mode widgets, settings, Grimoire and map panels
 - `src/scenes/` menu, run (HUD, inventory, end screens, hints) and sandbox
-- `src/app/`    window, main loop, settings and profile persistence
+- `src/app/`    window, main loop, input latch, settings, profile and run saves
 
 ## Quality
 
