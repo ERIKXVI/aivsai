@@ -30,6 +30,8 @@ private:
     enum class Mode { Loading, Playing, Inventory, Paused, Settings, Dead, Victory };
 
     void requestLevel();
+    void stepLevel();
+    static void logAutoplay(const char* message);
     void finishLoading();
     void advanceStage();
     PlayerInput gatherInput();

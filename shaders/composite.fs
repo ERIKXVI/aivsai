@@ -23,6 +23,11 @@ uniform vec2 screenSize;
 uniform float damageFlash;      // 0..1 red vignette pulse
 uniform float saturation;
 uniform vec3 tint;
+uniform float aberration;       // chromatic split in cells (damage feedback)
+
+#define MAX_SHOCKWAVES 6
+uniform int shockCount;
+uniform vec4 shockwaves[MAX_SHOCKWAVES]; // xy = centre (layer cells), z = ring radius, w = strength
 
 vec2 sharpUv(vec2 uv) {
     vec2 texel = uv * texSize;
@@ -40,12 +45,31 @@ vec3 acesFit(vec3 x) {
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 
+// Explosion shockwaves bend the image around an expanding ring.
+vec2 distort(vec2 uv) {
+    vec2 p = vec2(uv.x, 1.0 - uv.y) * texSize;
+    vec2 offset = vec2(0.0);
+    for (int i = 0; i < shockCount; ++i) {
+        vec2 d = p - shockwaves[i].xy;
+        float dist = length(d);
+        float ring = (dist - shockwaves[i].z) / 5.0;
+        offset += (dist > 0.001 ? d / dist : vec2(0.0)) * shockwaves[i].w * exp(-ring * ring);
+    }
+    return uv + vec2(offset.x, -offset.y) / texSize;
+}
+
 void main() {
-    vec2 suv = sharpUv(fragTexCoord);
+    vec2 uv = shockCount > 0 ? distort(fragTexCoord) : fragTexCoord;
+    vec2 suv = sharpUv(uv);
     vec4 albedo = texture(texture0, suv);
+    if (aberration > 0.0) {
+        vec2 split = vec2(aberration / texSize.x, 0.0);
+        albedo.r = texture(texture0, sharpUv(uv + split)).r;
+        albedo.b = texture(texture0, sharpUv(uv - split)).b;
+    }
     vec4 emission = texture(emissionTex, suv);
-    vec4 light = texture(lightTex, fragTexCoord);
-    vec3 glow = texture(glowTex, fragTexCoord).rgb;
+    vec4 light = texture(lightTex, uv);
+    vec3 glow = texture(glowTex, uv).rgb;
 
     // Solid interiors fade to darkness; open-air pixels (background) are lit a bit less.
     float solid = emission.a;

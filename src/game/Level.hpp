@@ -48,6 +48,14 @@ struct FloatText {
     float scale;
 };
 
+struct Shockwave {
+    Vec2 pos;
+    float maxRadius;
+    float strength;
+    float age;
+    float duration;
+};
+
 struct Lantern {
     Vec2 pos;
     float phase;
@@ -88,6 +96,14 @@ public:
     const std::vector<LightFlash>& flashes() const { return flashes_; }
     const std::vector<FloatText>& floatTexts() const { return floatTexts_; }
     const std::vector<Lantern>& lanterns() const { return lanterns_; }
+    const std::vector<Shockwave>& shockwaves() const { return shockwaves_; }
+    /// Brief freeze-frame after heavy impacts; returns true while the level should pause.
+    bool consumeHitStop() {
+        if (hitStop_ <= 0) return false;
+        --hitStop_;
+        return true;
+    }
+    void addHitStop(int ticks) { hitStop_ = std::min(4, std::max(hitStop_, ticks)); }
     float time() const { return time_; }
     uint32_t ticks() const { return ticks_; }
     float shake() const { return shake_; }
@@ -150,6 +166,8 @@ private:
     std::vector<LightFlash> flashes_;
     std::vector<FloatText> floatTexts_;
     std::vector<Lantern> lanterns_;
+    std::vector<Shockwave> shockwaves_;
+    int hitStop_ = 0;
     PlayerInput input_;
     float time_ = 0.0f;
     uint32_t ticks_ = 0;

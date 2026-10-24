@@ -34,6 +34,7 @@ struct LightingParams {
     float saturation = 1.0f;
     float tintR = 1.0f, tintG = 1.0f, tintB = 1.0f;
     float damageFlash = 0.0f;
+    float aberration = 0.0f; ///< chromatic split in cells
 };
 
 struct ViewInfo {
@@ -74,6 +75,8 @@ public:
     void endEmission();
 
     void addLight(const PointLight& light);
+    /// Adds a refractive ring centred on a world position for this frame.
+    void addShockwave(Vec2 world, float radius, float strength);
     /// Turns the brightest emissive regions of the world layer (lava, fire, glowing fungus)
     /// into shadow-casting point lights. Call after the world layer is uploaded.
     void addEmissiveLights(int maxLights);
@@ -104,6 +107,8 @@ private:
     gpu::ShaderProgram lightShader_, downShader_, upShader_, compositeShader_;
     std::vector<PointLight> lights_;
     std::vector<float> lightPosData_, lightColorData_;
+    static constexpr int kMaxShockwaves = 6;
+    std::vector<float> shockData_;
 };
 
 } // namespace pm

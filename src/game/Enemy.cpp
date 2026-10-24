@@ -42,6 +42,12 @@ Enemy::Enemy(EnemyType type, Vec2 pos, uint32_t id_, float hpScale) : type_(type
     }
 }
 
+void Enemy::makeElite() {
+    elite_ = true;
+    maxHp *= 2.6f;
+    hp = maxHp;
+}
+
 void Enemy::tick(Level& level) {
     body.prevPos = body.pos;
     const float dt = kTickDt;
@@ -121,7 +127,7 @@ void Enemy::contactPlayer(Level& level) {
     if (!touching) return;
     Vec2 kb = Vec2{sign(pl.body.pos.x - body.pos.x) * 140.0f, -90.0f};
     float scale = 1.0f + 0.15f * static_cast<float>(level.layout().levelIndex);
-    pl.applyDamage(level, {def_->contactDamage * scale, def_->contactType, kb, Team::Monster});
+    pl.applyDamage(level, {def_->contactDamage * scale * damageScale(), def_->contactType, kb, Team::Monster});
     if (def_->contactType == DamageType::Ice) pl.status.chilled = 2.0f;
     contactDamageCooldown = 0.7f;
     if (level.run().hasPerk(PerkId::Thorns))
@@ -143,7 +149,7 @@ void Enemy::fireAt(Level& level, Vec2 target, SpellId spell, float spreadRad) {
         angle += to.x >= 0.0f ? -lift : lift;
     }
     angle += level.rng().range(-spreadRad, spreadRad);
-    float dmgMul = 1.0f + 0.15f * static_cast<float>(level.layout().levelIndex);
+    float dmgMul = (1.0f + 0.15f * static_cast<float>(level.layout().levelIndex)) * damageScale();
     level.launch(l, origin, angle, team, id, dmgMul);
 }
 
@@ -570,6 +576,10 @@ void Enemy::drawAlbedo(DrawContext& ctx) const {
     Vector2 lp = ctx.scene.layerPos({p.x - info.w * 0.5f, top});
     const bool flip = !facingRight_;
     ctx.sprites.draw(def_->sprite, frame, lp, flip, tint);
+    if (elite_) {
+        const unsigned char a = static_cast<unsigned char>(60.0f + 40.0f * std::sin(ctx.time * 5.0f));
+        ctx.sprites.drawSilhouette(def_->sprite, frame, lp, flip, Color{255, 200, 80, a});
+    }
     if (hurtFlash > 0.0f) ctx.sprites.drawSilhouette(def_->sprite, frame, lp, flip, Color{255, 255, 255, 210});
     else if (status.burning > 0.0f) ctx.sprites.drawSilhouette(def_->sprite, frame, lp, flip, Color{255, 120, 30, 100});
     else if (status.shocked > 0.0f) ctx.sprites.drawSilhouette(def_->sprite, frame, lp, flip, Color{200, 220, 255, 150});
@@ -610,8 +620,9 @@ void Enemy::drawEmission(DrawContext& ctx) const {
 }
 
 void Enemy::addLights(DrawContext& ctx) const {
-    if (def_->glow == 0) return;
     const Vec2 p = body.interpolated(ctx.alpha);
+    if (elite_) ctx.scene.addLight(PointLight{p, 1.4f, 1.0f, 0.35f, 46.0f, 4.0f});
+    if (def_->glow == 0) return;
     Color c = hexColor(def_->glow);
     float k = type_ == EnemyType::Boss ? 1.4f : 0.9f;
     float radius = type_ == EnemyType::Boss ? 150.0f : 40.0f;

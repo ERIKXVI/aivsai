@@ -44,6 +44,7 @@ void SceneRenderer::beginFrame(Vec2 cameraCenter, int screenW, int screenH, floa
     v.texH = static_cast<int>(std::ceil(v.viewH)) + 3;
     view_ = v;
     lights_.clear();
+    shockData_.clear();
     ensureTargets();
 }
 
@@ -90,6 +91,12 @@ void SceneRenderer::addLight(const PointLight& light) {
         ly - light.radius > view_.texH)
         return;
     lights_.push_back(light);
+}
+
+void SceneRenderer::addShockwave(Vec2 world, float radius, float strength) {
+    if (static_cast<int>(shockData_.size()) >= kMaxShockwaves * 4) return;
+    shockData_.insert(shockData_.end(), {world.x - static_cast<float>(view_.originX), world.y - static_cast<float>(view_.originY),
+                                         radius, strength});
 }
 
 void SceneRenderer::addEmissiveLights(int maxLights) {
@@ -183,6 +190,10 @@ void SceneRenderer::present(const LightingParams& p, float time) {
     compositeShader_.set("damageFlash", p.damageFlash);
     compositeShader_.set("saturation", p.saturation);
     compositeShader_.set("tint", p.tintR, p.tintG, p.tintB);
+    compositeShader_.set("aberration", p.aberration);
+    const int shocks = static_cast<int>(shockData_.size() / 4);
+    compositeShader_.set("shockCount", shocks);
+    if (shocks > 0) compositeShader_.setVec4Array("shockwaves", shockData_.data(), shocks);
     gpu::drawQuad(albedo_.texture, 0.0f, 0.0f, static_cast<float>(view_.screenW), static_cast<float>(view_.screenH), u0, v0,
                   u1, v1);
     EndShaderMode();

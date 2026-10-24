@@ -63,6 +63,10 @@ public:
     void addLights(DrawContext& ctx) const override;
 
     EnemyType type() const { return type_; }
+    /// Elites are rare, tougher variants that glow and always drop treasure.
+    void makeElite();
+    bool elite() const { return elite_; }
+    float damageScale() const { return elite_ ? 1.35f : 1.0f; }
     const EnemyDef& def() const { return *def_; }
     bool aggro() const { return aggro_; }
     /// Boss phase, 0-based; meaningful for the boss only.
@@ -107,6 +111,7 @@ private:
     Vec2 lastSeen_;
     int phase_ = 0;
     float special_ = 0.0f;
+    bool elite_ = false;
 };
 
 } // namespace pm

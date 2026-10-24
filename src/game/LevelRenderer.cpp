@@ -93,6 +93,11 @@ void LevelRenderer::render(const Level& level, Vec2 camera, float alpha, float t
         lp.ambientB += boost * 0.30f;
     }
     lp.damageFlash = level.playerHurtPulse() * 0.7f;
+    lp.aberration = level.playerHurtPulse() * 1.2f;
+    for (const Shockwave& w : level.shockwaves()) {
+        const float t = w.age / w.duration;
+        scene_.addShockwave(w.pos, w.maxRadius * std::sqrt(t), w.strength * (1.0f - t));
+    }
     const Player& pl = level.player();
     if (pl.alive() && pl.hp < pl.maxHp * 0.25f) lp.damageFlash = std::max(lp.damageFlash, 0.25f + 0.2f * std::sin(time * 6.0f));
     scene_.present(lp, time);

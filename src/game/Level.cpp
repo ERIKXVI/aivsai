@@ -37,7 +37,9 @@ void Level::populate() {
             EnemyType t = pickEnemy(layout_.levelIndex, s.kind == SpawnKind::AirEnemy, s.difficulty, rng_);
             const EnemyDef& d = enemyDef(t);
             Vec2 pos = s.kind == SpawnKind::GroundEnemy ? Vec2{s.pos.x, s.pos.y - d.halfH} : s.pos;
-            spawnEnemy(t, pos);
+            Enemy& e = spawnEnemy(t, pos);
+            const float eliteChance = 0.05f + 0.03f * static_cast<float>(layout_.levelIndex) + 0.05f * s.difficulty;
+            if (t != EnemyType::Worm && rng_.chance(eliteChance)) e.makeElite();
             break;
         }
         case SpawnKind::Chest: pickups_.push_back(makeChest(s.pos - Vec2{0.0f, 4.0f})); break;
@@ -359,6 +361,9 @@ void Level::interact() {
 }
 
 void Level::updateEffects(float dt) {
+    for (Shockwave& w : shockwaves_) w.age += dt;
+    shockwaves_.erase(std::remove_if(shockwaves_.begin(), shockwaves_.end(), [](const Shockwave& w) { return w.age >= w.duration; }),
+                      shockwaves_.end());
     for (LightFlash& f : flashes_) f.life -= dt;
     flashes_.erase(std::remove_if(flashes_.begin(), flashes_.end(), [](const LightFlash& f) { return f.life <= 0.0f; }),
                    flashes_.end());

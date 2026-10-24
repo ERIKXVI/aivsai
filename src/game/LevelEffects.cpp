@@ -121,6 +121,9 @@ void Level::explode(Vec2 c, const ExplosionSpec& s) {
                      0.35f + s.radius * 0.01f, rng_, 0.4f);
     addFlash(c, s.incendiary ? 0xff9a40 : 0xffd090, 3.5f, s.radius * 5.0f + 30.0f, 0.3f + s.radius * 0.008f);
     addShake(std::min(0.85f, 0.12f + s.radius / 40.0f));
+    if (s.radius >= 8.0f && shockwaves_.size() < 6)
+        shockwaves_.push_back({c, s.radius * 3.5f, std::min(2.5f, s.radius / 9.0f), 0.0f, 0.45f});
+    if (s.radius >= 18.0f) addHitStop(3);
     audio_.playAt(s.radius >= 15.0f ? Sfx::ExplosionBig : Sfx::ExplosionSmall, c, std::min(1.0f, 0.5f + s.radius / 30.0f),
                   rng_.range(0.9f, 1.1f));
     damageRadius(c, s.radius * 1.25f, s.damage, DamageType::Explosion, s.team, s.knockback, s.hurtsOwner);
@@ -383,6 +386,16 @@ void Level::onEnemyKilled(Enemy& e) {
             pickups_.push_back(makeGold(e.body.pos, v, {rng_.range(-70.0f, 70.0f), rng_.range(-150.0f, -70.0f)}));
         }
         if (rng_.chance(0.06f)) pickups_.push_back(makeHeart(e.body.pos));
+        if (e.elite()) {
+            // Elites carry treasure: a spell or a potion, plus extra gold.
+            const int tier = std::min(4, layout_.levelIndex + 1);
+            Pickup loot = rng_.chance(0.6f) ? makeSpellPickup(e.body.pos, randomSpell(tier, rng_))
+                                            : makePotion(e.body.pos, randomPotionMaterial(tier, rng_), 700);
+            loot.body.vel = {rng_.range(-50.0f, 50.0f), -150.0f};
+            pickups_.push_back(std::move(loot));
+            pickups_.push_back(makeGold(e.body.pos, d.gold * 2, {rng_.range(-60.0f, 60.0f), -120.0f}));
+            addFloatText(e.body.pos - Vec2{0.0f, 10.0f}, "Elite slain!", 0xffc850, 1.2f);
+        }
         if (run_.hasPerk(PerkId::VolatileFoes)) {
             ExplosionSpec s;
             s.radius = 10.0f;

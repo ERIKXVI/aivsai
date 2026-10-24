@@ -176,37 +176,51 @@ PlayerInput GameScene::gatherInput() {
 }
 
 void GameScene::tick() {
-    if (!level_) return;
-    if (mode_ == Mode::Playing || mode_ == Mode::Dead) {
-        // Slow motion after death for a dramatic beat.
-        tickAccumulator_ += slowMo_;
-        while (tickAccumulator_ >= 1.0f) {
-            tickAccumulator_ -= 1.0f;
-            PlayerInput in;
-            if (mode_ == Mode::Playing && !exiting_) in = app_.options().autoplay ? bot_.think(*level_) : gatherInput();
-            if (app_.options().god) level_->player().hp = level_->player().maxHp;
-            if (app_.options().autoplay && bot_.hopelesslyStuck()) {
-                level_->debugWarpAhead();
-                bot_.clearStuck();
-            }
-            if (mode_ != Mode::Playing || exiting_) in.aim = level_->player().body.pos + level_->player().aimDir();
-            level_->tick(in);
-            switch (level_->pollEvent()) {
-            case LevelEvent::ExitReached:
-                exiting_ = true;
-                if (app_.options().autoplay) { std::printf("[autoplay] stage %d%s cleared at %.1fs\n", run_.levelIndex, run_.inSanctum ? " (sanctum)" : "", run_.stats.time); std::fflush(stdout); }
-                break;
-            case LevelEvent::PlayerDied:
-                if (app_.options().autoplay) { std::printf("[autoplay] died on stage %d at %.1fs, kills %d\n", run_.levelIndex, run_.stats.time, run_.stats.kills); std::fflush(stdout); }
-                mode_ = Mode::Dead;
-                endTimer_ = 0.0f;
-                slowMo_ = 0.35f;
-                recordProfile(false);
-                break;
-            default: break;
-            }
-        }
+    if (!level_ || (mode_ != Mode::Playing && mode_ != Mode::Dead)) return;
+    // After death the world keeps running in slow motion for a dramatic beat.
+    tickAccumulator_ += slowMo_;
+    while (tickAccumulator_ >= 1.0f) {
+        tickAccumulator_ -= 1.0f;
+        if (level_->consumeHitStop()) continue; // freeze frame; latched input waits for the next tick
+        stepLevel();
     }
+}
+
+void GameScene::stepLevel() {
+    const bool controllable = mode_ == Mode::Playing && !exiting_;
+    const bool autoplay = app_.options().autoplay;
+    PlayerInput in;
+    if (controllable) {
+        in = autoplay ? bot_.think(*level_) : gatherInput();
+    } else {
+        in.aim = level_->player().body.pos + level_->player().aimDir();
+    }
+    if (app_.options().god) level_->player().hp = level_->player().maxHp;
+    if (autoplay && bot_.hopelesslyStuck()) {
+        level_->debugWarpAhead();
+        bot_.clearStuck();
+    }
+    level_->tick(in);
+
+    switch (level_->pollEvent()) {
+    case LevelEvent::ExitReached:
+        exiting_ = true;
+        if (autoplay) logAutoplay(TextFormat("stage %d%s cleared at %.1fs", run_.levelIndex, run_.inSanctum ? " (sanctum)" : "", run_.stats.time));
+        break;
+    case LevelEvent::PlayerDied:
+        if (autoplay) logAutoplay(TextFormat("died on stage %d at %.1fs, kills %d", run_.levelIndex, run_.stats.time, run_.stats.kills));
+        mode_ = Mode::Dead;
+        endTimer_ = 0.0f;
+        slowMo_ = 0.35f;
+        recordProfile(false);
+        break;
+    default: break;
+    }
+}
+
+void GameScene::logAutoplay(const char* message) {
+    std::printf("[autoplay] %s\n", message);
+    std::fflush(stdout);
 }
 
 void GameScene::frame(float dt) {
