@@ -128,6 +128,7 @@ Profile loadProfile() {
     read(kv, "chests_opened", p.chestsOpened);
     read(kv, "spells_seen", p.spellsSeen);
     read(kv, "perks_seen", p.perksSeen);
+    read(kv, "hints_seen", p.hintsSeen);
     if (auto it = kv.find("creature_kills"); it != kv.end()) {
         std::istringstream ss(it->second);
         std::string item;
@@ -148,6 +149,7 @@ void saveProfile(const Profile& p) {
                                        {"chests_opened", str(p.chestsOpened)},
                                        {"spells_seen", str(p.spellsSeen)},
                                        {"perks_seen", str(p.perksSeen)},
+                                       {"hints_seen", str(p.hintsSeen)},
                                        {"creature_kills", joinInts(p.creatureKills)}});
 }
 

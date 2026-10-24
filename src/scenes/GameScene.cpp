@@ -34,7 +34,7 @@ std::string formatTime(float seconds) {
 } // namespace
 
 GameScene::GameScene(App& app, RunState run)
-    : Scene(app), run_(std::move(run)), levelRenderer_(scene_, app.sprites(), app.pool()) {
+    : Scene(app), run_(std::move(run)), levelRenderer_(scene_, app.sprites(), app.pool()), hints_(app.profile().hintsSeen) {
     requestLevel();
 }
 
@@ -69,6 +69,7 @@ void GameScene::finishLoading() {
     level_ = std::make_unique<Level>(std::move(layout), run_, app_.audio(), app_.pool());
     camera_.reset(level_->player().body.pos);
     bot_ = Bot{};
+    hints_.reset();
     mode_ = Mode::Playing;
     if (app_.options().openUi == "transmuter" && !level_->transmuters().empty()) {
         level_->debugTeleport(level_->transmuters().front().pos + Vec2{-30.0f, -8.0f});
@@ -120,6 +121,17 @@ void GameScene::latchInput() {
     if (wheel < 0.0f) latchCycle_ += 1;
     if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_TRIGGER_1)) latchCycle_ -= 1;
     if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_1)) latchCycle_ += 1;
+
+    // Button prompts follow whichever device was used last.
+    const Vector2 mouseDelta = GetMouseDelta();
+    if (GetKeyPressed() != 0 || IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || mouseDelta.x * mouseDelta.x + mouseDelta.y * mouseDelta.y > 4.0f) {
+        usingGamepad_ = false;
+    } else if (IsGamepadAvailable(0)) {
+        const float lx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X), rx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X),
+                    ry = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y);
+        if (std::fabs(lx) > 0.4f || rx * rx + ry * ry > 0.2f || GetGamepadButtonPressed() != GAMEPAD_BUTTON_UNKNOWN)
+            usingGamepad_ = true;
+    }
 }
 
 PlayerInput GameScene::gatherInput() {
@@ -184,6 +196,7 @@ void GameScene::stepLevel() {
         bot_.clearStuck();
     }
     level_->tick(in);
+    if (mode_ == Mode::Playing && !autoplay) hints_.update(*level_, run_, kTickDt);
 
     switch (level_->pollEvent()) {
     case LevelEvent::ExitReached:
@@ -279,6 +292,7 @@ void GameScene::render(float alpha) {
         drawWorldOverlays(a);
         if (mode_ == Mode::Playing) drawCompass(a);
         if (mode_ != Mode::Victory) drawHud();
+        if (mode_ == Mode::Playing) hints_.draw(static_cast<float>(app_.screenWidth()), static_cast<float>(app_.screenHeight()), usingGamepad_);
         drawTitleCard();
         if (!run_.inSanctum && run_.levelIndex == 0 && level_->time() < 30.0f) drawControlsHint();
     }
@@ -494,8 +508,11 @@ void GameScene::drawControlsHint() {
     float t = level_->time();
     float a = clamp(std::min((t - 1.0f) * 2.0f, (30.0f - t) / 2.0f), 0.0f, 1.0f);
     if (a <= 0.0f) return;
-    const char* lines[] = {"A/D move   W/Space jump - hold to levitate", "Mouse aim   LMB cast   1-4 / wheel switch wand",
-                           "Wand 2 digs through rock   Tab edit wands", "E interact   Esc pause   Follow the arrow to the portal"};
+    static constexpr const char* kKeyboard[] = {"A/D move   W/Space jump - hold to levitate", "Mouse aim   LMB cast   1-4 / wheel switch wand",
+                                                "Wand 2 digs through rock   Tab edit wands", "E interact   Esc pause   Follow the arrow to the portal"};
+    static constexpr const char* kGamepad[] = {"Left stick move   A jump - hold to levitate", "Right stick aim   RT cast   LB / RB switch wand",
+                                               "Wand 2 digs through rock   Back edit wands", "B interact   Start pause   Follow the arrow to the portal"};
+    const auto& lines = usingGamepad_ ? kGamepad : kKeyboard;
     float x = 10.0f * s, y = 60.0f * s;
     Rectangle r{x - 4.0f * s, y - 4.0f * s, 170.0f * s, (static_cast<float>(small) * 1.3f) * 4.0f + 8.0f * s};
     unsigned char al = static_cast<unsigned char>(200.0f * a);

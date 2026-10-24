@@ -14,6 +14,7 @@
 #include "game/LevelRenderer.hpp"
 #include "game/Run.hpp"
 #include "render/SceneRenderer.hpp"
+#include "scenes/Hints.hpp"
 
 namespace pm {
 
@@ -56,6 +57,7 @@ private:
     LevelRenderer levelRenderer_;
     FollowCamera camera_;
     Bot bot_;
+    HintTracker hints_;
     Mode mode_ = Mode::Loading;
 
     float fade_ = 1.0f;          ///< 1 = black
@@ -68,6 +70,7 @@ private:
     float tickAccumulator_ = 0.0f;
     bool profileRecorded_ = false;
     bool debugOverlay_ = false;
+    bool usingGamepad_ = false;  ///< last input came from a gamepad (for button prompts)
 
     // Input pressed between ticks is latched so nothing is lost at high frame rates.
     bool latchJump_ = false, latchInteract_ = false, latchDrink_ = false;

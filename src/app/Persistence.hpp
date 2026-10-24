@@ -33,6 +33,7 @@ struct Profile {
     uint64_t spellsSeen = 0;          ///< bit i set = SpellId i discovered
     uint32_t perksSeen = 0;           ///< bit i set = PerkId i taken
     std::array<int, 16> creatureKills{}; ///< indexed by EnemyType
+    uint32_t hintsSeen = 0;           ///< contextual hints already shown (bit = Hint)
 };
 
 /// Directory for settings and profile (created on demand). Falls back to the working
