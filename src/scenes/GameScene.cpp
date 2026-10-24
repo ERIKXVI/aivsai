@@ -6,6 +6,7 @@
 
 #include "app/App.hpp"
 #include "app/InputLatch.hpp"
+#include "app/RunRecords.hpp"
 #include "core/Profiler.hpp"
 #include "core/Timing.hpp"
 #include "gen/LevelGenerator.hpp"
@@ -23,8 +24,7 @@ GameScene::GameScene(App& app, RunState run)
 
 GameScene::~GameScene() {
     if (pending_.valid()) pending_.wait();
-    // Closing the window mid-run still counts the run and keeps its discoveries.
-    recordProfile(false);
+    // Closing the window mid-run leaves the suspended-run save for "Continue the Work".
     if (app_.options().autoplay) {
         const Profiler& prof = Profiler::instance();
         for (int i = 0; i < static_cast<int>(ProfileSection::Count); ++i) {
@@ -84,6 +84,8 @@ void GameScene::finishLoading() {
         titleSub_ = b.subtitle;
     }
     run_.stats.deepest = std::max(run_.stats.deepest, run_.levelIndex + 1);
+    // Every stage start is a resume point.
+    if (!app_.options().automated()) saveSuspendedRun(run_);
 }
 
 void GameScene::advanceStage() {
@@ -327,52 +329,10 @@ void GameScene::render(float alpha) {
 void GameScene::recordProfile(bool victory) {
     if (profileRecorded_ || app_.options().automated()) return;
     profileRecorded_ = true;
-    Profile& p = app_.profile();
-    const Profile before = p;
-    p.runs++;
-    p.deepest = std::max(p.deepest, run_.levelIndex + 1);
-    p.totalKills += run_.stats.kills;
-    p.totalGold += run_.stats.goldCollected;
-    if (victory) {
-        p.victories++;
-        if (p.bestTime <= 0.0f || run_.stats.time < p.bestTime) p.bestTime = run_.stats.time;
-    }
-    if (run_.daily) p.bestDailyDepth = std::max(p.bestDailyDepth, run_.levelIndex + 1);
-    p.chestsOpened += run_.stats.chestsOpened;
-    // Grimoire discoveries.
-    p.spellsSeen |= run_.spellsSeen;
-    for (const Wand& w : run_.wands)
-        for (SpellId s : w.slots)
-            if (s != SpellId::None) p.spellsSeen |= 1ull << static_cast<unsigned>(s);
-    for (size_t i = 0; i < run_.perks.size(); ++i)
-        if (run_.perks[i] > 0) p.perksSeen |= 1u << i;
-    for (size_t i = 0; i < p.creatureKills.size(); ++i) p.creatureKills[i] += run_.killsByType[i];
-    saveProfile(p);
-
-    // What this run added, for the end screen.
-    auto bits = [](uint64_t v) {
-        int n = 0;
-        for (; v; v &= v - 1) ++n;
-        return n;
-    };
-    const int spells = bits(p.spellsSeen & ~before.spellsSeen), perks = bits(p.perksSeen & ~before.perksSeen);
-    int creatures = 0;
-    for (size_t i = 0; i < p.creatureKills.size(); ++i) creatures += before.creatureKills[i] == 0 && p.creatureKills[i] > 0 ? 1 : 0;
-    discoveries_.clear();
-    auto add = [&](int n, const char* one, const char* many) {
-        if (n <= 0) return;
-        if (!discoveries_.empty()) discoveries_ += ", ";
-        discoveries_ += std::to_string(n) + " " + (n == 1 ? one : many);
-    };
-    add(spells, "spell", "spells");
-    add(creatures, "creature", "creatures");
-    add(perks, "perk", "perks");
-    const Milestones was{before.deepest, before.victories, before.chestsOpened, before.totalKills};
-    const Milestones now{p.deepest, p.victories, p.chestsOpened, p.totalKills};
-    for (int i = 0; i < kLoadoutCount; ++i) {
-        const auto id = static_cast<LoadoutId>(i);
-        if (!loadoutUnlocked(id, was) && loadoutUnlocked(id, now)) unlockedPaths_.push_back(loadoutDef(id).name);
-    }
+    const RunRecord record = recordRun(app_.profile(), run_, victory);
+    discoveries_ = record.discoveries;
+    unlockedPaths_ = record.unlockedPaths;
+    discardSuspendedRun();
 }
 
 } // namespace pm

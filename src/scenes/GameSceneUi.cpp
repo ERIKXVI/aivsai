@@ -364,10 +364,8 @@ void GameScene::drawPauseMenu() {
         app_.setScene(std::make_unique<MenuScene>(app_));
     }
     y += bh + 5.0f * s;
-    if (ui::button({x, y, bw, bh}, "Quit Game")) {
-        recordProfile(false);
-        app_.requestQuit();
-    }
+    // Quitting keeps the run suspended at the start of this stage.
+    if (ui::button({x, y, bw, bh}, "Save & Quit")) app_.requestQuit();
 }
 
 void GameScene::drawEndScreen(bool victory) {

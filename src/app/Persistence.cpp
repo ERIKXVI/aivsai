@@ -9,13 +9,9 @@
 
 namespace pm {
 
-namespace {
-
 namespace fs = std::filesystem;
 
-using KeyValues = std::map<std::string, std::string>;
-
-KeyValues readFile(const fs::path& path) {
+KeyValues readKeyValues(const fs::path& path) {
     KeyValues kv;
     std::ifstream in(path);
     std::string line;
@@ -27,7 +23,7 @@ KeyValues readFile(const fs::path& path) {
     return kv;
 }
 
-void writeFile(const fs::path& path, const KeyValues& kv) {
+void writeKeyValues(const fs::path& path, const KeyValues& kv) {
     // Write to a temporary file first so a crash never leaves a truncated profile.
     fs::path tmp = path;
     tmp += ".tmp";
@@ -43,6 +39,8 @@ void writeFile(const fs::path& path, const KeyValues& kv) {
         fs::rename(tmp, path, ec);
     }
 }
+
+namespace {
 
 template <typename T>
 void read(const KeyValues& kv, const char* key, T& out) {
@@ -93,7 +91,7 @@ const fs::path& dataDirectory() {
 
 Settings loadSettings() {
     Settings s;
-    KeyValues kv = readFile(pathFor("settings.cfg"));
+    KeyValues kv = readKeyValues(pathFor("settings.cfg"));
     read(kv, "master_volume", s.masterVolume);
     read(kv, "music_volume", s.musicVolume);
     read(kv, "sfx_volume", s.sfxVolume);
@@ -106,7 +104,7 @@ Settings loadSettings() {
 }
 
 void saveSettings(const Settings& s) {
-    writeFile(pathFor("settings.cfg"), {{"master_volume", str(s.masterVolume)},
+    writeKeyValues(pathFor("settings.cfg"), {{"master_volume", str(s.masterVolume)},
                                         {"music_volume", str(s.musicVolume)},
                                         {"sfx_volume", str(s.sfxVolume)},
                                         {"screen_shake", str(s.screenShake)},
@@ -118,7 +116,7 @@ void saveSettings(const Settings& s) {
 
 Profile loadProfile() {
     Profile p;
-    KeyValues kv = readFile(pathFor("profile.dat"));
+    KeyValues kv = readKeyValues(pathFor("profile.dat"));
     read(kv, "runs", p.runs);
     read(kv, "victories", p.victories);
     read(kv, "deepest", p.deepest);
@@ -140,7 +138,7 @@ Profile loadProfile() {
 }
 
 void saveProfile(const Profile& p) {
-    writeFile(pathFor("profile.dat"), {{"runs", str(p.runs)},
+    writeKeyValues(pathFor("profile.dat"), {{"runs", str(p.runs)},
                                        {"victories", str(p.victories)},
                                        {"deepest", str(p.deepest)},
                                        {"best_time", str(p.bestTime)},

@@ -56,6 +56,8 @@ executable; choose *More info -> Run anyway*.
   spring.
 - **Sanctums** between stages fully heal you and offer a shop and a choice of perks
   (22 perks, from *Salamander Skin* to a homunculus companion).
+- **Save & Quit** from the pause menu (or just close the window) and *Continue the Work*
+  from the title screen later: a run resumes at the start of the stage you were on.
 - **Runs** are seeded. The *Daily Rite* gives everyone the same seed and kit for the day, and
   three difficulties tune the challenge.
 - **Paths:** milestones unlock four more starting loadouts - the *Pyromancer*, *Geomancer*,

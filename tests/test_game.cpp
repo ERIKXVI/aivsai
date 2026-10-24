@@ -1,7 +1,10 @@
-// Game-rule tests: the spell table, wand deck casting and starting loadouts.
+// Game-rule tests: the spell table, wand deck casting, starting loadouts and run saves.
 
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 
+#include "app/RunRecords.hpp"
 #include "game/Loadouts.hpp"
 #include "game/Run.hpp"
 #include "game/Spells.hpp"
@@ -99,4 +102,51 @@ TEST_CASE("loadouts unlock through milestones") {
     }
     Milestones veteran{5, 1, 40, 1000};
     for (int l = 0; l < kLoadoutCount; ++l) CHECK(loadoutUnlocked(static_cast<LoadoutId>(l), veteran));
+}
+
+TEST_CASE("suspended runs survive a save and load") {
+    RunState run = newRun(4242u, Difficulty::Archmage, false, LoadoutId::Hermeticist);
+    run.levelIndex = 3;
+    run.inSanctum = true;
+    run.gold = 777;
+    run.hp = 41.5f;
+    run.activeWand = 1;
+    run.inventory[5] = SpellId::Lightning;
+    run.flask.mat = mat::Vitae;
+    run.flask.amount = 333;
+    run.perks[static_cast<size_t>(PerkId::Vitality)] = 2;
+    run.stats.kills = 57;
+    run.stats.time = 1234.5f;
+    run.killsByType[3] = 9;
+    run.wands[0].name = "Staff of the Rebis";
+
+    const auto path = std::filesystem::temp_directory_path() / "pm_test_run.sav";
+    writeRunSave(run, path);
+    const std::optional<RunState> loaded = readRunSave(path);
+    CHECK(loaded.has_value());
+    if (loaded) {
+        const RunState& r = *loaded;
+        CHECK(r.seed == run.seed && r.difficulty == run.difficulty && r.loadout == run.loadout);
+        CHECK(r.levelIndex == 3 && r.inSanctum && r.gold == 777 && r.activeWand == 1);
+        CHECK(r.hp == run.hp && r.maxHp == run.maxHp);
+        CHECK(r.wands.size() == run.wands.size());
+        for (size_t i = 0; i < r.wands.size() && i < run.wands.size(); ++i) {
+            CHECK(r.wands[i].name == run.wands[i].name);
+            CHECK(r.wands[i].slots == run.wands[i].slots);
+            CHECK(r.wands[i].castDelay == run.wands[i].castDelay && r.wands[i].manaMax == run.wands[i].manaMax);
+        }
+        CHECK(r.inventory == run.inventory);
+        CHECK(r.flask.mat == mat::Vitae && r.flask.amount == 333);
+        CHECK(r.perks == run.perks);
+        CHECK(r.stats.kills == 57 && r.stats.time == run.stats.time);
+        CHECK(r.killsByType == run.killsByType && r.spellsSeen == run.spellsSeen);
+    }
+
+    // A damaged file is rejected rather than half-loaded.
+    {
+        std::ofstream out(path, std::ios::trunc);
+        out << "version=1\nseed=12\nwands=2\nwand0=broken\n";
+    }
+    CHECK(!readRunSave(path).has_value());
+    std::filesystem::remove(path);
 }

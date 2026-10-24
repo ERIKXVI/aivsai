@@ -4,9 +4,11 @@
 
 #include <array>
 #include <memory>
+#include <optional>
 
 #include "app/Scene.hpp"
 #include "game/Loadouts.hpp"
+#include "game/Run.hpp"
 #include "render/Background.hpp"
 #include "render/SceneRenderer.hpp"
 #include "sim/Particles.hpp"
@@ -28,6 +30,8 @@ private:
 
     void buildWorld();
     void startRun(bool daily, LoadoutId loadout);
+    /// Folds a suspended run into the profile before a new one replaces it.
+    void abandonSuspendedRun();
     Milestones milestones() const;
     void drawMain();
     void drawHelp();
@@ -40,6 +44,7 @@ private:
     Rng rng_;
     Panel panel_ = Panel::Main;
     GrimoirePanel grimoire_;
+    std::optional<RunState> suspended_; ///< run that "Continue the Work" resumes
     float time_ = 0.0f;
     float nextEvent_ = 2.0f;
     int titleTop_ = 0, titleBottom_ = 0;

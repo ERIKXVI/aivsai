@@ -1,11 +1,13 @@
 #include "scenes/MenuScene.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <ctime>
 #include <vector>
 
 #include "app/App.hpp"
 #include "app/InputLatch.hpp"
+#include "app/RunRecords.hpp"
 #include "core/Timing.hpp"
 #include "game/Run.hpp"
 #include "scenes/GameScene.hpp"
@@ -41,6 +43,7 @@ uint32_t dailySeed() {
 MenuScene::MenuScene(App& app) : Scene(app), rng_(static_cast<uint64_t>(std::time(nullptr))) {
     buildWorld();
     background_.setBiome(BiomeId::Sanctum, 7u);
+    if (!app.options().automated()) suspended_ = loadSuspendedRun();
     const std::string& ui = app.options().openUi;
     if (ui == "loadout") panel_ = Panel::Loadout;
     else if (ui == "grimoire") panel_ = Panel::Grimoire;
@@ -103,7 +106,15 @@ Milestones MenuScene::milestones() const {
     return Milestones{p.deepest, p.victories, p.chestsOpened, p.totalKills};
 }
 
+void MenuScene::abandonSuspendedRun() {
+    if (!suspended_) return;
+    recordRun(app_.profile(), *suspended_, false);
+    discardSuspendedRun();
+    suspended_.reset();
+}
+
 void MenuScene::startRun(bool daily, LoadoutId loadout) {
+    abandonSuspendedRun();
     Difficulty diff = static_cast<Difficulty>(clamp(app_.settings().difficulty, 0, 2));
     uint32_t seed = daily ? dailySeed() : static_cast<uint32_t>(GetRandomValue(1, 0x7FFFFFFF));
     if (daily) {
@@ -205,8 +216,24 @@ void MenuScene::drawMain() {
              ui::Align::Center);
 
     float bw = 150.0f * s, bh = 18.0f * s, gap = 4.0f * s;
-    float x = sw * 0.5f - bw * 0.5f, y = sh * 0.44f;
+    const int buttons = suspended_ ? 9 : 8;
+    float x = sw * 0.5f - bw * 0.5f, y = std::min(sh * 0.44f, sh - 26.0f * s - static_cast<float>(buttons) * (bh + gap));
+    if (suspended_) {
+        if (ui::button({x, y, bw, bh}, "Continue the Work")) {
+            app_.setScene(std::make_unique<GameScene>(app_, *suspended_));
+            return;
+        }
+        if (ui::hovered({x, y, bw, bh})) {
+            const RunState& r = *suspended_;
+            std::string where = r.inSanctum ? std::string("Sanctum after ") + biomeDef(biomeForDepth(r.levelIndex)).name
+                                            : std::string(stageNumeral(r.levelIndex)) + ". " + biomeDef(biomeForDepth(r.levelIndex)).name;
+            ui::tooltip("Continue the Work", where + TextFormat("  -  %s, %d gold", loadoutDef(r.loadout).name, r.gold), ui::color::kGold);
+        }
+        y += bh + gap;
+    }
     if (ui::button({x, y, bw, bh}, "Begin the Great Work")) panel_ = Panel::Loadout;
+    if (suspended_ && ui::hovered({x, y, bw, bh}))
+        ui::tooltip("Begin the Great Work", "Starting anew abandons your suspended run.", ui::color::kDanger);
     y += bh + gap;
     // Everyone attempts the daily rite with the same seed and the same kit.
     if (ui::button({x, y, bw, bh}, "Daily Rite")) startRun(true, LoadoutId::Apprentice);

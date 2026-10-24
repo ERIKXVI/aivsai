@@ -5,6 +5,7 @@
 #include <array>
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <string>
 
 namespace pm {
@@ -40,6 +41,11 @@ struct Profile {
 /// Directory for settings and profile (created on demand). Falls back to the working
 /// directory if the platform location is unavailable.
 const std::filesystem::path& dataDirectory();
+
+/// Simple key=value files (one pair per line), written atomically.
+using KeyValues = std::map<std::string, std::string>;
+KeyValues readKeyValues(const std::filesystem::path& path);
+void writeKeyValues(const std::filesystem::path& path, const KeyValues& kv);
 
 Settings loadSettings();
 void saveSettings(const Settings& s);
