@@ -186,7 +186,10 @@ void GameScene::tick() {
 }
 
 void GameScene::stepLevel() {
-    const bool controllable = mode_ == Mode::Playing && !exiting_;
+    // Through the portal the stage holds still while the screen fades, so nothing can harm the
+    // alchemist after they have reached the exit.
+    if (exiting_) return;
+    const bool controllable = mode_ == Mode::Playing;
     const bool autoplay = app_.options().autoplay;
     PlayerInput in;
     if (controllable) {
@@ -213,6 +216,7 @@ void GameScene::stepLevel() {
             logAutoplay(TextFormat("died on stage %d at %.1fs, kills %d - %s", run_.levelIndex, run_.stats.time, run_.stats.kills,
                                    deathCause(level_->player()).c_str()));
         mode_ = Mode::Dead;
+        exiting_ = false;
         endTimer_ = 0.0f;
         slowMo_ = 0.35f;
         recordProfile(false);
