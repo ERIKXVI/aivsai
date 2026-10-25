@@ -65,7 +65,8 @@ Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-p
 - **Paths:** milestones unlock four more starting loadouts - the *Pyromancer*, *Geomancer*,
   *Stormcaller* and *Hermeticist* - each with its own wands, flask and gifts.
 - **The Grimoire** records every spell discovered, creature slain and perk taken across all
-  of your runs, and its chronicle remembers how your last ten runs ended.
+  of your runs, and its chronicle remembers how your last ten runs ended; choose one to
+  replay its seed.
 - The **Alchemy Sandbox** on the title screen lets you paint every material freely.
 
 ## Building from source

@@ -59,7 +59,7 @@ The descent follows the four stages of the alchemical Great Work:
 - **Profile**: runs, victories, deepest stage, best time, kills, gold, chests.
 - **Grimoire**: every spell discovered, creature slain (silhouettes until then) and perk
   taken, browsable from the title screen, plus a chronicle of the last ten runs (path,
-  depth, time and fate).
+  depth, time and fate); any of them can be replayed on the same seed.
 - **Paths** (starting loadouts) unlock through milestones and change the opening:
   Pyromancer (reach stage 3), Geomancer (open 12 chests), Stormcaller (slay 250
   creatures) and Hermeticist (complete the Great Work, rolls a powerful wand per seed).

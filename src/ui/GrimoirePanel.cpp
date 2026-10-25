@@ -194,13 +194,29 @@ void GrimoirePanel::drawChronicle(App& app, float x, float y) {
                  small, ui::color::kTextDim, ui::Align::Center);
         return;
     }
-    // Columns: path, how deep, time, fate.
+    // Columns: path, how deep, time, fate. Choosing a row replays its seed.
     const int size = ui::fontSize(ui::scale());
     const float cols[] = {0.0f, 100.0f * s, 205.0f * s, 250.0f * s};
-    const float rowH = 17.0f * s;
+    const float rowH = 17.0f * s, rowW = (kPanelW - 32.0f) * s;
     const char* headers[] = {"Path", "Reached", "Time", "Fate"};
     for (int c = 0; c < 4; ++c) ui::text(headers[c], x + cols[c], y, size, ui::color::kGold);
-    float py = y + rowH * 1.25f;
+    ui::text("choose a run to replay its seed", x + rowW - 6.0f * s, y + static_cast<float>(size - small), small,
+             ui::color::kTextDim, ui::Align::Right);
+    chronicleNav_.update(static_cast<int>(p.history.size()));
+    const float top = y + rowH * 1.25f;
+    auto rowRect = [&](size_t i) { return Rectangle{x - 6.0f * s, top + static_cast<float>(i) * rowH - 2.0f * s, rowW, rowH}; };
+    // One highlighted row: the keyboard/gamepad focus while it is active, else the one under the mouse.
+    int hot = -1;
+    bool mouseHot = false;
+    for (size_t i = 0; i < p.history.size(); ++i) {
+        if (chronicleNav_.focused(static_cast<int>(i))) hot = static_cast<int>(i);
+        else if (hot < 0 && ui::hovered(rowRect(i))) hot = static_cast<int>(i), mouseHot = true;
+    }
+    if (hot >= 0) {
+        DrawRectangleRec(rowRect(static_cast<size_t>(hot)), Color{170, 130, 255, 40});
+        if ((mouseHot && input::mousePressed(MOUSE_BUTTON_LEFT)) || chronicleNav_.activated(hot)) replay_ = static_cast<size_t>(hot);
+    }
+    float py = top;
     for (const RunHistoryEntry& e : p.history) {
         const bool known = e.loadout >= 0 && e.loadout < kLoadoutCount;
         std::string path = known ? loadoutDef(static_cast<LoadoutId>(e.loadout)).name : "?";
@@ -212,6 +228,9 @@ void GrimoirePanel::drawChronicle(App& app, float x, float y) {
         ui::text(e.fate, x + cols[3], py, size, e.victory ? ui::color::kGold : Color{230, 150, 120, 255});
         py += rowH;
     }
+    if (mouseHot)
+        ui::tooltip(TextFormat("Seed %u", p.history[static_cast<size_t>(hot)].seed),
+                    "Walk this path again: the same stages, wands and treasures.", ui::color::kAccent);
 }
 
 } // namespace pm

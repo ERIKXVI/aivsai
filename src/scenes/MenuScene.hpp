@@ -6,6 +6,7 @@
 #include <memory>
 #include <optional>
 
+#include "app/Persistence.hpp"
 #include "app/Scene.hpp"
 #include "game/Loadouts.hpp"
 #include "game/Run.hpp"
@@ -31,6 +32,8 @@ private:
 
     void buildWorld();
     void startRun(bool daily, LoadoutId loadout);
+    /// Starts a new run on a chronicled run's seed, path and difficulty.
+    void replayRun(const RunHistoryEntry& entry);
     /// Folds a suspended run into the profile before a new one replaces it.
     void abandonSuspendedRun();
     Milestones milestones() const;

@@ -114,6 +114,15 @@ void MenuScene::abandonSuspendedRun() {
     suspended_.reset();
 }
 
+void MenuScene::replayRun(const RunHistoryEntry& entry) {
+    abandonSuspendedRun();
+    LoadoutId loadout = LoadoutId::Apprentice;
+    if (entry.loadout >= 0 && entry.loadout < kLoadoutCount && loadoutUnlocked(static_cast<LoadoutId>(entry.loadout), milestones()))
+        loadout = static_cast<LoadoutId>(entry.loadout);
+    const auto diff = static_cast<Difficulty>(clamp(entry.difficulty, 0, 2));
+    app_.setScene(std::make_unique<GameScene>(app_, newRun(entry.seed, diff, false, loadout)));
+}
+
 void MenuScene::startRun(bool daily, LoadoutId loadout) {
     abandonSuspendedRun();
     Difficulty diff = static_cast<Difficulty>(clamp(app_.settings().difficulty, 0, 2));
@@ -205,6 +214,10 @@ void MenuScene::render(float alpha) {
     case Panel::Loadout: drawLoadouts(); break;
     case Panel::Grimoire:
         if (grimoire_.draw(app_)) panel_ = Panel::Main;
+        if (const auto replay = grimoire_.takeReplayRequest(); replay && *replay < app_.profile().history.size()) {
+            const RunHistoryEntry entry = app_.profile().history[*replay]; // copied: abandoning may rewrite history
+            replayRun(entry);
+        }
         break;
     }
 }
