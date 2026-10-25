@@ -132,6 +132,72 @@ Actor* findVictim(Level& level, const Projectile& p, Vec2 pos) {
     return nullptr;
 }
 
+/// Homing, gravity and drag.
+void steer(Level& level, Projectile& p, float dt) {
+    const ProjectileDef& d = p.def;
+    if (d.flags & kHoming) {
+        if (Actor* t = level.nearestHostile(p.pos, p.team, 170.0f)) {
+            float speed = p.vel.length();
+            float cur = angleOf(p.vel), want = angleOf(t->body.pos - p.pos);
+            float turn = clamp(wrapAngle(want - cur), -7.0f * dt, 7.0f * dt);
+            p.vel = fromAngle(cur + turn, speed);
+        }
+    }
+    p.vel.y += kGravity * d.gravity * dt;
+    if (d.drag > 0.0f) p.vel *= 1.0f / (1.0f + d.drag * dt);
+}
+
+/// A gravity well eats the terrain it floats through and drags foes in, grinding those at
+/// its core.
+void pullIntoWell(Level& level, Projectile& p, float dt) {
+    const ProjectileDef& d = p.def;
+    level.dig(p.pos, d.digRadius, d.digPower, false);
+    for (auto& e : level.enemies()) {
+        if (!e->alive() || e->team == p.team) continue;
+        Vec2 to = p.pos - e->body.pos;
+        float dist = to.length();
+        if (dist < 70.0f && dist > 0.5f) {
+            e->body.vel += to.normalized() * (900.0f * dt * (1.0f - dist / 70.0f));
+            if (dist < d.digRadius + 3.0f && p.hitCooldown <= 0.0f)
+                e->applyDamage(level, {d.damage * p.damageMul, DamageType::Physical, {}, p.team, false, true});
+        }
+    }
+    if (p.hitCooldown <= 0.0f) p.hitCooldown = 0.1f;
+}
+
+/// Matter trails and sparkle left along this tick's path.
+void emitTrail(Level& level, Projectile& p) {
+    const ProjectileDef& d = p.def;
+    World& world = level.world();
+    Rng& rng = level.rng();
+    if (d.trailMat != mat::Empty && d.trailRate > 0.0f) {
+        p.trailAccum += d.trailRate;
+        while (p.trailAccum >= 1.0f) {
+            p.trailAccum -= 1.0f;
+            Vec2 t = lerp(p.prevPos, p.pos, rng.uniform());
+            int tx = floorToInt(t.x), ty = floorToInt(t.y);
+            if (phaseOf(d.trailMat) == Phase::Fire || phaseOf(d.trailMat) == Phase::Gas) {
+                world.placeIfEmpty(tx, ty, d.trailMat);
+            } else {
+                Cell c = makeCell(d.trailMat, rng.next());
+                c.flags |= cellflag::kPlayerMade;
+                level.particles().addMatter(t, p.vel * 0.1f, c);
+            }
+        }
+    }
+    const bool sparkly = d.visual == ProjVisual::Star || d.visual == ProjVisual::Spark || d.visual == ProjVisual::Bolt ||
+                         d.visual == ProjVisual::Orb || d.visual == ProjVisual::BigOrb;
+    if (sparkly && rng.chance(d.visual == ProjVisual::Star ? 0.9f : 0.35f)) {
+        Rgba c = hexRgba(d.color);
+        level.particles().addVisual(lerp(p.prevPos, p.pos, rng.uniform()), p.vel * 0.05f + Vec2{rng.range(-8.0f, 8.0f), rng.range(-8.0f, 8.0f)},
+                                    c, scaled(c, 0.7f), rng.range(0.15f, 0.4f), d.visual == ProjVisual::Star ? 0.15f : 0.0f);
+    }
+    if (d.visual == ProjVisual::Bomb && rng.chance(0.5f)) {
+        level.particles().addVisual(p.pos + Vec2{0.0f, -2.0f}, {rng.range(-10.0f, 10.0f), rng.range(-30.0f, -10.0f)},
+                                    {255, 200, 80, 255}, {255, 150, 40, 255}, 0.2f, 0.0f);
+    }
+}
+
 } // namespace
 
 void fireHitscan(Level& level, Projectile& p, float range) {
@@ -171,32 +237,8 @@ void updateProjectile(Level& level, Projectile& p, float dt) {
         return;
     }
 
-    // Steering.
-    if (d.flags & kHoming) {
-        if (Actor* t = level.nearestHostile(p.pos, p.team, 170.0f)) {
-            float speed = p.vel.length();
-            float cur = angleOf(p.vel), want = angleOf(t->body.pos - p.pos);
-            float turn = clamp(wrapAngle(want - cur), -7.0f * dt, 7.0f * dt);
-            p.vel = fromAngle(cur + turn, speed);
-        }
-    }
-    p.vel.y += kGravity * d.gravity * dt;
-    if (d.drag > 0.0f) p.vel *= 1.0f / (1.0f + d.drag * dt);
-
-    if (d.flags & kGravityWell) {
-        level.dig(p.pos, d.digRadius, d.digPower, false);
-        for (auto& e : level.enemies()) {
-            if (!e->alive() || e->team == p.team) continue;
-            Vec2 to = p.pos - e->body.pos;
-            float dist = to.length();
-            if (dist < 70.0f && dist > 0.5f) {
-                e->body.vel += to.normalized() * (900.0f * dt * (1.0f - dist / 70.0f));
-                if (dist < d.digRadius + 3.0f && p.hitCooldown <= 0.0f)
-                    e->applyDamage(level, {d.damage * p.damageMul, DamageType::Physical, {}, p.team, false, true});
-            }
-        }
-        if (p.hitCooldown <= 0.0f) p.hitCooldown = 0.1f;
-    }
+    steer(level, p, dt);
+    if (d.flags & kGravityWell) pullIntoWell(level, p, dt);
 
     // March along the path in sub-cell steps.
     Vec2 delta = p.vel * dt;
@@ -272,33 +314,7 @@ void updateProjectile(Level& level, Projectile& p, float dt) {
         p.pos = next;
     }
 
-    // Trails of matter and sparkle.
-    if (d.trailMat != mat::Empty && d.trailRate > 0.0f) {
-        p.trailAccum += d.trailRate;
-        while (p.trailAccum >= 1.0f) {
-            p.trailAccum -= 1.0f;
-            Vec2 t = lerp(p.prevPos, p.pos, rng.uniform());
-            int tx = floorToInt(t.x), ty = floorToInt(t.y);
-            if (phaseOf(d.trailMat) == Phase::Fire || phaseOf(d.trailMat) == Phase::Gas) {
-                world.placeIfEmpty(tx, ty, d.trailMat);
-            } else {
-                Cell c = makeCell(d.trailMat, rng.next());
-                c.flags |= cellflag::kPlayerMade;
-                level.particles().addMatter(t, p.vel * 0.1f, c);
-            }
-        }
-    }
-    const bool sparkly = d.visual == ProjVisual::Star || d.visual == ProjVisual::Spark || d.visual == ProjVisual::Bolt ||
-                         d.visual == ProjVisual::Orb || d.visual == ProjVisual::BigOrb;
-    if (sparkly && rng.chance(d.visual == ProjVisual::Star ? 0.9f : 0.35f)) {
-        Rgba c = hexRgba(d.color);
-        level.particles().addVisual(lerp(p.prevPos, p.pos, rng.uniform()), p.vel * 0.05f + Vec2{rng.range(-8.0f, 8.0f), rng.range(-8.0f, 8.0f)},
-                                    c, scaled(c, 0.7f), rng.range(0.15f, 0.4f), d.visual == ProjVisual::Star ? 0.15f : 0.0f);
-    }
-    if (d.visual == ProjVisual::Bomb && rng.chance(0.5f)) {
-        level.particles().addVisual(p.pos + Vec2{0.0f, -2.0f}, {rng.range(-10.0f, 10.0f), rng.range(-30.0f, -10.0f)},
-                                    {255, 200, 80, 255}, {255, 150, 40, 255}, 0.2f, 0.0f);
-    }
+    emitTrail(level, p);
 }
 
 void drawProjectile(const Projectile& p, DrawContext& ctx, uint32_t tick) {
