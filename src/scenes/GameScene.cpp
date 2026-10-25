@@ -43,6 +43,7 @@ GameScene::~GameScene() {
 
 void GameScene::requestLevel() {
     mode_ = Mode::Loading;
+    eventNotice_ = {}; // a notice raised just before the portal stays with its stage
     // A drag begun during the exit fade must not carry wand/slot indices into the next stage.
     drag_ = Drag{};
     for (Wand& w : run_.wands) w.resetDeck();

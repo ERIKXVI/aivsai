@@ -338,7 +338,10 @@ Actor* Level::nearestHostile(Vec2 pos, Team team, float range, uint32_t excludeI
         }
     };
     consider(*player_);
-    for (auto& e : enemies_) consider(*e);
+    // A mimic still posing as a chest is no target: homing shots, arcs and the homunculus would
+    // give it away (a stray hit still wakes it).
+    for (auto& e : enemies_)
+        if (!e->disguised()) consider(*e);
     return best;
 }
 

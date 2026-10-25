@@ -13,6 +13,13 @@ namespace {
 constexpr int kMaxEvents = 3;         ///< per stage
 constexpr int kRestlessMaxEvents = 5; ///< per stage under the Restless Mountain ordeal
 constexpr float kWarnTime = 1.6f; ///< the telegraph before an event lands
+// How much ceiling lets go (half-widths of the ellipse), and how far from a vault it must stay.
+constexpr int kCaveInRadiusX = 12, kCaveInRadiusY = 6;
+constexpr int kGoldFallRadiusX = 7, kGoldFallRadiusY = 4;
+constexpr float kVaultMargin = 4.0f;
+
+/// Row of a collapse ellipse's centre: its lower edge bites just into the ceiling's underside.
+int collapseCentreY(int ceilingY, int radiusY) { return ceilingY - radiusY + 2; }
 
 bool insideVault(const Level& level, Vec2 p, float margin) {
     for (const Rectf& v : level.layout().vaults)
@@ -45,7 +52,26 @@ MatId debrisOf(MatId m) {
     }
 }
 
-/// Natural ceiling above the alchemist with a long, clear fall beneath it.
+/// Whether a stretch of ceiling can give way: the collapse ellipse must be mostly natural
+/// stone (or the fall is a trickle), and neither it nor the cell around it may hold liquid - a
+/// ceiling holding up a pool would pour it all down with only a rock-fall's warning.
+bool sturdyCeiling(const World& w, int cx, int cy, int radiusX, int radiusY) {
+    const int rx = radiusX + 1, ry = radiusY + 1;
+    int cells = 0, stone = 0;
+    for (int dy = -ry; dy <= ry; ++dy)
+        for (int dx = -rx; dx <= rx; ++dx) {
+            const float nx = static_cast<float>(dx) / static_cast<float>(rx), ny = static_cast<float>(dy) / static_cast<float>(ry);
+            if (nx * nx + ny * ny > 1.0f) continue;
+            const MatId m = w.matAt(cx + dx, cy + dy);
+            if (matDef(m).phase == Phase::Liquid) return false;
+            ++cells;
+            stone += debrisOf(m) != mat::Empty ? 1 : 0;
+        }
+    return stone * 2 >= cells;
+}
+
+/// Natural ceiling above the alchemist with a long, clear fall beneath it, holding up no
+/// pool, whose fall lands in the alchemist's view.
 bool findCeiling(const Level& level, Rng& rng, Vec2& site) {
     const World& w = level.world();
     const Vec2 me = level.player().body.pos;
@@ -58,9 +84,13 @@ bool findCeiling(const Level& level, Rng& rng, Vec2& site) {
         const int drop = top - y;
         if (drop < 22 || drop >= 80) continue; // too low to fall far, or open sky
         if (debrisOf(w.matAt(x, y)) == mat::Empty || debrisOf(w.matAt(x, y - 4)) == mat::Empty) continue;
-        const Vec2 at{static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f};
-        if (insideVault(level, at, 8.0f)) continue;
-        site = at;
+        if (insideVault(level, {static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f}, 2.0f * kVaultMargin)) continue;
+        if (!sturdyCeiling(w, x, collapseCentreY(y, kCaveInRadiusY), kCaveInRadiusX, kCaveInRadiusY)) continue;
+        // The rock must land where the alchemist can see it (not down a shaft behind a wall).
+        int floor = y + 1;
+        while (floor < y + 90 && isOpen(w, x, floor)) ++floor;
+        if (!level.lineOfSight({static_cast<float>(x) + 0.5f, static_cast<float>(floor) - 4.0f}, me)) continue;
+        site = {static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f};
         return true;
     }
     return false;
@@ -285,7 +315,7 @@ void StageEvents::release(Level& level) {
     World& world = level.world();
     switch (kind_) {
     case StageEventKind::CaveIn: {
-        collapse(level, 12, 6, false);
+        collapse(level, kCaveInRadiusX, kCaveInRadiusY, false);
         // Chips of stone burst from the ceiling ahead of the fall.
         for (int i = 0; i < 24; ++i)
             level.particles().addVisual(site_ + Vec2{rng.range(-10.0f, 10.0f), rng.range(-2.0f, 2.0f)},
@@ -302,7 +332,7 @@ void StageEvents::release(Level& level) {
         break;
     }
     case StageEventKind::GoldFall:
-        collapse(level, 7, 4, true);
+        collapse(level, kGoldFallRadiusX, kGoldFallRadiusY, true);
         timer_ = 0.1f;
         level.addFlash(site_, 0xffd070, 1.6f, 50.0f, 0.6f);
         level.audio().playAt(Sfx::Coin, site_, 0.8f, 0.8f);
@@ -363,16 +393,16 @@ void StageEvents::unfold(Level& level) {
 void StageEvents::collapse(Level& level, int radiusX, int radiusY, bool gold) {
     World& world = level.world();
     Rng& rng = level.rng();
-    // The ellipse's lower edge bites just into the ceiling's underside.
-    const int cx = floorToInt(site_.x), cy = floorToInt(site_.y) - radiusY + 2;
+    const int cx = floorToInt(site_.x), cy = collapseCentreY(floorToInt(site_.y), radiusY);
     for (int dy = -radiusY; dy <= radiusY; ++dy)
         for (int dx = -radiusX; dx <= radiusX; ++dx) {
             const float nx = static_cast<float>(dx) / static_cast<float>(radiusX), ny = static_cast<float>(dy) / static_cast<float>(radiusY);
             if (nx * nx + ny * ny > 1.0f) continue;
             const int x = cx + dx, y = cy + dy;
             MatId debris = debrisOf(world.matAt(x, y));
-            if (debris == mat::Empty) continue;
-            if (gold && rng.chance(0.55f)) debris = mat::GoldDust;
+            // Vault shells (and a spring's basin just below one) are never breached.
+            if (debris == mat::Empty || insideVault(level, {static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f}, kVaultMargin)) continue;
+            if (gold && rng.chance(0.8f)) debris = mat::GoldDust;
             // A third of the stone crumbles to dust on the way down, so the heap is less apt to plug a shaft.
             if (!gold && rng.chance(0.35f)) world.clear(x, y);
             else world.place(x, y, debris);

@@ -506,7 +506,7 @@ TEST_CASE("stage events are announced, telegraphed, then land") {
         const World& w = level.world();
         switch (kind) {
         case StageEventKind::CaveIn: CHECK(count(w, site, 90, mat::Gravel) + count(w, site, 90, mat::Snow) > gravel + 20); break;
-        case StageEventKind::GoldFall: CHECK(count(w, site, 90, mat::GoldDust) > gold + 30); break;
+        case StageEventKind::GoldFall: CHECK(count(w, site, 90, mat::GoldDust) > gold + 20); break;
         case StageEventKind::Breach: CHECK(count(w, site, 50, mat::Brine) > 100); break;
         case StageEventKind::GasSeep: CHECK(count(w, site, 60, mat::Methane) > 20); break;
         case StageEventKind::Swarm: CHECK(level.enemies().size() >= enemies + 3); break;

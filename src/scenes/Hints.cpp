@@ -61,7 +61,7 @@ bool lanternOverFoe(const Level& level) {
     for (const Lantern& l : level.lanterns()) {
         if (l.fallSpeed > 0.0f || (l.pos - me).lengthSq() > 60.0f * 60.0f) continue;
         for (const auto& e : level.enemies())
-            if (e->alive() && e->team == Team::Monster && e->body.pos.y > l.pos.y && (e->body.pos - l.pos).lengthSq() < 40.0f * 40.0f)
+            if (e->alive() && !e->disguised() && e->team == Team::Monster && e->body.pos.y > l.pos.y && (e->body.pos - l.pos).lengthSq() < 40.0f * 40.0f)
                 return true;
     }
     return false;
