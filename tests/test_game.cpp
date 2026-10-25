@@ -232,3 +232,15 @@ TEST_CASE("hitscan lightning follows the aim") {
     level.launch(shot.projectiles.front(), origin, kPi, Team::Player, 0, 1.0f);
     CHECK(level.flashes().back().pos.x < origin.x - 5.0f);
 }
+
+TEST_CASE("sanctum lanterns stay hung") {
+    initMaterials();
+    ThreadPool pool(2);
+    Audio audio;
+    RunState run = newRun(11, Difficulty::Adept, false);
+    Level level(generateSanctum(1, 11u, pool), run, audio, pool);
+    const size_t lanterns = level.lanterns().size();
+    CHECK(lanterns > 0);
+    for (int i = 0; i < 60; ++i) level.tick(PlayerInput{});
+    CHECK(level.lanterns().size() == lanterns);
+}

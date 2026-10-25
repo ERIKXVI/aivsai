@@ -79,7 +79,18 @@ void Level::populate() {
                 pickups_.push_back(makeSpellPickup(s.pos - Vec2{0.0f, 5.0f}, randomSpell(tier, rng_)));
             }
             break;
-        case SpawnKind::Lantern: lanterns_.push_back({s.pos + Vec2{0.0f, 4.0f}, rng_.range(0.0f, kTau)}); break;
+        case SpawnKind::Lantern: {
+            // Hang from the first matter above the spawn point (updateLanterns drops a lantern
+            // whose anchor, 5 rows above its centre, is open air).
+            Vec2 hook = s.pos;
+            const int hx = floorToInt(hook.x);
+            for (int k = 0; k < 40 && world().inBounds(hx, floorToInt(hook.y) - 1) &&
+                            phaseOf(world().at(hx, floorToInt(hook.y) - 1).mat) == Phase::Empty;
+                 ++k)
+                hook.y -= 1.0f;
+            lanterns_.push_back({hook + Vec2{0.0f, 4.0f}, rng_.range(0.0f, kTau)});
+            break;
+        }
         case SpawnKind::Transmuter: {
             // Each stage's basin craves a material found nearby; the first teaches with water.
             static constexpr MatId kWants[5][3] = {{mat::Water, mat::Oil, mat::Blood},
