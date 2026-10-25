@@ -162,12 +162,12 @@ void Generator::placeTrees(World& world) {
                     }
         }
     }
-    // Grass tufts along the surface.
+    // Grass tufts along the surface (leaf matter: they stand rather than hang like vines).
     for (int x = 0; x < w_; ++x) {
         const int ground = skyline_[static_cast<size_t>(x)];
         if (!isFloor(world, x, ground - 1) || hash2(x, 0, seed_) % 3u == 0u) continue;
         int blades = 1 + static_cast<int>(hash2(x, 1, seed_) % 3u);
-        for (int k = 1; k <= blades; ++k) world.placeIfEmpty(x, ground - k, mat::Vine);
+        for (int k = 1; k <= blades; ++k) world.placeIfEmpty(x, ground - k, mat::Leaves);
     }
 }
 
