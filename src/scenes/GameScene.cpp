@@ -86,6 +86,7 @@ void GameScene::finishLoading() {
         titleSub_ = b.subtitle;
         if (const Omen omen = level_->layout().omen; omen != Omen::None) {
             titleOmen_ = std::string("Omen: ") + omenDef(omen).name + ". " + omenDef(omen).description;
+            app_.audio().play(Sfx::Perk, 0.45f, 0.6f); // a low chime marks the omen
             if (app_.options().autoplay) logAutoplay(TextFormat("stage %d omen %s", run_.levelIndex, omenDef(omen).name));
         }
     }

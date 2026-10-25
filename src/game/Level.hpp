@@ -69,6 +69,8 @@ struct Transmuter {
 struct Lantern {
     Vec2 pos;
     float phase;
+    float fallSpeed = 0.0f; ///< > 0 once its ceiling is gone and it drops
+    bool shattered = false;
 };
 
 enum class LevelEvent : uint8_t { None, ExitReached, PlayerDied };
@@ -169,6 +171,7 @@ private:
     void updatePickups(float dt);
     void interact();
     void updateEffects(float dt);
+    void updateLanterns(float dt);
     void updateIntensity();
     void updateTransmuters();
     /// Biome ambience: drifting dust, ice glitter, spores, embers, fireflies.
