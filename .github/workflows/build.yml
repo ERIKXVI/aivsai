@@ -4,7 +4,10 @@ on:
   push:
     branches: ["**"]
     tags-ignore: ["v*"]
+    # Documentation-only changes need no build (and save Actions minutes).
+    paths-ignore: ["**.md", "docs/**", ".editorconfig"]
   pull_request:
+    paths-ignore: ["**.md", "docs/**", ".editorconfig"]
   workflow_dispatch:
 
 concurrency:
