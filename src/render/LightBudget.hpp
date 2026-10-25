@@ -38,11 +38,13 @@ void selectLights(std::vector<PointLight>& lights, int budget, float viewDiag);
 class LightSelector {
 public:
     static constexpr float kFadeRate = 7.0f; ///< fade units per second
-    static constexpr int kFadeSlots = 4;     ///< slots held back for lights fading out
+    static constexpr int kFadeSlots = 4;     ///< lowest budget slots a fading light may take over
 
     /// Replaces `lights` (this frame's candidates) with the lights to draw, at most `budget`.
-    /// Keyed lights fade toward 1 while selected and toward 0 once dropped; a dropped light
-    /// keeps a slot until it has faded out.
+    /// The `budget` best candidates are always drawn, and keyed ones fade toward 1. A keyed
+    /// light that was ranked out, or that stopped being registered at all, fades toward 0 and
+    /// keeps drawing meanwhile: in a free slot, or in place of one of the lowest kFadeSlots
+    /// lights that has nothing to lose (unkeyed or not faded in yet).
     void select(std::vector<PointLight>& lights, int budget, float viewDiag, float dt);
     /// Forgets every fade (a new level is loading).
     void reset() { fades_.clear(); }
@@ -55,9 +57,19 @@ public:
 private:
     struct Fade {
         float value = 0.0f;
-        uint32_t frame = 0; ///< last frame this key was a candidate
+        uint32_t frame = 0;     ///< last frame the fade moved with its light
+        uint32_t seen = 0;      ///< last frame this key was a candidate
+        uint32_t drawn = 0;     ///< last frame this key was drawn
+        PointLight light;       ///< the light as last registered, drawn while it fades out unregistered
+    };
+    struct Ranked {
+        float score;
+        uint32_t index; ///< into this frame's lights
     };
     std::unordered_map<uint32_t, Fade> fades_;
+    // Per-frame scratch, kept to avoid allocating every frame.
+    std::vector<Ranked> ranked_;
+    std::vector<uint8_t> state_;
     std::vector<PointLight> chosen_;
     uint32_t frame_ = 0;
 };

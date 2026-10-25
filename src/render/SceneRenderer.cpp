@@ -10,9 +10,9 @@ namespace pm {
 
 namespace {
 
-/// Fade key of an emissive cluster: the world block (not the view-local one) holding its centre.
-uint32_t emissiveKey(int blockX, int blockY) {
-    return lightKey(LightKind::Emissive, (static_cast<uint32_t>(blockX) & 0x3FFFu) | ((static_cast<uint32_t>(blockY) & 0x3FFFu) << 14));
+/// Fade key of an emissive cluster: its world super-block coordinates.
+uint32_t emissiveKey(int superX, int superY) {
+    return lightKey(LightKind::Emissive, (static_cast<uint32_t>(superX) & 0x3FFFu) | ((static_cast<uint32_t>(superY) & 0x3FFFu) << 14));
 }
 
 } // namespace
@@ -110,70 +110,61 @@ void SceneRenderer::addShockwave(Vec2 world, float radius, float strength) {
 }
 
 void SceneRenderer::addEmissiveLights(int maxLights) {
-    const std::vector<EmissiveBlock>& blocks = world_.emissiveBlocks();
-    const int bw = world_.blocksWide(), bh = world_.blocksHigh();
-    const int maxClusters = std::min(maxLights, kMaxEmissiveLights);
-    // Bright blocks seed clusters, heaviest first, and each cluster takes the unclaimed blocks
-    // around its seed: a lava lake becomes a few broad lights instead of one per block.
-    std::vector<int> seeds;
-    for (int i = 0; i < static_cast<int>(blocks.size()); ++i)
-        if (blocks[static_cast<size_t>(i)].weight > 2500.0f) seeds.push_back(i);
-    std::stable_sort(seeds.begin(), seeds.end(),
-                     [&](int a, int b) { return blocks[static_cast<size_t>(a)].weight > blocks[static_cast<size_t>(b)].weight; });
-    std::vector<uint8_t> used(blocks.size(), 0);
-    std::vector<uint32_t> claimed;
-    for (int seed : seeds) {
-        if (static_cast<int>(claimed.size()) >= maxClusters) break;
-        if (used[static_cast<size_t>(seed)]) continue;
-        const int sx = seed % bw, sy = seed / bw;
-        float x = 0, y = 0, r = 0, g = 0, b = 0, weight = 0;
-        float blockLight = 0.0f; // what the blocks would have shone as separate lights
-        for (int ny = std::max(0, sy - 1); ny <= std::min(bh - 1, sy + 1); ++ny) {
-            for (int nx = std::max(0, sx - 1); nx <= std::min(bw - 1, sx + 1); ++nx) {
-                const size_t j = static_cast<size_t>(ny) * bw + nx;
-                const EmissiveBlock& e = blocks[j];
-                if (used[j] || e.weight <= 0.0f) continue;
-                used[j] = 1;
-                blockLight += std::min(std::sqrt(e.weight) / 140.0f, 2.2f);
-                x += e.x * e.weight;
-                y += e.y * e.weight;
-                r += e.r;
-                g += e.g;
-                b += e.b;
-                weight += e.weight;
-            }
-        }
-        x /= weight;
-        y /= weight;
+    // Emissive blocks pool into a fixed grid of world-aligned super-blocks, so a lava lake
+    // becomes a few broad lights whose places and keys do not shift with the camera or the
+    // lava's shimmer. The heaviest super-blocks are lit; one lit last frame gets a head start,
+    // so two of similar weight do not trade places every frame.
+    constexpr int kSuper = 48;             // super-block size in cells
+    constexpr float kSeedWeight = 2500.0f; // a super-block needs one block at least this bright
+    constexpr float kStayBonus = 1.3f;
+    const int gx0 = floorDiv(view_.originX, kSuper), gy0 = floorDiv(view_.originY, kSuper);
+    const int gw = floorDiv(view_.originX + view_.texW - 1, kSuper) - gx0 + 1;
+    const int gh = floorDiv(view_.originY + view_.texH - 1, kSuper) - gy0 + 1;
+    superBlocks_.assign(static_cast<size_t>(gw) * gh, SuperBlock{});
+    for (const EmissiveBlock& e : world_.emissiveBlocks()) {
+        if (e.weight <= 0.0f) continue;
+        const int sx = clamp(floorDiv(floorToInt(e.x), kSuper) - gx0, 0, gw - 1);
+        const int sy = clamp(floorDiv(floorToInt(e.y), kSuper) - gy0, 0, gh - 1);
+        SuperBlock& s = superBlocks_[static_cast<size_t>(sy) * gw + sx];
+        s.x += e.x * e.weight;
+        s.y += e.y * e.weight;
+        s.r += e.r;
+        s.g += e.g;
+        s.b += e.b;
+        s.weight += e.weight;
+        s.blockLight += std::min(std::sqrt(e.weight) / 140.0f, 2.2f); // as a light of its own
+        s.peak = std::max(s.peak, e.weight);
+    }
 
-        // Keep the key of a cluster seen last frame within a block of this one, so a centre
-        // wobbling across a block edge does not restart its fade.
-        const int kx = floorDiv(floorToInt(x), 1 << WorldRenderer::kBlockShift);
-        const int ky = floorDiv(floorToInt(y), 1 << WorldRenderer::kBlockShift);
-        uint32_t key = 0;
-        float bestFade = -1.0f;
-        for (int dy = -1; dy <= 1; ++dy) {
-            for (int dx = -1; dx <= 1; ++dx) {
-                const uint32_t k = emissiveKey(kx + dx, ky + dy);
-                if (!selector_.tracks(k) || std::find(claimed.begin(), claimed.end(), k) != claimed.end()) continue;
-                const float f = selector_.fade(k) + (dx == 0 && dy == 0 ? 0.01f : 0.0f);
-                if (f > bestFade) {
-                    bestFade = f;
-                    key = k;
-                }
-            }
-        }
-        if (key == 0 && std::find(claimed.begin(), claimed.end(), emissiveKey(kx, ky)) == claimed.end()) key = emissiveKey(kx, ky);
-        claimed.push_back(key);
+    clusterOrder_.clear();
+    for (size_t i = 0; i < superBlocks_.size(); ++i) {
+        SuperBlock& s = superBlocks_[i];
+        if (s.weight <= 0.0f) continue;
+        s.key = emissiveKey(gx0 + static_cast<int>(i % gw), gy0 + static_cast<int>(i / gw));
+        const bool wasLit = std::find(litClusters_.begin(), litClusters_.end(), s.key) != litClusters_.end();
+        const float bonus = wasLit ? kStayBonus : 1.0f;
+        if (s.peak * bonus <= kSeedWeight) continue;
+        s.score = s.weight * bonus;
+        clusterOrder_.push_back(static_cast<uint32_t>(i));
+    }
+    const size_t count = std::min(clusterOrder_.size(), static_cast<size_t>(std::max(0, std::min(maxLights, kMaxEmissiveLights))));
+    std::partial_sort(clusterOrder_.begin(), clusterOrder_.begin() + static_cast<long>(count), clusterOrder_.end(), [&](uint32_t a, uint32_t b) {
+        return superBlocks_[a].score > superBlocks_[b].score || (superBlocks_[a].score == superBlocks_[b].score && a < b);
+    });
 
-        const float total = r + g + b;
+    litClusters_.clear();
+    for (size_t i = 0; i < count; ++i) {
+        const SuperBlock& s = superBlocks_[clusterOrder_[i]];
+        litClusters_.push_back(s.key);
+        const float total = s.r + s.g + s.b;
         // One broad light stands in for several blocks: take the geometric mean of the merged
-        // brightness and the blocks' summed brightness, so a pool keeps its glow without a hot
-        // spot at its centre.
-        const float intensity = std::max(0.2f, std::sqrt(std::sqrt(weight) / 140.0f * blockLight));
+        // brightness and the blocks' summed brightness, so a pool keeps its glow, but never more
+        // than a few times its brightest block, so a dense pool has no blown-out centre.
+        const float peakLight = std::min(std::sqrt(s.peak) / 140.0f, 2.2f);
+        const float intensity = clamp(std::sqrt(std::sqrt(s.weight) / 140.0f * s.blockLight), 0.2f, 6.0f * peakLight);
         const float k = intensity * 3.0f / total;
-        const float radius = std::min(35.0f + std::sqrt(weight) * 0.22f, 120.0f);
-        addLight(PointLight{{x, y}, r * k, g * k, b * k, radius, 2.5f, 3.0f, key});
+        const float radius = std::min(35.0f + std::sqrt(s.weight) * 0.22f, 120.0f);
+        addLight(PointLight{{s.x / s.weight, s.y / s.weight}, s.r * k, s.g * k, s.b * k, radius, 2.5f, 3.0f, s.key});
     }
 }
 
@@ -235,8 +226,10 @@ void SceneRenderer::runGlowPass() {
 }
 
 void SceneRenderer::present(const LightingParams& p, float time) {
-    // Light fades follow the caller's clock; a stalled or restarted clock just holds them.
-    const float dt = lastTime_ < 0.0f ? 0.0f : clamp(time - lastTime_, 0.0f, 0.25f);
+    // Light fades follow the caller's clock; a stalled or restarted clock just holds them. The
+    // first frame counts as one 60th of a second, so keyed lights already show on it.
+    if (lastTime_ < 0.0f) lastTime_ = time - 1.0f / 60.0f;
+    const float dt = clamp(time - lastTime_, 0.0f, 0.25f);
     lastTime_ = time;
     runLightPass(p.highQuality, dt);
     runGlowPass();

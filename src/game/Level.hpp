@@ -71,6 +71,7 @@ struct Lantern {
     float phase;
     float fallSpeed = 0.0f; ///< > 0 once its ceiling is gone and it drops
     bool shattered = false;
+    uint32_t id = 0; ///< stable light key, assigned when the level is built
 };
 
 enum class LevelEvent : uint8_t { None, ExitReached, PlayerDied };

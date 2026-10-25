@@ -76,11 +76,14 @@ public:
     /// Adds a refractive ring centred on a world position for this frame.
     void addShockwave(Vec2 world, float radius, float strength);
     /// Turns the brightest emissive regions of the world layer (lava, fire, glowing fungus)
-    /// into shadow-casting point lights, one per cluster of neighbouring blocks (at most
+    /// into shadow-casting point lights, one per world-aligned 48-cell super-block (at most
     /// kMaxEmissiveLights). Call after the world layer is uploaded.
     void addEmissiveLights(int maxLights = kMaxEmissiveLights);
     /// Forgets light fades, so a new level does not inherit the last one's lights.
-    void resetLights() { selector_.reset(); }
+    void resetLights() {
+        selector_.reset();
+        litClusters_.clear();
+    }
     /// Lights drawn and lights registered in the last presented frame.
     int lightsSelected() const { return lightsSelected_; }
     int lightCandidates() const { return lightCandidates_; }
@@ -110,6 +113,17 @@ private:
     gpu::ShaderProgram lightShader_, downShader_, upShader_, compositeShader_;
     std::vector<PointLight> lights_;
     LightSelector selector_;
+    /// One cell of the emissive clustering grid, rebuilt every frame.
+    struct SuperBlock {
+        float x = 0, y = 0, r = 0, g = 0, b = 0, weight = 0;
+        float blockLight = 0.0f; ///< summed brightness of its blocks as separate lights
+        float peak = 0.0f;       ///< weight of its brightest block
+        float score = 0.0f;
+        uint32_t key = 0;
+    };
+    std::vector<SuperBlock> superBlocks_;
+    std::vector<uint32_t> clusterOrder_;
+    std::vector<uint32_t> litClusters_; ///< keys of the super-blocks lit last frame
     float lastTime_ = -1.0f;
     int lightsSelected_ = 0, lightCandidates_ = 0;
     std::vector<float> lightPosData_, lightColorData_;

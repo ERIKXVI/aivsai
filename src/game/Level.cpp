@@ -94,6 +94,7 @@ void Level::populate() {
             for (int k = 0; k < 40 && !ceiling(); ++k) hook.y -= 1.0f;
             if (!world().inBounds(hx, floorToInt(hook.y) - 1) || !ceiling()) break;
             lanterns_.push_back({hook + Vec2{0.0f, 4.0f}, rng_.range(0.0f, kTau)});
+            lanterns_.back().id = static_cast<uint32_t>(lanterns_.size()); // shattered ones are erased later
             break;
         }
         case SpawnKind::Transmuter: {

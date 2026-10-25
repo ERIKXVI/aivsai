@@ -274,12 +274,10 @@ void LevelRenderer::addLights(const Level& level, float alpha, float time) {
     }
 
     // Fixtures outrank the projectiles of a busy fight and fade if they ever lose their slot.
-    const std::vector<Lantern>& lanterns = level.lanterns();
-    for (size_t i = 0; i < lanterns.size(); ++i) {
-        const Lantern& l = lanterns[i];
+    for (const Lantern& l : level.lanterns()) {
         float flicker = 0.85f + 0.15f * std::sin(time * 13.0f + l.phase) * std::sin(time * 7.3f + l.phase * 2.0f);
         scene_.addLight(PointLight{l.pos + Vec2{0.0f, 3.0f}, 1.6f * flicker, 1.1f * flicker, 0.55f * flicker, 85.0f, 4.0f, 3.0f,
-                                   lightKey(LightKind::Lantern, static_cast<uint32_t>(i))});
+                                   lightKey(LightKind::Lantern, l.id)});
     }
 
     const std::vector<Transmuter>& transmuters = level.transmuters();

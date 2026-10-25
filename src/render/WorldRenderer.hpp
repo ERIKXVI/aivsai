@@ -51,10 +51,7 @@ public:
     int originY() const { return oy_; }
     const Texture2D& colorTexture() const { return colorTex_; }
     const Texture2D& emissionTexture() const { return emitTex_; }
-    /// Emissive blocks, row-major over a view-local grid of blocksWide() x blocksHigh().
     const std::vector<EmissiveBlock>& emissiveBlocks() const { return blocks_; }
-    int blocksWide() const { return blocksW_; }
-    int blocksHigh() const { return blocksH_; }
 
     static constexpr int kBlockShift = 4;
 
