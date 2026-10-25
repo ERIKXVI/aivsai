@@ -108,6 +108,12 @@ public:
     float damageScale() const { return elite_ ? 1.35f : 1.0f; }
     const EnemyDef& def() const { return *def_; }
     bool aggro() const { return aggro_; }
+    /// Sends the creature hunting towards `target` (a swarm called in by a stage event).
+    void alert(Vec2 target) {
+        aggro_ = true;
+        lastSeen_ = target;
+        lostSight_ = 0.0f;
+    }
     /// A mimic still posing as a chest: drawn as one, and the matter lens does not see through it.
     bool disguised() const { return dormant_; }
     /// Boss phase, 0-based; meaningful for the boss only.

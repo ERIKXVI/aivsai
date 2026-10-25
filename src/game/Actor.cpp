@@ -135,6 +135,7 @@ const char* deathAdvice(const Actor& victim) {
     default: break;
     }
     if (std::strcmp(cause, "drowning") == 0) return "Watch the breath bar when submerged, and levitate up out of deep liquid.";
+    if (std::strcmp(cause, "a cave-in") == 0) return "When the mountain groans, look up: falling grit marks the ceiling about to give.";
     return nullptr;
 }
 

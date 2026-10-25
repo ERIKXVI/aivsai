@@ -61,6 +61,7 @@ private:
     void drawPauseMenu();
     void drawEndScreen(bool victory);
     void drawTitleCard();
+    void drawEventNotice();
     void drawLoading();
     void drawControlsHint();
     void drawDebugOverlay();
@@ -112,6 +113,8 @@ private:
     std::vector<Toast> toasts_;      ///< newly earned feats, announced one at a time
     float stageDamageStart_ = 0.0f;  ///< damage taken before this stage (for Untouched)
     float goldPop_ = 0.0f;       ///< seconds left on the HUD gold counter's pop
+    EventNotice eventNotice_;    ///< the line announcing a stage event...
+    float eventNoticeTime_ = 0.0f; ///< ... and how long it has shown
 
     // Input pressed between ticks is latched so nothing is lost at high frame rates.
     bool latchJump_ = false, latchInteract_ = false, latchDrink_ = false, latchCast_ = false;

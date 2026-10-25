@@ -303,6 +303,7 @@ void GameScene::stepLevel() {
         exiting_ = false;
         endTimer_ = 0.0f;
         titleTimer_ = 0.0f;
+        eventNotice_ = {};
         slowMo_ = 0.35f;
         recordProfile(false);
         break;
@@ -368,6 +369,14 @@ void GameScene::frame(float dt) {
             titleTimer_ = 4.0f;
         }
     }
+    // A stage event announces itself under the title card's place.
+    if (level_) {
+        if (EventNotice n = level_->events().takeNotice(); !n.text.empty()) {
+            eventNotice_ = std::move(n);
+            eventNoticeTime_ = 0.0f;
+        }
+    }
+    eventNoticeTime_ += dt;
     // The gold counter pops whenever gold comes in.
     goldPop_ = std::max(0.0f, goldPop_ - dt);
     if (shownGold_ >= 0 && run_.gold > shownGold_) goldPop_ = 0.25f;
@@ -460,6 +469,7 @@ void GameScene::render(float alpha) {
         if (mode_ == Mode::Playing && !lens_.title.empty() && lens_.same < 4.0f) ui::tooltip(lens_.title, lens_.body, lens_.color);
         if (mode_ == Mode::Playing && app_.settings().hints) hints_.draw(static_cast<float>(app_.screenWidth()), static_cast<float>(app_.screenHeight()), usingGamepad_);
         drawTitleCard();
+        drawEventNotice();
         if (mode_ != Mode::Dead && app_.settings().hints && !run_.inSanctum && run_.levelIndex == 0 && level_->time() < 30.0f)
             drawControlsHint();
     }

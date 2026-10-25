@@ -318,6 +318,16 @@ void GameScene::drawTitleCard() {
                  ui::Align::Center);
 }
 
+void GameScene::drawEventNotice() {
+    constexpr float kShow = 3.5f;
+    if (eventNotice_.text.empty() || eventNoticeTime_ > kShow) return;
+    const float a = clamp(std::min(eventNoticeTime_ * 3.0f, (kShow - eventNoticeTime_) / 0.8f), 0.0f, 1.0f);
+    const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
+    Color c = hexColor(eventNotice_.color);
+    c.a = static_cast<unsigned char>(255.0f * a);
+    ui::text(eventNotice_.text, sw * 0.5f, sh * 0.3f, ui::fontSize(ui::scale() + 1), c, ui::Align::Center);
+}
+
 void GameScene::drawControlsHint() {
     const float s = static_cast<float>(ui::scale());
     const int small = ui::fontSize(std::max(1, ui::scale() - 1));

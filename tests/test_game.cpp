@@ -468,6 +468,51 @@ TEST_CASE("a mimic poses as a chest until approached, and pays out like one") {
     CHECK(!other.disguised());
 }
 
+TEST_CASE("stage events are announced, telegraphed, then land") {
+    initMaterials();
+    ThreadPool pool(4);
+    Audio audio;
+    auto count = [](const World& w, Vec2 at, int r, MatId m) {
+        int n = 0;
+        for (int y = floorToInt(at.y) - r; y <= floorToInt(at.y) + r; ++y)
+            for (int x = floorToInt(at.x) - r; x <= floorToInt(at.x) + r; ++x) n += w.matAt(x, y) == m;
+        return n;
+    };
+    for (int k = 0; k < static_cast<int>(StageEventKind::Count); ++k) {
+        const auto kind = static_cast<StageEventKind>(k);
+        RunState run = newRun(21, Difficulty::Adept, false);
+        run.levelIndex = 1;
+        Level level(generateLevel(biomeForDepth(1), 1, 21u, pool), run, audio, pool);
+        level.player().invulnerable = 1.0e6f;
+        bool started = false;
+        for (int hop = 0; hop < 30 && !started; ++hop) {
+            level.debugWarpAhead();
+            for (int i = 0; i < 5; ++i) level.tick(PlayerInput{});
+            started = level.events().trigger(level, kind);
+        }
+        CHECK(started);
+        if (!started) continue;
+        CHECK(!level.events().takeNotice().text.empty());
+        const Vec2 site = level.events().site();
+        const size_t enemies = level.enemies().size();
+        // Debris falls to the floor below the ceiling site, up to 80 cells down.
+        const int gravel = count(level.world(), site, 90, mat::Gravel) + count(level.world(), site, 90, mat::Snow);
+        const int gold = count(level.world(), site, 90, mat::GoldDust);
+        for (int i = 0; i < 60 * 8 && level.events().active(); ++i) level.tick(PlayerInput{});
+        for (int i = 0; i < 30; ++i) level.tick(PlayerInput{});
+        CHECK(!level.events().active());
+        const World& w = level.world();
+        switch (kind) {
+        case StageEventKind::CaveIn: CHECK(count(w, site, 90, mat::Gravel) + count(w, site, 90, mat::Snow) > gravel + 20); break;
+        case StageEventKind::GoldFall: CHECK(count(w, site, 90, mat::GoldDust) > gold + 30); break;
+        case StageEventKind::Breach: CHECK(count(w, site, 50, mat::Brine) > 100); break;
+        case StageEventKind::GasSeep: CHECK(count(w, site, 60, mat::Methane) > 20); break;
+        case StageEventKind::Swarm: CHECK(level.enemies().size() >= enemies + 3); break;
+        case StageEventKind::Count: break;
+        }
+    }
+}
+
 TEST_CASE("stage lanterns hang from solid ceilings, not pooled steam") {
     initMaterials();
     ThreadPool pool(4);

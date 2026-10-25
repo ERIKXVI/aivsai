@@ -422,6 +422,21 @@ Wave build(Sfx sfx) {
         s.add(b);
         return s.finish();
     }
+    case Sfx::Rumble: {
+        // The mountain shifting: a long, low growl of grinding stone.
+        Synth s(2.0f);
+        Layer n = tone(Osc::Noise, 1.9f, 420, 110, 0.7f);
+        n.attack = 0.4f;
+        n.lowpassA = n.lowpassB = 0.04f;
+        n.decayPower = 1.2f;
+        s.add(n);
+        Layer low = tone(Osc::Sine, 1.8f, 48, 34, 0.6f);
+        low.attack = 0.3f;
+        low.vibratoHz = 7.0f;
+        low.vibratoDepth = 0.15f;
+        s.add(low);
+        return s.finish();
+    }
     case Sfx::Roar: {
         Synth s(1.5f);
         Layer a = tone(Osc::Saw, 1.4f, 95, 55, 0.5f);

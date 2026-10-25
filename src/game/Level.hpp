@@ -18,6 +18,7 @@
 #include "game/Player.hpp"
 #include "game/Projectile.hpp"
 #include "game/Run.hpp"
+#include "game/StageEvents.hpp"
 #include "gen/LevelGenerator.hpp"
 #include "sim/Particles.hpp"
 #include "sim/World.hpp"
@@ -144,6 +145,8 @@ public:
     /// Whose health the HUD shows across the top: the Rebis, or a guardian in a fight nearby.
     const Enemy* bossBarTarget() const;
     float playerHurtPulse() const { return hurtPulse_; }
+    StageEvents& events() { return events_; }
+    const StageEvents& events() const { return events_; }
 
     // --- Effects API --------------------------------------------------------------------
     void castShot(const CastShot& shot, Vec2 origin, float angle, Team team, uint32_t ownerId, float damageMul);
@@ -218,6 +221,7 @@ private:
     std::vector<Lantern> lanterns_;
     std::vector<Transmuter> transmuters_;
     std::vector<Shockwave> shockwaves_;
+    StageEvents events_;
     int hitStop_ = 0;
     bool heldSinceTick_ = false; ///< a hit-stop tick was consumed and the level has not stepped since
     PlayerInput input_;

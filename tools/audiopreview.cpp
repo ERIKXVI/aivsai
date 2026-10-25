@@ -16,7 +16,7 @@ const char* kSfxNames[] = {"cast_spark", "cast_bolt", "cast_fire", "cast_heavy",
                            "dig", "explosion_small", "explosion_big", "hit", "enemy_hurt", "enemy_die",
                            "player_hurt", "player_die", "jump", "land", "splash", "pickup", "coin", "potion",
                            "drink", "chest_open", "portal", "perk", "ui_click", "ui_hover", "ui_deny", "sizzle",
-                           "freeze", "squish", "roar", "heartbeat"};
+                           "freeze", "squish", "roar", "heartbeat", "rumble"};
 
 struct Stats {
     float peak = 0.0f, rms = 0.0f;

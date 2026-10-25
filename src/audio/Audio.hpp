@@ -44,6 +44,7 @@ enum class Sfx : uint8_t {
     Squish,
     Roar,
     Heartbeat,
+    Rumble,
     Count
 };
 

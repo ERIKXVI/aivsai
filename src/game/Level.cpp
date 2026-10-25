@@ -20,6 +20,7 @@ Level::Level(LevelLayout layout, RunState& run, Audio& audio, ThreadPool& pool)
     player_ = std::make_unique<Player>(layout_.playerStart - Vec2{0.0f, 6.0f}, run_);
     player_->id = nextId();
     populate();
+    events_.begin(*this, rng_);
 }
 
 Level::~Level() = default;
@@ -214,6 +215,7 @@ void Level::tick(const PlayerInput& input) {
     updatePickups(dt);
     if (input.interactPressed && player_->alive()) interact();
     updateEffects(dt);
+    events_.tick(*this);
     updateLanterns(dt);
     updateTrees();
 
