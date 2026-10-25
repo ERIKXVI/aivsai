@@ -16,8 +16,8 @@ namespace pm {
 class ThreadPool;
 class World;
 
-/// Aggregated emission of a 16x16 block of cells; bright blocks become point lights so
-/// that lava pools and fires cast proper shadowed light.
+/// Aggregated emission of the visible cells of a world-aligned 16x16 block; bright blocks
+/// become point lights so that lava pools and fires cast proper shadowed light.
 struct EmissiveBlock {
     float x = 0, y = 0;      ///< emission-weighted centre (world cells)
     float r = 0, g = 0, b = 0; ///< summed emission
@@ -51,7 +51,11 @@ public:
     int originY() const { return oy_; }
     const Texture2D& colorTexture() const { return colorTex_; }
     const Texture2D& emissionTexture() const { return emitTex_; }
+    /// Emissive blocks, row-major over the world-aligned blocks the view touches: entry
+    /// (bx, by) covers world cells from ((originX >> kBlockShift) + bx) << kBlockShift on.
+    /// Centroids are final after upload().
     const std::vector<EmissiveBlock>& emissiveBlocks() const { return blocks_; }
+    int emissiveBlocksWide() const { return blocksW_; }
 
     static constexpr int kBlockShift = 4;
 

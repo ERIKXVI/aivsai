@@ -95,12 +95,12 @@ void SceneRenderer::endEmission() { EndTextureMode(); }
 
 void SceneRenderer::addLight(const PointLight& light) {
     // Cull lights whose radius doesn't reach the view.
-    float lx = light.pos.x - static_cast<float>(view_.originX);
-    float ly = light.pos.y - static_cast<float>(view_.originY);
-    if (lx + light.radius < 0 || ly + light.radius < 0 || lx - light.radius > view_.texW ||
-        ly - light.radius > view_.texH)
-        return;
-    lights_.push_back(light);
+    if (lightReaches(light, layerArea())) lights_.push_back(light);
+}
+
+Rectf SceneRenderer::layerArea() const {
+    return Rectf{static_cast<float>(view_.originX), static_cast<float>(view_.originY), static_cast<float>(view_.texW),
+                 static_cast<float>(view_.texH)};
 }
 
 void SceneRenderer::addShockwave(Vec2 world, float radius, float strength) {
@@ -110,11 +110,13 @@ void SceneRenderer::addShockwave(Vec2 world, float radius, float strength) {
 }
 
 void SceneRenderer::addEmissiveLights(int maxLights) {
-    // Emissive blocks pool into a fixed grid of world-aligned super-blocks, so a lava lake
-    // becomes a few broad lights whose places and keys do not shift with the camera or the
-    // lava's shimmer. The heaviest super-blocks are lit; one lit last frame gets a head start,
-    // so two of similar weight do not trade places every frame.
-    constexpr int kSuper = 48;             // super-block size in cells
+    // The world-aligned 16-cell emissive blocks pool into a fixed grid of world-aligned
+    // super-blocks of 3x3 blocks, so a lava lake becomes a few broad lights. Every block lies
+    // inside one super-block, so a light's place and key do not shift as the camera pans or
+    // shakes, only as the lava shimmers or the view edge crosses it. The heaviest super-blocks
+    // are lit; one lit last frame gets a head start, so two of similar weight do not trade
+    // places every frame.
+    constexpr int kSuper = 3 << WorldRenderer::kBlockShift; // super-block size in cells
     constexpr float kSeedWeight = 2500.0f; // a super-block needs one block at least this bright
     constexpr float kStayBonus = 1.3f;
     const int gx0 = floorDiv(view_.originX, kSuper), gy0 = floorDiv(view_.originY, kSuper);
@@ -173,7 +175,7 @@ void SceneRenderer::runLightPass(bool highQuality, float dt) {
     // shadow rays.
     lightCandidates_ = static_cast<int>(lights_.size());
     const float viewDiag = std::sqrt(view_.viewW * view_.viewW + view_.viewH * view_.viewH);
-    selector_.select(lights_, highQuality ? kMaxLights : kLowQualityLights, viewDiag, dt);
+    selector_.select(lights_, highQuality ? kMaxLights : kLowQualityLights, viewDiag, layerArea(), dt);
     lightsSelected_ = static_cast<int>(lights_.size());
     lightPosData_.clear();
     lightColorData_.clear();

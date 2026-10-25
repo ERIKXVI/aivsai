@@ -103,12 +103,13 @@ void WorldRenderer::release() {
 }
 
 void WorldRenderer::resize(int width, int height) {
-    if (width == w_ && height == h_ && colorTex_.id) return;
+    if (width == w_ && height == h_ && (colorTex_.id || !IsWindowReady())) return;
     release();
     w_ = width;
     h_ = height;
     color_.assign(static_cast<size_t>(w_) * h_, Rgba{});
     emission_.assign(static_cast<size_t>(w_) * h_, Rgba{});
+    if (!IsWindowReady()) return; // no GL context (unit tests): CPU buffers only
     Image img{color_.data(), w_, h_, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};
     colorTex_ = LoadTextureFromImage(img);
     emitTex_ = LoadTextureFromImage(img);
@@ -121,12 +122,19 @@ void WorldRenderer::resize(int width, int height) {
 void WorldRenderer::build(const World& world, int originX, int originY, uint32_t tick, ThreadPool* pool) {
     ox_ = originX;
     oy_ = originY;
-    blocksW_ = (w_ >> kBlockShift) + 1;
-    blocksH_ = (h_ >> kBlockShift) + 1;
+    // Emissive blocks are aligned to the world grid, not to the view, so a block keeps its
+    // cells (and its centroid) while the camera pans or shakes. A view spans at most two
+    // partial blocks more than it holds whole ones.
+    blocksW_ = (w_ >> kBlockShift) + 2;
+    blocksH_ = (h_ >> kBlockShift) + 2;
     blocks_.assign(static_cast<size_t>(blocksW_) * blocksH_, EmissiveBlock{});
-    // Each job fills one band of block rows, so emissive blocks are never shared.
+    // Each job fills the view rows of one world block row, so emissive blocks are never shared.
     if (pool) {
-        pool->parallelFor(blocksH_, [&](int band) { buildRows(world, band << kBlockShift, std::min(h_, (band + 1) << kBlockShift), tick); });
+        const int firstRow = (oy_ >> kBlockShift) << kBlockShift;
+        pool->parallelFor(blocksH_, [&](int band) {
+            const int wy0 = firstRow + (band << kBlockShift);
+            buildRows(world, std::max(0, wy0 - oy_), std::min(h_, wy0 + (1 << kBlockShift) - oy_), tick);
+        });
     } else {
         buildRows(world, 0, h_, tick);
     }
@@ -145,7 +153,8 @@ void WorldRenderer::buildRows(const World& world, int rowBegin, int rowEnd, uint
             std::fill(erow, erow + w_, outside);
             continue;
         }
-        EmissiveBlock* blockRow = blocks_.data() + static_cast<size_t>(ty >> kBlockShift) * blocksW_;
+        EmissiveBlock* blockRow = blocks_.data() + static_cast<size_t>((wy >> kBlockShift) - (oy_ >> kBlockShift)) * blocksW_;
+        const int blockX0 = ox_ >> kBlockShift;
         const Cell* cells = &world.at(0, wy);
         for (int tx = 0; tx < w_; ++tx) {
             const int wx = ox_ + tx;
@@ -172,7 +181,7 @@ void WorldRenderer::buildRows(const World& world, int rowBegin, int rowEnd, uint
             erow[tx] = e;
             const int intensity = e.r + e.g + e.b;
             if (intensity > 60) {
-                EmissiveBlock& b = blockRow[tx >> kBlockShift];
+                EmissiveBlock& b = blockRow[(wx >> kBlockShift) - blockX0];
                 const float k = static_cast<float>(intensity);
                 b.x += static_cast<float>(wx) * k;
                 b.y += static_cast<float>(wy) * k;
@@ -206,15 +215,15 @@ void WorldRenderer::stampEmission(int worldX, int worldY, Rgba emission) {
 }
 
 void WorldRenderer::upload() {
-    if (!colorTex_.id) return;
-    UpdateTexture(colorTex_, color_.data());
-    UpdateTexture(emitTex_, emission_.data());
     // Finish the emissive block centroids.
     for (EmissiveBlock& b : blocks_) {
         if (b.weight <= 0.0f) continue;
         b.x /= b.weight;
         b.y /= b.weight;
     }
+    if (!colorTex_.id) return;
+    UpdateTexture(colorTex_, color_.data());
+    UpdateTexture(emitTex_, emission_.data());
 }
 
 } // namespace pm

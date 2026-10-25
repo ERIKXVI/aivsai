@@ -28,6 +28,12 @@ constexpr uint32_t lightKey(LightKind kind, uint32_t id) {
     return (static_cast<uint32_t>(kind) << 28) | (id & 0x0FFFFFFFu);
 }
 
+/// Whether a light's radius reaches `area` (world cells); lights that do not are not drawn.
+constexpr bool lightReaches(const PointLight& light, const Rectf& area) {
+    return light.pos.x + light.radius >= area.x && light.pos.y + light.radius >= area.y &&
+           light.pos.x - light.radius <= area.x + area.w && light.pos.y - light.radius <= area.y + area.h;
+}
+
 /// Budget score: priority plus brightness weighted by how much of the view the light reaches.
 float lightScore(const PointLight& light, float viewDiag);
 
@@ -44,8 +50,9 @@ public:
     /// The `budget` best candidates are always drawn, and keyed ones fade toward 1. A keyed
     /// light that was ranked out, or that stopped being registered at all, fades toward 0 and
     /// keeps drawing meanwhile: in a free slot, or in place of one of the lowest kFadeSlots
-    /// lights that has nothing to lose (unkeyed or not faded in yet).
-    void select(std::vector<PointLight>& lights, int budget, float viewDiag, float dt);
+    /// lights that has nothing to lose (unkeyed or not faded in yet). An unregistered light
+    /// fades out only while it still reaches `area`, the region the lights are drawn into.
+    void select(std::vector<PointLight>& lights, int budget, float viewDiag, const Rectf& area, float dt);
     /// Forgets every fade (a new level is loading).
     void reset() { fades_.clear(); }
 

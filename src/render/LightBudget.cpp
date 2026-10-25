@@ -37,13 +37,14 @@ float LightSelector::fade(uint32_t key) const {
     return it == fades_.end() ? 0.0f : it->second.value;
 }
 
-void LightSelector::select(std::vector<PointLight>& lights, int budget, float viewDiag, float dt) {
+void LightSelector::select(std::vector<PointLight>& lights, int budget, float viewDiag, const Rectf& area, float dt) {
     ++frame_;
     budget = std::max(0, budget);
     const float step = kFadeRate * std::max(0.0f, dt);
 
     // A keyed light drawn last frame that is no longer registered (it left the view, shattered,
-    // or its lava cluster was outranked) comes back as it was last seen, to fade out in place.
+    // or its lava cluster was outranked) comes back as it was last seen, to fade out in place,
+    // unless it no longer reaches the view: then it would only take a visible light's slot.
     for (const PointLight& l : lights) {
         if (l.key == 0) continue;
         auto it = fades_.find(l.key);
@@ -51,7 +52,7 @@ void LightSelector::select(std::vector<PointLight>& lights, int budget, float vi
     }
     const size_t registered = lights.size();
     for (const auto& [key, f] : fades_)
-        if (f.seen != frame_ && f.drawn + 1 == frame_ && f.value > step) lights.push_back(f.light);
+        if (f.seen != frame_ && f.drawn + 1 == frame_ && f.value > step && lightReaches(f.light, area)) lights.push_back(f.light);
 
     ranked_.clear();
     for (size_t i = 0; i < lights.size(); ++i) ranked_.push_back({lightScore(lights[i], viewDiag), static_cast<uint32_t>(i)});

@@ -103,6 +103,8 @@ private:
     void releaseTargets();
     void runLightPass(bool highQuality, float dt);
     void runGlowPass();
+    /// The world cells the layers cover; lights must reach it to be drawn.
+    Rectf layerArea() const;
 
     ViewInfo view_;
     WorldRenderer world_;
