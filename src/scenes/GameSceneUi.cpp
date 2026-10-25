@@ -26,6 +26,36 @@ std::string formatTime(float seconds) {
     return buf;
 }
 
+/// The wand editor's info card: details of `shown`, or the rules of wands when nothing is
+/// under the cursor.
+void drawSpellCard(Rectangle card, SpellId shown) {
+    const float s = static_cast<float>(ui::scale());
+    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    ui::panel(card, Color{12, 9, 18, 230});
+    const float cx = card.x + 8.0f * s, cw = card.width - 16.0f * s;
+    float cy = card.y + 8.0f * s;
+    if (shown != SpellId::None) {
+        const SpellDef& d = spellDef(shown);
+        ui::spellIcon(shown, {cx, cy, 24.0f * s, 24.0f * s});
+        ui::text(d.name, cx + 30.0f * s, cy + 2.0f * s, small, ui::spellTypeColor(shown));
+        static constexpr const char* kTypeNames[] = {"Projectile", "Modifier", "Multicast"};
+        ui::text(kTypeNames[static_cast<int>(d.type)], cx + 30.0f * s, cy + 4.0f * s + static_cast<float>(small), small,
+                 ui::color::kTextDim);
+        cy += 32.0f * s;
+        ui::textWrapped(spellDetails(shown), cx, cy, cw, small, ui::color::kText);
+        return;
+    }
+    ui::text("The art of wands", cx, cy, small, ui::color::kGold);
+    cy += static_cast<float>(small) + 6.0f * s;
+    static constexpr const char* kRules[] = {
+        "Spells cast from left to right; when the deck runs out the wand recharges.",
+        "Green modifiers boost the projectile that follows them.",
+        "Gold multicasts fire the next spells together.",
+        "Triggers release the next spell where they land.",
+    };
+    for (const char* rule : kRules) cy += ui::textWrapped(rule, cx, cy, cw, small, ui::color::kTextDim) + 5.0f * s;
+}
+
 /// The squared circle, emblem of the philosophers' stone: a circle holding a triangle,
 /// a square and a small inner circle. The triangle and square turn in opposite directions.
 void drawStoneSigil(Vector2 c, float r, float time, Color color) {
@@ -363,33 +393,8 @@ void GameScene::drawInventory() {
              ui::color::kTextDim, ui::Align::Right);
 
     // Info card: the spell under the cursor, or the rules of wands.
-    {
-        Rectangle card{panelR.x + panelR.width - 140.0f * s, panelR.y + 32.0f * s, 130.0f * s, panelR.height - 56.0f * s};
-        ui::panel(card, Color{12, 9, 18, 230});
-        const float cx = card.x + 8.0f * s, cw = card.width - 16.0f * s;
-        float cy = card.y + 8.0f * s;
-        const SpellId shown = drag_.active ? drag_.spell : hover.spell;
-        if (shown != SpellId::None) {
-            const SpellDef& d = spellDef(shown);
-            ui::spellIcon(shown, {cx, cy, 24.0f * s, 24.0f * s});
-            ui::text(d.name, cx + 30.0f * s, cy + 2.0f * s, small, ui::spellTypeColor(shown));
-            static constexpr const char* kTypeNames[] = {"Projectile", "Modifier", "Multicast"};
-            ui::text(kTypeNames[static_cast<int>(d.type)], cx + 30.0f * s, cy + 4.0f * s + static_cast<float>(small), small,
-                     ui::color::kTextDim);
-            cy += 32.0f * s;
-            ui::textWrapped(spellDetails(shown), cx, cy, cw, small, ui::color::kText);
-        } else {
-            ui::text("The art of wands", cx, cy, small, ui::color::kGold);
-            cy += static_cast<float>(small) + 6.0f * s;
-            const char* rules[] = {
-                "Spells cast from left to right; when the deck runs out the wand recharges.",
-                "Green modifiers boost the projectile that follows them.",
-                "Gold multicasts fire the next spells together.",
-                "Triggers release the next spell where they land.",
-            };
-            for (const char* rule : rules) cy += ui::textWrapped(rule, cx, cy, cw, small, ui::color::kTextDim) + 5.0f * s;
-        }
-    }
+    drawSpellCard({panelR.x + panelR.width - 140.0f * s, panelR.y + 32.0f * s, 130.0f * s, panelR.height - 56.0f * s},
+                  drag_.active ? drag_.spell : hover.spell);
 
     // Drag & drop.
     auto spellAt = [&](int wand, int slotIndex) -> SpellId& {
