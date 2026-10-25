@@ -56,6 +56,9 @@ void Level::launch(const ProjectileLaunch& l, Vec2 origin, float angle, Team tea
         p.vel = (target - spawn + Vec2{0.0f, 1.0f}).normalized() * l.def.speed;
     }
     if (p.def.flags & projflag::kHitscan) {
+        // Hitscan beams have no speed of their own: the velocity only carries the aim (and the
+        // knockback direction), since updateProjectile never moves them.
+        p.vel = fromAngle(angle, 100.0f);
         fireHitscan(*this, p, 240.0f);
         audio_.playAt(Sfx::CastLightning, origin, 0.6f);
         addFlash(p.beamEnd, 0xc8dcff, 2.5f, 80.0f, 0.2f);

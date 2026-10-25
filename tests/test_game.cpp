@@ -1,14 +1,20 @@
 // Game-rule tests: the spell table, wand deck casting, starting loadouts, run saves and the
 // death screen's cause and advice.
 
+#include <cmath>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 
 #include "app/Persistence.hpp"
 #include "app/RunRecords.hpp"
+#include "audio/Audio.hpp"
+#include "core/ThreadPool.hpp"
 #include "game/Actor.hpp"
 #include "game/Enemy.hpp"
+#include "game/Level.hpp"
+#include "gen/LevelGenerator.hpp"
+#include "sim/World.hpp"
 #include "game/Loadouts.hpp"
 #include "game/Run.hpp"
 #include "game/Spells.hpp"
@@ -204,4 +210,25 @@ TEST_CASE("chronicle entries survive encoding and reject garbage") {
     CHECK(!decodeHistoryEntry("1|2|3", back));
     CHECK(!decodeHistoryEntry("1|0|9|0|0|0|0|10|5|fate", back));   // difficulty out of range
     CHECK(!decodeHistoryEntry("1|0|1|0|0|0|0|ten|5|fate", back)); // not a number
+}
+
+TEST_CASE("hitscan lightning follows the aim") {
+    initMaterials();
+    ThreadPool pool(2);
+    Audio audio; // no device in tests: plays nothing
+    RunState run = newRun(9, Difficulty::Adept, false);
+    LevelLayout layout = generateSanctum(0, 9u, pool);
+    const Vec2 origin = layout.playerStart - Vec2{0.0f, 30.0f};
+    Level level(std::move(layout), run, audio, pool);
+    const CastShot shot = castOnce({SpellId::Lightning});
+    CHECK(!shot.projectiles.empty());
+    // Straight down: the beam must end below the caster, not off to the right.
+    level.launch(shot.projectiles.front(), origin, kPi * 0.5f, Team::Player, 0, 1.0f);
+    CHECK(!level.flashes().empty());
+    const Vec2 end = level.flashes().back().pos;
+    CHECK(end.y > origin.y + 5.0f);
+    CHECK(std::fabs(end.x - origin.x) < 2.0f);
+    // Straight left.
+    level.launch(shot.projectiles.front(), origin, kPi, Team::Player, 0, 1.0f);
+    CHECK(level.flashes().back().pos.x < origin.x - 5.0f);
 }

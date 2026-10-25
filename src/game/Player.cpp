@@ -63,7 +63,13 @@ void Player::tick(Level& level) {
 
     unbury(body, level.world());
     Environment env = sampleEnvironment(body, level.world());
-    if (run_.hasPerk(PerkId::PhoenixStep) && env.fire) hp = std::min(maxHp, hp + 6.0f * dt);
+    if (run_.hasPerk(PerkId::PhoenixStep)) {
+        // The phoenix is healed by ordinary flames and never set alight; lava still burns.
+        if (env.fire) hp = std::min(maxHp, hp + 6.0f * dt);
+        if (env.contactMat == mat::Fire) env.contactDps = 0.0f;
+        if (env.contactMat != mat::Lava) env.fire = false;
+        status.burning = 0.0f;
+    }
     updateStatus(level, env);
     if (dead) return;
 
@@ -91,7 +97,9 @@ void Player::tick(Level& level) {
     wasInLiquid_ = env.submerged > 0.3f;
 
     if (run_.hasPerk(PerkId::PhoenixStep) && body.onGround && std::fabs(body.vel.x) > 20.0f && level.rng().chance(0.25f)) {
-        level.world().placeIfEmpty(floorToInt(body.pos.x), floorToInt(body.pos.y + body.halfH - 1.0f), mat::Fire);
+        // Flames are left behind the alchemist, outside the body.
+        const int fx = body.vel.x > 0.0f ? floorToInt(body.pos.x - body.halfW) - 2 : floorToInt(body.pos.x + body.halfW) + 1;
+        level.world().placeIfEmpty(fx, floorToInt(body.pos.y + body.halfH - 1.0f), mat::Fire);
     }
 
     run_.hp = hp;
