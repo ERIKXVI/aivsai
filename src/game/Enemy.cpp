@@ -150,6 +150,27 @@ void Enemy::fireAt(Level& level, Vec2 target, SpellId spell, float spreadRad) {
     level.launch(l, origin, angle, team, id, dmgMul);
 }
 
+bool Enemy::readyToFire(Level& level, bool wantsToFire) {
+    constexpr float kWindup = 0.4f;
+    if (windup_ > 0.0f) {
+        windup_ -= kTickDt;
+        // Sparks gather at the caster while it charges.
+        Rng& rng = level.rng();
+        const Vec2 core = body.pos + Vec2{0.0f, -body.halfH * 0.3f};
+        const Vec2 from = core + fromAngle(rng.range(0.0f, kTau), rng.range(8.0f, 14.0f));
+        const Color c = def_->glow ? hexColor(def_->glow) : Color{255, 240, 200, 255};
+        level.particles().addVisual(from, (core - from) * 4.0f, {c.r, c.g, c.b, 230}, {c.r, c.g, c.b, 0}, 0.22f, 0.0f,
+                                    partflag::kFade | partflag::kNoGravity);
+        if (windup_ <= 0.0f) {
+            windup_ = 0.0f;
+            return true;
+        }
+        return false;
+    }
+    if (wantsToFire) windup_ = kWindup;
+    return false;
+}
+
 void Enemy::tickHopper(Level& level, Vec2 toPlayer, bool sees) {
     Rng& rng = level.rng();
     if (body.onGround) {
@@ -180,7 +201,7 @@ void Enemy::tickWalker(Level& level, Vec2 toPlayer, bool sees) {
             // Ranged walkers keep their distance and lob explosives.
             if (dist < 55.0f) dir = -dir;
             else if (dist < 120.0f) targetSpeed = 0.0f;
-            if (sees && attackTimer_ <= 0.0f && dist < 200.0f) {
+            if (readyToFire(level, sees && attackTimer_ <= 0.0f && dist < 200.0f)) {
                 fireAt(level, level.player().body.pos, def_->attack, 0.05f);
                 attackTimer_ = def_->attackCooldown * level.rng().range(0.8f, 1.2f);
                 special_ = 0.35f;
@@ -249,7 +270,7 @@ void Enemy::tickCaster(Level& level, Vec2 toPlayer, bool sees) {
         if (dist > 110.0f || !sees) desired = dir * speed;
         else if (dist < 65.0f) desired = dir * -speed;
         else desired = perp * speed * 0.6f * orbit + Vec2{0.0f, -10.0f};
-        if (sees && attackTimer_ <= 0.0f) {
+        if (readyToFire(level, sees && attackTimer_ <= 0.0f)) {
             Vec2 lead = level.player().body.pos + level.player().body.vel * (dist / 300.0f);
             fireAt(level, lead, def_->attack, 0.08f);
             attackTimer_ = def_->attackCooldown * level.rng().range(0.8f, 1.3f);
@@ -286,8 +307,8 @@ void Enemy::tickSpore(Level& level, Vec2 toPlayer, bool) {
 void Enemy::tickTurret(Level& level, Vec2 toPlayer, bool sees) {
     body.vel.x = 0.0f;
     if (sees && aggro_) {
-        if (attackTimer_ <= 0.0f) {
-            // Three-shot burst, then a long recharge.
+        // Three-shot burst after a wind-up, then a long recharge.
+        if (attackTimer_ <= 0.0f && (special_ >= 1.0f || readyToFire(level, true))) {
             special_ += 1.0f;
             fireAt(level, level.player().body.pos, def_->attack, 0.06f);
             level.audio().playAt(Sfx::CastSpark, body.pos, 0.5f, 0.8f);
@@ -579,6 +600,12 @@ void Enemy::drawAlbedo(DrawContext& ctx) const {
         const unsigned char a = static_cast<unsigned char>(60.0f + 40.0f * std::sin(ctx.time * 5.0f));
         ctx.sprites.drawSilhouette(def_->sprite, frame, lp, flip, Color{255, 200, 80, a});
     }
+    if (windup_ > 0.0f) {
+        // Telegraph: the creature brightens as its attack charges.
+        const Color c = def_->glow ? hexColor(def_->glow) : Color{255, 240, 200, 255};
+        const float charge = 1.0f - windup_ / 0.4f;
+        ctx.sprites.drawSilhouette(def_->sprite, frame, lp, flip, Color{c.r, c.g, c.b, static_cast<unsigned char>(60.0f + 150.0f * charge)});
+    }
     if (hurtFlash > 0.0f) ctx.sprites.drawSilhouette(def_->sprite, frame, lp, flip, Color{255, 255, 255, 210});
     else if (status.burning > 0.0f) ctx.sprites.drawSilhouette(def_->sprite, frame, lp, flip, Color{255, 120, 30, 100});
     else if (status.shocked > 0.0f) ctx.sprites.drawSilhouette(def_->sprite, frame, lp, flip, Color{200, 220, 255, 150});
@@ -621,6 +648,11 @@ void Enemy::drawEmission(DrawContext& ctx) const {
 void Enemy::addLights(DrawContext& ctx) const {
     const Vec2 p = body.interpolated(ctx.alpha);
     if (elite_) ctx.scene.addLight(PointLight{p, 1.4f, 1.0f, 0.35f, 46.0f, 4.0f});
+    if (windup_ > 0.0f) {
+        const Color c = def_->glow ? hexColor(def_->glow) : Color{255, 240, 200, 255};
+        const float k = 0.4f + 1.4f * (1.0f - windup_ / 0.4f);
+        ctx.scene.addLight(PointLight{p, c.r / 255.0f * k, c.g / 255.0f * k, c.b / 255.0f * k, 34.0f, 2.0f});
+    }
     if (def_->glow == 0) return;
     Color c = hexColor(def_->glow);
     if (type_ == EnemyType::Boss) {

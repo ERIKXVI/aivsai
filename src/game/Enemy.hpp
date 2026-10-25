@@ -94,6 +94,9 @@ private:
     void tickCompanion(Level& level);
     void tickBoss(Level& level, Vec2 toPlayer, bool sees);
     void fireAt(Level& level, Vec2 target, SpellId spell, float spreadRad = 0.05f);
+    /// Ranged attacks are telegraphed: when `wantsToFire` a short glowing wind-up starts, and
+    /// this returns true on the tick it completes.
+    bool readyToFire(Level& level, bool wantsToFire);
     void contactPlayer(Level& level);
     int animFrame(float time) const;
     void drawBoss(DrawContext& ctx, Vec2 p, Color tint) const;
@@ -103,6 +106,7 @@ private:
     bool aggro_ = false;
     bool facingRight_ = true;
     float attackTimer_ = 0.0f;
+    float windup_ = 0.0f; ///< seconds left in a telegraphed attack's wind-up
     float stateTimer_ = 0.0f;
     float wanderDir_ = 1.0f;
     float animTime_ = 0.0f;
