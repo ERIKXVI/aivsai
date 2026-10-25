@@ -22,6 +22,8 @@ public:
     virtual void render(float alpha) = 0;
     /// Window size changed.
     virtual void onResize(int width, int height) { (void)width; (void)height; }
+    /// The window was minimised (called once, before the next frame after it is restored).
+    virtual void onSuspend() {}
 
 protected:
     App& app_;

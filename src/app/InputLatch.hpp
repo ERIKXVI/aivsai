@@ -17,5 +17,7 @@ bool mousePressed(int button);
 bool keyPressed(int key);
 /// True if any key went down since the previous frame.
 bool anyKeyPressed();
+/// Hides `key`'s press from the rest of this frame, once a global shortcut has used it.
+void consumeKey(int key);
 
 } // namespace pm::input

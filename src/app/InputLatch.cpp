@@ -16,6 +16,7 @@ GLFWmousebuttonfun g_previous = nullptr;
 std::array<bool, kButtons> g_latchedButtons{};
 std::array<bool, kButtons> g_buttons{};
 std::array<bool, kKeys> g_keys{};
+std::array<bool, kKeys> g_consumed{};
 bool g_anyKey = false;
 
 void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
@@ -36,6 +37,7 @@ void beginFrame() {
     g_buttons = g_latchedButtons;
     g_latchedButtons.fill(false);
     g_keys.fill(false);
+    g_consumed.fill(false);
     g_anyKey = false;
     for (int key = GetKeyPressed(); key != 0; key = GetKeyPressed()) {
         if (key > 0 && key < kKeys) g_keys[static_cast<size_t>(key)] = true;
@@ -49,10 +51,17 @@ bool mousePressed(int button) {
 }
 
 bool keyPressed(int key) {
-    const bool latched = key > 0 && key < kKeys && g_keys[static_cast<size_t>(key)];
+    const bool inRange = key > 0 && key < kKeys;
+    if (inRange && g_consumed[static_cast<size_t>(key)]) return false;
+    const bool latched = inRange && g_keys[static_cast<size_t>(key)];
     return latched || IsKeyPressed(key);
 }
 
 bool anyKeyPressed() { return g_anyKey; }
+
+void consumeKey(int key) {
+    if (key > 0 && key < kKeys) g_consumed[static_cast<size_t>(key)] = true;
+    g_anyKey = false;
+}
 
 } // namespace pm::input

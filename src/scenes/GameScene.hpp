@@ -29,6 +29,7 @@ public:
     void tick() override;
     void frame(float dt) override;
     void render(float alpha) override;
+    void onSuspend() override;
 
 private:
     enum class Mode { Loading, Playing, Inventory, Map, Paused, Settings, Dead, Victory };

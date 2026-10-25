@@ -81,7 +81,7 @@ App::App(const LaunchOptions& options) : options_(options) {
     sprites_->load();
     ui::setAudio(audio_.get());
     applySettings();
-    if (settings_.fullscreen && !options_.windowed) ToggleBorderlessWindowed();
+    if (settings_.fullscreen && !options_.windowed) enterBorderless();
 
     screenW_ = GetScreenWidth();
     screenH_ = GetScreenHeight();
@@ -106,9 +106,18 @@ void App::applyPendingScene() {
     }
 }
 
-void App::toggleFullscreen() {
+void App::enterBorderless() {
     ToggleBorderlessWindowed();
+    // raylib makes the borderless window topmost, which would keep it above other apps after
+    // Alt+Tab; a window covering the monitor is treated as fullscreen without it.
+    if (IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE)) ClearWindowState(FLAG_WINDOW_TOPMOST);
+}
+
+void App::toggleFullscreen() {
+    if (IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE)) ToggleBorderlessWindowed();
+    else enterBorderless();
     settings_.fullscreen = IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE);
+    if (!options_.automated()) saveSettings(settings_);
 }
 
 void App::applySettings() {
@@ -136,6 +145,7 @@ int App::run() {
 
     double accumulator = 0.0;
     double last = GetTime();
+    bool wasMinimized = false;
     while (!quit_ && !WindowShouldClose()) {
         double now = GetTime();
         double frameDt = std::min(now - last, 0.25);
@@ -148,12 +158,22 @@ int App::run() {
             PollInputEvents();
             WaitTime(0.05);
             last = GetTime();
+            wasMinimized = true;
             continue;
+        }
+        if (wasMinimized) {
+            wasMinimized = false;
+            if (scene_) scene_->onSuspend();
         }
 
         input::beginFrame();
-        if (input::keyPressed(KEY_F11) || ((IsKeyDown(KEY_LEFT_ALT) || IsKeyDown(KEY_RIGHT_ALT)) && input::keyPressed(KEY_ENTER))) {
+        // Fullscreen shortcuts; their keys are then hidden from the scene (Alt+Enter must not
+        // also confirm a menu).
+        const bool altEnter = (IsKeyDown(KEY_LEFT_ALT) || IsKeyDown(KEY_RIGHT_ALT)) && input::keyPressed(KEY_ENTER);
+        if (input::keyPressed(KEY_F11) || altEnter) {
             toggleFullscreen();
+            input::consumeKey(KEY_F11);
+            input::consumeKey(KEY_ENTER);
         }
         if (GetScreenWidth() != screenW_ || GetScreenHeight() != screenH_) {
             screenW_ = GetScreenWidth();

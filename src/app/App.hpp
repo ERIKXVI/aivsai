@@ -72,6 +72,7 @@ public:
 
 private:
     void applyPendingScene();
+    void enterBorderless();
 
     LaunchOptions options_;
     ThreadPool pool_;

@@ -225,6 +225,11 @@ void GameScene::stepLevel() {
     }
 }
 
+void GameScene::onSuspend() {
+    // Minimising skips frames entirely, so the focus check never sees it: pause here instead.
+    if (mode_ == Mode::Playing && !app_.options().automated()) mode_ = Mode::Paused;
+}
+
 void GameScene::logAutoplay(const char* message) {
     std::printf("[autoplay] %s\n", message);
     std::fflush(stdout);
