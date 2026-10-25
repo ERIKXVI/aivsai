@@ -116,7 +116,9 @@ void SceneRenderer::addEmissiveLights(int maxLights) {
     }
 }
 
-void SceneRenderer::runLightPass() {
+void SceneRenderer::runLightPass(bool highQuality) {
+    // Low quality keeps the brightest-registered half of the lights and shortens shadow rays.
+    if (!highQuality && lights_.size() > kMaxLights / 2) lights_.resize(kMaxLights / 2);
     lightPosData_.clear();
     lightColorData_.clear();
     for (const PointLight& l : lights_) {
@@ -130,6 +132,7 @@ void SceneRenderer::runLightPass() {
         BeginShaderMode(lightShader_.raw());
         lightShader_.set("texSize", Vec2{static_cast<float>(allocW_), static_cast<float>(allocH_)});
         lightShader_.set("lightCount", static_cast<int>(lights_.size()));
+        lightShader_.set("stepLimit", highQuality ? 40.0f : 16.0f);
         lightShader_.setVec4Array("lightPosRadius", lightPosData_.data(), static_cast<int>(lights_.size()));
         lightShader_.setVec4Array("lightColor", lightColorData_.data(), static_cast<int>(lights_.size()));
         gpu::drawFullTarget(emission_.texture, allocW_, allocH_);
@@ -167,7 +170,7 @@ void SceneRenderer::runGlowPass() {
 }
 
 void SceneRenderer::present(const LightingParams& p, float time) {
-    runLightPass();
+    runLightPass(p.highQuality);
     runGlowPass();
 
     const float w = static_cast<float>(allocW_), h = static_cast<float>(allocH_);

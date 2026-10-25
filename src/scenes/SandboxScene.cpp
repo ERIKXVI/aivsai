@@ -255,6 +255,7 @@ void SandboxScene::render(float alpha) {
 
     ClearBackground(BLACK);
     LightingParams lp;
+    lp.highQuality = app_.settings().highQuality;
     lp.ambientR = 0.72f;
     lp.ambientG = 0.70f;
     lp.ambientB = 0.76f;

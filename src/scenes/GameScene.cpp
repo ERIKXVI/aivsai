@@ -305,6 +305,7 @@ void GameScene::render(float alpha) {
     if (level_) {
         const float a = (mode_ == Mode::Playing || mode_ == Mode::Dead) ? alpha : 1.0f;
         Vec2 cam = camera_.position(level_->shake(), time_, app_.settings().screenShake);
+        levelRenderer_.setHighQuality(app_.settings().highQuality);
         levelRenderer_.render(*level_, cam, a, time_, app_.screenWidth(), app_.screenHeight());
         if (mode_ != Mode::Dead && mode_ != Mode::Victory) drawWorldOverlays(a);
         if (mode_ == Mode::Playing) drawCompass(a);

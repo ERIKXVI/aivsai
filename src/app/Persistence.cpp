@@ -101,6 +101,7 @@ Settings loadSettings() {
     read(kv, "difficulty", s.difficulty);
     read(kv, "loadout", s.loadout);
     read(kv, "hints", s.hints);
+    read(kv, "high_quality", s.highQuality);
     return s;
 }
 
@@ -113,7 +114,8 @@ void saveSettings(const Settings& s) {
                                         {"show_fps", str(s.showFps)},
                                         {"difficulty", str(s.difficulty)},
                                         {"loadout", str(s.loadout)},
-                                        {"hints", str(s.hints)}});
+                                        {"hints", str(s.hints)},
+                                        {"high_quality", str(s.highQuality)}});
 }
 
 Profile loadProfile() {

@@ -35,7 +35,7 @@ bool drawSettingsPanel(App& app) {
     Settings& st = app.settings();
     const float sw = static_cast<float>(app.screenWidth()), sh = static_cast<float>(app.screenHeight());
     const float s = static_cast<float>(ui::scale());
-    Rectangle panelR{sw * 0.5f - 110.0f * s, sh * 0.5f - 115.0f * s, 220.0f * s, 230.0f * s};
+    Rectangle panelR{sw * 0.5f - 110.0f * s, sh * 0.5f - 125.0f * s, 220.0f * s, 250.0f * s};
     ui::panel(panelR);
     ui::text("SETTINGS", sw * 0.5f, panelR.y + 8.0f * s, ui::fontSize(ui::scale() + 1), ui::color::kGold, ui::Align::Center);
 
@@ -64,6 +64,12 @@ bool drawSettingsPanel(App& app) {
         st.showFps = !st.showFps;
         changed = true;
     }
+    y += bh + 4.0f * s;
+    if (ui::button({x, y, bw, bh}, std::string("Graphics: ") + (st.highQuality ? "High" : "Low"))) {
+        st.highQuality = !st.highQuality;
+        changed = true;
+    }
+    if (ui::hovered({x, y, bw, bh})) ui::tooltip("Graphics", "Low shortens shadow rays and uses fewer lights, for weaker GPUs.");
     y += bh + 4.0f * s;
     if (ui::button({x, y, bw, bh}, std::string("Hints: ") + (st.hints ? "On" : "Off"))) {
         st.hints = !st.hints;

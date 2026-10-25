@@ -19,6 +19,7 @@ public:
         : scene_(scene), sprites_(sprites), pool_(pool) {}
 
     void render(const Level& level, Vec2 camera, float alpha, float time, int screenW, int screenH);
+    void setHighQuality(bool high) { highQuality_ = high; }
 
 private:
     void drawProps(const Level& level, float time, bool emissive);
@@ -29,6 +30,7 @@ private:
     ThreadPool& pool_;
     Background background_;
     Sky sky_;
+    bool highQuality_ = true;
 };
 
 } // namespace pm

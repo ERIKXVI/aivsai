@@ -12,6 +12,7 @@ uniform vec2 texSize;         // size of the layer in cells
 
 #define MAX_LIGHTS 64
 uniform int lightCount;
+uniform float stepLimit;      // longest shadow ray in steps (quality setting)
 uniform vec4 lightPosRadius[MAX_LIGHTS]; // xy = position in layer cells, z = radius, w = self-shadow skip
 uniform vec4 lightColor[MAX_LIGHTS];     // rgb = colour * intensity
 
@@ -33,7 +34,7 @@ void main() {
         att = att * att / (1.0 + n * n * 6.0);
 
         float transmit = 1.0;
-        int steps = int(min(dist, 40.0));
+        int steps = int(min(dist, stepLimit));
         if (steps > 1) {
             vec2 stepv = d / float(steps);
             vec2 q = p + stepv;

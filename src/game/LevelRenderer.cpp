@@ -74,6 +74,7 @@ void LevelRenderer::render(const Level& level, Vec2 camera, float alpha, float t
 
     const BiomeDef& b = biomeDef(level.biome());
     LightingParams lp;
+    lp.highQuality = highQuality_;
     lp.ambientR = b.ambient[0];
     lp.ambientG = b.ambient[1];
     lp.ambientB = b.ambient[2];

@@ -35,6 +35,7 @@ struct LightingParams {
     float tintR = 1.0f, tintG = 1.0f, tintB = 1.0f;
     float damageFlash = 0.0f;
     float aberration = 0.0f; ///< chromatic split in cells
+    bool highQuality = true; ///< false: shorter shadow rays and fewer lights for weak GPUs
 };
 
 struct ViewInfo {
@@ -95,7 +96,7 @@ public:
 private:
     void ensureTargets();
     void releaseTargets();
-    void runLightPass();
+    void runLightPass(bool highQuality);
     void runGlowPass();
 
     ViewInfo view_;
