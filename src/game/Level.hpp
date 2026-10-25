@@ -119,6 +119,8 @@ public:
     void addHitStop(int ticks) { hitStop_ = std::min(4, std::max(hitStop_, ticks)); }
     bool hitStopActive() const { return hitStop_ > 0; }
     float time() const { return time_; }
+    /// Spells picked up on this stage that went to the satchel rather than onto a wand.
+    int spellsToSatchel() const { return spellsToSatchel_; }
     uint32_t ticks() const { return ticks_; }
     float shake() const { return shake_; }
     float combatIntensity() const { return intensity_; }
@@ -201,6 +203,7 @@ private:
     int hitStop_ = 0;
     PlayerInput input_;
     float time_ = 0.0f;
+    int spellsToSatchel_ = 0;
     uint32_t ticks_ = 0;
     float shake_ = 0.0f;
     float intensity_ = 0.0f;

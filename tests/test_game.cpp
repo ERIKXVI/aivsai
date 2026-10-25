@@ -1,6 +1,7 @@
 // Game-rule tests: the spell table, wand deck casting, starting loadouts, run saves and the
 // death screen's cause and advice.
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <filesystem>
@@ -108,6 +109,28 @@ TEST_CASE("every loadout builds a consistent kit") {
     RunState a = newRun(77u, Difficulty::Adept, false, LoadoutId::Hermeticist);
     RunState b = newRun(77u, Difficulty::Adept, false, LoadoutId::Hermeticist);
     CHECK(a.wands[0].slots == b.wands[0].slots);
+}
+
+TEST_CASE("found attack spells go straight onto the active wand") {
+    RunState run = newRun(5u, Difficulty::Adept, false, LoadoutId::Apprentice);
+    // The digging wand only digs; its bomb waits in the satchel.
+    for (SpellId s : run.wands[1].slots) CHECK(s != SpellId::Bomb);
+    CHECK(std::find(run.inventory.begin(), run.inventory.end(), SpellId::Bomb) != run.inventory.end());
+
+    run.activeWand = 0;
+    CHECK(run.wands[0].slots[3] == SpellId::None);
+    CHECK(run.trySlotIntoActiveWand(SpellId::FireBolt));
+    CHECK(run.wands[0].slots[3] == SpellId::FireBolt);
+    CHECK((run.spellsSeen >> static_cast<unsigned>(SpellId::FireBolt)) & 1ull);
+    // The rod is full now, so the next spell is left for the satchel.
+    CHECK(!run.trySlotIntoActiveWand(SpellId::IceShard));
+    // Explosives, modifiers and teleports are never slotted unasked.
+    run.activeWand = 1;
+    CHECK(!run.trySlotIntoActiveWand(SpellId::Bomb));
+    CHECK(!run.trySlotIntoActiveWand(SpellId::DamageUp));
+    CHECK(!run.trySlotIntoActiveWand(SpellId::TeleportBolt));
+    CHECK(!run.trySlotIntoActiveWand(SpellId::Fireball));
+    CHECK(run.trySlotIntoActiveWand(SpellId::IceShard));
 }
 
 TEST_CASE("loadouts unlock through milestones") {

@@ -15,6 +15,33 @@ bool RunState::addSpell(SpellId s) {
     return false;
 }
 
+bool RunState::trySlotIntoActiveWand(SpellId s) {
+    // Small impact bursts (Firebolt, Lightning) are fine; anything that can catch the caster is not.
+    constexpr float kMaxBlast = 5.0f;
+    const SpellDef& def = spellDef(s);
+    if (def.type != SpellType::Projectile || def.proj.explosionRadius > kMaxBlast) return false;
+    switch (s) {
+    case SpellId::DiggingBolt:
+    case SpellId::TeleportBolt:
+    case SpellId::BlackHole:
+    case SpellId::OilOrb:
+    case SpellId::LavaOrb:
+    case SpellId::SporeBomb: return false;
+    default: break;
+    }
+    if (activeWand < 0 || activeWand >= static_cast<int>(wands.size())) return false;
+    Wand& w = wands[static_cast<size_t>(activeWand)];
+    for (SpellId& slot : w.slots) {
+        if (slot == SpellId::None) {
+            slot = s;
+            noteSpell(s);
+            w.resetDeck();
+            return true;
+        }
+    }
+    return false;
+}
+
 void RunState::applyPerk(PerkId p) {
     perks[static_cast<size_t>(p)] = static_cast<uint8_t>(perks[static_cast<size_t>(p)] + 1);
     switch (p) {

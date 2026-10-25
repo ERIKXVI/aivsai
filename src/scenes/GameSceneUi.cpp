@@ -296,11 +296,69 @@ void GameScene::drawControlsHint() {
     }
 }
 
+SpellId& GameScene::editorSlot(int wand, int slot) {
+    return wand < 0 ? run_.inventory[static_cast<size_t>(slot)] : run_.wands[static_cast<size_t>(wand)].slots[static_cast<size_t>(slot)];
+}
+
+void GameScene::dropDragOnto(int wand, int slot) {
+    std::swap(editorSlot(drag_.wand, drag_.slot), editorSlot(wand, slot));
+    app_.audio().play(Sfx::UiClick, 0.7f);
+    if (wand >= 0) {
+        // Show what the change did to the wand's first cast.
+        firstCastWand_ = wand;
+        firstCastFlash_ = 1.5f;
+        if (drag_.wand < 0) hints_.markSeen(Hint::WandGuide);
+    }
+    drag_ = Drag{};
+}
+
+void GameScene::updateEditorPad() {
+    if (!IsGamepadAvailable(0)) return;
+    // The cursor walks a grid: one row per wand, then the satchel's two rows of eight.
+    const int wands = static_cast<int>(run_.wands.size());
+    const int satchelCols = RunState::kInventorySize / 2;
+    auto rowWidth = [&](int row) { return row < wands ? run_.wands[static_cast<size_t>(row)].capacity : satchelCols; };
+    int row = padCursor_.wand >= 0 ? padCursor_.wand : wands + padCursor_.slot / satchelCols;
+    int col = padCursor_.wand >= 0 ? padCursor_.slot : padCursor_.slot % satchelCols;
+    row = std::clamp(row, 0, wands + 1);
+    col = std::clamp(col, 0, rowWidth(row) - 1);
+
+    int dx = 0, dy = 0;
+    if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_LEFT)) dx = -1;
+    if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_RIGHT)) dx = 1;
+    if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_UP)) dy = -1;
+    if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN)) dy = 1;
+    // A flick of the left stick moves one slot.
+    const float lx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X), ly = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y);
+    const int sx = lx < -0.6f ? -1 : (lx > 0.6f ? 1 : 0), sy = ly < -0.6f ? -1 : (ly > 0.6f ? 1 : 0);
+    if (sx != stickX_ && sx != 0) dx = sx;
+    if (sy != stickY_ && sy != 0) dy = sy;
+    stickX_ = sx;
+    stickY_ = sy;
+    if (dx != 0 || dy != 0) {
+        row = std::clamp(row + dy, 0, wands + 1);
+        col = std::clamp(col + dx, 0, rowWidth(row) - 1);
+        app_.audio().play(Sfx::UiHover, 0.4f);
+    }
+    padCursor_ = row < wands ? SlotRef{row, col} : SlotRef{-1, (row - wands) * satchelCols + col};
+
+    SpellId& at = editorSlot(padCursor_.wand, padCursor_.slot);
+    if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN)) {
+        if (drag_.active) dropDragOnto(padCursor_.wand, padCursor_.slot);
+        else if (at != SpellId::None) drag_ = {true, at, padCursor_.wand, padCursor_.slot};
+    }
+    if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_UP) && !drag_.active && padCursor_.wand >= 0 && at != SpellId::None) {
+        if (run_.addSpell(at)) at = SpellId::None;
+        app_.audio().play(Sfx::UiClick, 0.6f);
+    }
+}
+
 void GameScene::drawInventory() {
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
     const float s = static_cast<float>(ui::scale());
     const int size = ui::fontSize(ui::scale());
     const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const bool pad = usingGamepad_;
     DrawRectangle(0, 0, app_.screenWidth(), app_.screenHeight(), Color{0, 0, 0, 160});
 
     const float slot = 16.0f * s, gap = 2.0f * s;
@@ -309,16 +367,45 @@ void GameScene::drawInventory() {
     Rectangle panelR{sw * 0.5f - 260.0f * s, sh * 0.5f - panelH * 0.5f, 520.0f * s, panelH};
     ui::panel(panelR);
     ui::text("SATCHEL OF SPELLS", panelR.x + panelR.width * 0.5f, panelR.y + 6.0f * s, size, ui::color::kGold, ui::Align::Center);
-    ui::text("Drag spells between wands and satchel. Right-click returns a spell to the satchel. Tab closes.",
+    ui::text(pad ? "D-pad moves. A picks up and places a spell, Y returns it to the satchel, B closes."
+                 : "Drag spells between wands and satchel. Right-click returns a spell to the satchel. Tab closes.",
              panelR.x + panelR.width * 0.5f, panelR.y + 8.0f * s + static_cast<float>(size), small, ui::color::kTextDim,
              ui::Align::Center);
+
+    // Guided first edit: until a satchel spell has been moved onto a wand once, the first
+    // satchel spell and an empty wand slot glow, with a ghost icon drifting between them.
+    int guideFrom = -1, guideWand = -1, guideSlot = -1;
+    if (!hints_.seen(Hint::WandGuide)) {
+        for (int i = 0; i < RunState::kInventorySize && guideFrom < 0; ++i) {
+            const SpellId sp = run_.inventory[static_cast<size_t>(i)];
+            if (sp != SpellId::None && spellDef(sp).proj.explosionRadius <= 5.0f) guideFrom = i;
+        }
+        auto firstEmpty = [&](int wi) {
+            const auto& slots = run_.wands[static_cast<size_t>(wi)].slots;
+            const auto it = std::find(slots.begin(), slots.end(), SpellId::None);
+            return it == slots.end() ? -1 : static_cast<int>(it - slots.begin());
+        };
+        for (int k = -1; k < static_cast<int>(run_.wands.size()) && guideSlot < 0; ++k) {
+            const int wi = k < 0 ? run_.activeWand : k; // the active wand first
+            if (wi < 0 || wi >= static_cast<int>(run_.wands.size())) continue;
+            guideSlot = firstEmpty(wi);
+            guideWand = wi;
+        }
+    }
+    const bool guide = guideFrom >= 0 && guideSlot >= 0;
+    Rectangle guideFromR{}, guideToR{}, cursorR{};
 
     struct Hover {
         SpellId spell = SpellId::None;
         int wand = -2;
         int slot = -1;
     } hover;
-    Vector2 mouse = GetMousePosition();
+    const Vector2 mouse = GetMousePosition();
+    // With a pad, the cursor slot is what the mouse would be pointing at.
+    auto pointedAt = [&](Rectangle r, int wand, int slotIndex) {
+        if (pad) return padCursor_.wand == wand && padCursor_.slot == slotIndex;
+        return CheckCollisionPointRec(mouse, r);
+    };
     std::string wandTip, wandTipTitle;
     const Color statColor{140, 130, 150, 255};
 
@@ -333,7 +420,7 @@ void GameScene::drawInventory() {
         ui::text(TextFormat("mana %d (+%d/s)%s%s", static_cast<int>(w.manaMax), static_cast<int>(w.manaCharge), w.shuffle ? "  shuffle" : "",
                             w.spellsPerCast > 1 ? "  multicast" : ""),
                  x, y + (static_cast<float>(small) + 1.0f * s) * 2.0f, small, statColor);
-        if (ui::hovered({nameR.x, nameR.y, nameR.width, slot * 1.6f})) {
+        if (!pad && ui::hovered({nameR.x, nameR.y, nameR.width, slot * 1.6f})) {
             wandTipTitle = w.name;
             wandTip = TextFormat("Spread %.1f deg. Spells per cast %d. Capacity %d.%s", w.spreadDeg, w.spellsPerCast, w.capacity,
                                  w.shuffle ? " Shuffle: casts spells in random order." : "");
@@ -343,19 +430,28 @@ void GameScene::drawInventory() {
             Rectangle r{sx + static_cast<float>(i) * (slot + gap), y, slot, slot};
             SpellId sp = w.slots[static_cast<size_t>(i)];
             bool isDragSrc = drag_.active && drag_.wand == static_cast<int>(wi) && drag_.slot == i;
-            ui::spellIcon(isDragSrc ? SpellId::None : sp, r, CheckCollisionPointRec(mouse, r));
-            if (CheckCollisionPointRec(mouse, r)) hover = {sp, static_cast<int>(wi), i};
+            const bool pointed = pointedAt(r, static_cast<int>(wi), i);
+            ui::spellIcon(isDragSrc ? SpellId::None : sp, r, pointed);
+            if (pointed) {
+                hover = {sp, static_cast<int>(wi), i};
+                cursorR = r;
+            }
+            if (guide && guideWand == static_cast<int>(wi) && guideSlot == i) guideToR = r;
         }
-        // What the first cast of this deck does, so the effect of modifiers is visible.
+        // What the first cast of this deck does, so the effect of modifiers is visible. It
+        // flashes gold after an edit changes it.
         int pos = 0;
         const CastShot first = buildShot(w.slots, w.order, pos, w.spellsPerCast);
         float damage = 0.0f;
         for (const ProjectileLaunch& l : first.projectiles) damage += l.def.damage + l.def.explosionDamage;
         const int count = static_cast<int>(first.projectiles.size());
+        Color firstColor = statColor;
+        if (firstCastWand_ == static_cast<int>(wi) && firstCastFlash_ > 0.0f)
+            firstColor = ColorLerp(statColor, ui::color::kGold, std::min(1.0f, firstCastFlash_ / 0.5f));
         if (count > 0)
             ui::text(TextFormat("first cast: %d projectile%s, %d damage, %d mana", count, count == 1 ? "" : "s", static_cast<int>(damage),
                                 static_cast<int>(first.mana)),
-                     sx, y + slot + 3.0f * s, small, statColor);
+                     sx, y + slot + 3.0f * s, small, firstColor);
         y += slot * 1.9f + 6.0f * s;
     }
 
@@ -367,9 +463,15 @@ void GameScene::drawInventory() {
         Rectangle r{panelR.x + 10.0f * s + static_cast<float>(col) * (slot + gap), y + static_cast<float>(row) * (slot + gap), slot, slot};
         SpellId sp = run_.inventory[static_cast<size_t>(i)];
         bool isDragSrc = drag_.active && drag_.wand == -1 && drag_.slot == i;
-        ui::spellIcon(isDragSrc ? SpellId::None : sp, r, CheckCollisionPointRec(mouse, r));
-        if (CheckCollisionPointRec(mouse, r)) hover = {sp, -1, i};
+        const bool pointed = pointedAt(r, -1, i);
+        ui::spellIcon(isDragSrc ? SpellId::None : sp, r, pointed);
+        if (pointed) {
+            hover = {sp, -1, i};
+            cursorR = r;
+        }
+        if (guide && guideFrom == i) guideFromR = r;
     }
+    const float satchelBottom = y + 2.0f * (slot + gap);
 
     // Perks beside the satchel.
     float px = panelR.x + 10.0f * s + 8.0f * (slot + gap) + 14.0f * s;
@@ -381,7 +483,7 @@ void GameScene::drawInventory() {
         const PerkDef& d = perkDef(static_cast<PerkId>(p));
         std::string label = n > 1 ? std::string(d.name) + " x" + std::to_string(n) : d.name;
         ui::text(label, px, py, small, hexColor(d.color));
-        if (ui::hovered({px, py, 100.0f * s, static_cast<float>(small)})) {
+        if (!pad && ui::hovered({px, py, 100.0f * s, static_cast<float>(small)})) {
             wandTipTitle = d.name;
             wandTip = d.description;
         }
@@ -396,28 +498,44 @@ void GameScene::drawInventory() {
     drawSpellCard({panelR.x + panelR.width - 140.0f * s, panelR.y + 32.0f * s, 130.0f * s, panelR.height - 56.0f * s},
                   drag_.active ? drag_.spell : hover.spell);
 
-    // Drag & drop.
-    auto spellAt = [&](int wand, int slotIndex) -> SpellId& {
-        return wand < 0 ? run_.inventory[static_cast<size_t>(slotIndex)] : run_.wands[static_cast<size_t>(wand)].slots[static_cast<size_t>(slotIndex)];
-    };
-    if (input::mousePressed(MOUSE_BUTTON_LEFT) && hover.wand != -2 && hover.spell != SpellId::None) {
-        drag_ = {true, hover.spell, hover.wand, hover.slot};
+    if (guide && !drag_.active) {
+        const float t = static_cast<float>(GetTime());
+        const unsigned char glow = static_cast<unsigned char>(140.0f + 100.0f * std::sin(t * 6.0f));
+        const Color gold{ui::color::kGold.r, ui::color::kGold.g, ui::color::kGold.b, glow};
+        const float m = 2.0f * s;
+        DrawRectangleLinesEx({guideFromR.x - m, guideFromR.y - m, guideFromR.width + 2 * m, guideFromR.height + 2 * m}, s, gold);
+        DrawRectangleLinesEx({guideToR.x - m, guideToR.y - m, guideToR.width + 2 * m, guideToR.height + 2 * m}, s, gold);
+        // The ghost eases from the satchel to the slot, fading in and out at the ends.
+        const float k = std::fmod(t * 0.7f, 1.0f), e = k * k * (3.0f - 2.0f * k);
+        const Rectangle ghost{guideFromR.x + (guideToR.x - guideFromR.x) * e, guideFromR.y + (guideToR.y - guideFromR.y) * e, slot, slot};
+        ui::spellIcon(run_.inventory[static_cast<size_t>(guideFrom)], ghost, false);
+        DrawRectangleRec(ghost, Color{14, 12, 20, static_cast<unsigned char>(255.0f * (1.0f - std::sin(k * PI)))});
+        ui::text(HintTracker::text(Hint::WandGuide, pad), panelR.x + 10.0f * s, satchelBottom + 3.0f * s, small, ui::color::kGold);
     }
-    if (input::mousePressed(MOUSE_BUTTON_RIGHT) && hover.wand >= 0 && hover.spell != SpellId::None) {
-        if (run_.addSpell(hover.spell)) spellAt(hover.wand, hover.slot) = SpellId::None;
-        app_.audio().play(Sfx::UiClick, 0.6f);
+    if (pad && !hints_.seen(Hint::WandGuide) && cursorR.width <= 0.0f) cursorR = guideFromR;
+    if (pad && cursorR.width > 0.0f) {
+        const float m = 1.0f * s;
+        DrawRectangleLinesEx({cursorR.x - m, cursorR.y - m, cursorR.width + 2 * m, cursorR.height + 2 * m}, s, ui::color::kGold);
+    }
+
+    // Drag & drop.
+    if (!pad) {
+        if (input::mousePressed(MOUSE_BUTTON_LEFT) && hover.wand != -2 && hover.spell != SpellId::None) {
+            drag_ = {true, hover.spell, hover.wand, hover.slot};
+        }
+        if (input::mousePressed(MOUSE_BUTTON_RIGHT) && hover.wand >= 0 && hover.spell != SpellId::None) {
+            if (run_.addSpell(hover.spell)) editorSlot(hover.wand, hover.slot) = SpellId::None;
+            app_.audio().play(Sfx::UiClick, 0.6f);
+        }
     }
     if (drag_.active) {
-        Rectangle r{mouse.x - slot * 0.5f, mouse.y - slot * 0.5f, slot, slot};
+        // The held spell follows the mouse, or floats above the pad cursor.
+        const Rectangle r = pad ? Rectangle{cursorR.x + slot * 0.4f, cursorR.y - slot * 0.6f, slot, slot}
+                                : Rectangle{mouse.x - slot * 0.5f, mouse.y - slot * 0.5f, slot, slot};
         ui::spellIcon(drag_.spell, r, true);
-        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-            if (hover.wand != -2) {
-                SpellId& src = spellAt(drag_.wand, drag_.slot);
-                SpellId& dst = spellAt(hover.wand, hover.slot);
-                std::swap(src, dst);
-                app_.audio().play(Sfx::UiClick, 0.7f);
-            }
-            drag_ = Drag{};
+        if (!pad && IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+            if (hover.wand != -2) dropDragOnto(hover.wand, hover.slot);
+            else drag_ = Drag{};
         }
     } else if (hover.spell == SpellId::None && !wandTip.empty()) {
         ui::tooltip(wandTipTitle, wandTip, ui::color::kGold);

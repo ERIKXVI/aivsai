@@ -315,8 +315,9 @@ void Level::interact() {
     };
 
     switch (p.type) {
-    case PickupType::Spell:
-        if (!run_.addSpell(p.spell)) {
+    case PickupType::Spell: {
+        const bool slotted = run_.trySlotIntoActiveWand(p.spell);
+        if (!slotted && !run_.addSpell(p.spell)) {
             audio_.play(Sfx::UiDeny, 0.6f);
             addFloatText(p.body.pos - Vec2{0.0f, 10.0f}, "Satchel full", 0xff8060);
             return;
@@ -324,8 +325,15 @@ void Level::interact() {
         pay();
         p.dead = true;
         audio_.play(Sfx::Pickup, 0.7f);
-        addFloatText(p.body.pos - Vec2{0.0f, 8.0f}, spellDef(p.spell).name, 0xc0e0ff);
+        addFloatText(p.body.pos - Vec2{0.0f, 10.0f}, spellDef(p.spell).name, 0xc0e0ff);
+        if (slotted) {
+            addFloatText(p.body.pos - Vec2{0.0f, 4.0f}, "into " + run_.wands[static_cast<size_t>(run_.activeWand)].name, 0x9fb4d0, 0.6f);
+        } else {
+            addFloatText(p.body.pos - Vec2{0.0f, 4.0f}, "to the satchel", 0x9fb4d0, 0.6f);
+            ++spellsToSatchel_;
+        }
         break;
+    }
     case PickupType::Wand: {
         pay();
         Wand w = std::move(*p.wand);

@@ -20,8 +20,8 @@ struct HintText {
 constexpr HintText kTexts[static_cast<int>(Hint::Count)] = {
     {"Hold Q to draw a liquid or powder into your flask (one kind at a time) - right-click pours it out",
      "Hold Y to draw a liquid or powder into your flask (one kind at a time) - LT pours it out"},
-    {"A new spell is in your satchel - press Tab and drag it onto a wand",
-     "A new spell is in your satchel - press Back and drag it onto a wand"},
+    {"That spell went to your satchel - press Tab and drag it onto a wand",
+     "That spell went to your satchel - press Back and place it on a wand"},
     {"Wounded? Pink Vitae heals - absorb it with Q, then drink with F",
      "Wounded? Pink Vitae heals - absorb it with Y, then drink with X"},
     {"A sanctum: buy spells with E, then claim one perk at the altars",
@@ -34,10 +34,19 @@ constexpr HintText kTexts[static_cast<int>(Hint::Count)] = {
      "Gold ore crumbles into gold dust when blasted - walk over the dust to collect it"},
     {"You are burning! Drink water from your flask with F, or dive into water",
      "You are burning! Drink water from your flask with X, or dive into water"},
+    {"Your satchel holds spells - press Tab and drag one onto an empty wand slot",
+     "Your satchel holds spells - press Back and place one on an empty wand slot"},
+    {"Drag the glowing spell into the glowing slot - the wand casts its spells from left to right",
+     "Pick up the glowing spell with A and place it in the glowing slot with A"},
 };
 
-int satchelCount(const RunState& run) {
-    return static_cast<int>(std::count_if(run.inventory.begin(), run.inventory.end(), [](SpellId s) { return s != SpellId::None; }));
+/// True when a satchel spell could go onto a wand right now.
+bool roomForSatchelSpell(const RunState& run) {
+    const bool satchel = std::any_of(run.inventory.begin(), run.inventory.end(), [](SpellId s) { return s != SpellId::None; });
+    const bool room = std::any_of(run.wands.begin(), run.wands.end(), [](const Wand& w) {
+        return std::find(w.slots.begin(), w.slots.end(), SpellId::None) != w.slots.end();
+    });
+    return satchel && room;
 }
 
 /// Looks for a cell matching `pred` in a square around `center`, sampling every other cell.
@@ -55,7 +64,11 @@ bool nearby(const World& world, Vec2 center, int radius, Pred pred) {
 void HintTracker::reset() {
     active_ = Hint::Count;
     timer_ = 0.0f;
-    baselineSpells_ = -1;
+}
+
+const char* HintTracker::text(Hint h, bool gamepad) {
+    const HintText& t = kTexts[static_cast<int>(h)];
+    return gamepad ? t.gamepad : t.keyboard;
 }
 
 void HintTracker::show(Hint h) {
@@ -65,7 +78,6 @@ void HintTracker::show(Hint h) {
 }
 
 void HintTracker::update(const Level& level, const RunState& run, float dt) {
-    if (baselineSpells_ < 0) baselineSpells_ = satchelCount(run);
     // Burning is urgent enough to replace whatever is showing.
     const Player& player = level.player();
     if (!seen(Hint::Burning) && player.status.burning > 0.0f && player.resist[static_cast<size_t>(DamageType::Fire)] > 0.0f) {
@@ -86,8 +98,12 @@ void HintTracker::update(const Level& level, const RunState& run, float dt) {
     // The opening controls card covers the first half minute of the first stage.
     if (run.levelIndex == 0 && t < 30.0f) return;
 
-    if (!seen(Hint::Satchel) && satchelCount(run) > baselineSpells_) {
+    if (!seen(Hint::Satchel) && level.spellsToSatchel() > 0) {
         show(Hint::Satchel);
+        return;
+    }
+    if (!seen(Hint::EditWands) && run.levelIndex == 0 && t > 32.0f && roomForSatchelSpell(run)) {
+        show(Hint::EditWands);
         return;
     }
     if (!seen(Hint::Heal) && player.hp < player.maxHp * 0.4f) {
@@ -126,8 +142,7 @@ void HintTracker::draw(float screenW, float screenH, bool gamepad) const {
     if (active_ == Hint::Count) return;
     const float s = static_cast<float>(ui::scale());
     const int size = ui::fontSize(ui::scale());
-    const HintText& h = kTexts[static_cast<int>(active_)];
-    const char* text = gamepad ? h.gamepad : h.keyboard;
+    const char* text = HintTracker::text(active_, gamepad);
     const float a = clamp(std::min((kShowTime - timer_) * 3.0f, timer_ * 1.5f), 0.0f, 1.0f);
     const float w = static_cast<float>(ui::measure(text, size)) + 20.0f * s, hgt = static_cast<float>(size) + 10.0f * s;
     Rectangle r{screenW * 0.5f - w * 0.5f, screenH - 64.0f * s - (1.0f - a) * 6.0f * s, w, hgt};

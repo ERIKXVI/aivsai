@@ -131,7 +131,9 @@ void GameScene::latchInput() {
     if (wheel < 0.0f) latchCycle_ += 1;
     if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_TRIGGER_1)) latchCycle_ -= 1;
     if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_1)) latchCycle_ += 1;
+}
 
+void GameScene::noteInputDevice() {
     // Button prompts follow whichever device was used last.
     const Vector2 mouseDelta = GetMouseDelta();
     if (input::anyKeyPressed() || input::mousePressed(MOUSE_BUTTON_LEFT) || mouseDelta.x * mouseDelta.x + mouseDelta.y * mouseDelta.y > 4.0f) {
@@ -292,13 +294,16 @@ void GameScene::frame(float dt) {
         heartbeat_ = 0.0f;
     }
     if (mode_ != Mode::Playing) castBlocked_ = true;
+    noteInputDevice();
     // Alt-tabbing away pauses the run.
     if (mode_ == Mode::Playing && !IsWindowFocused() && !app_.options().automated()) mode_ = Mode::Paused;
     if (mode_ == Mode::Playing) {
         latchInput();
         if (input::keyPressed(KEY_ESCAPE) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT)) mode_ = Mode::Paused;
-        else if (input::keyPressed(KEY_TAB) || input::keyPressed(KEY_I) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT))
+        else if (input::keyPressed(KEY_TAB) || input::keyPressed(KEY_I) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT)) {
             mode_ = Mode::Inventory;
+            hints_.markSeen(Hint::EditWands); // found the editor; no need to point at it
+        }
         else if (!level_->isSanctum() && (input::keyPressed(KEY_M) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN)))
             mode_ = Mode::Map;
     } else if (mode_ == Mode::Map) {
@@ -306,11 +311,18 @@ void GameScene::frame(float dt) {
             IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT))
             mode_ = Mode::Playing;
     } else if (mode_ == Mode::Inventory) {
-        if (input::keyPressed(KEY_TAB) || input::keyPressed(KEY_I) || input::keyPressed(KEY_ESCAPE) ||
-            IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT)) {
+        firstCastFlash_ = std::max(0.0f, firstCastFlash_ - dt);
+        // B puts back a spell picked up with the pad cursor, otherwise it closes the editor.
+        const bool padBack = IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT);
+        if (padBack && drag_.active) {
+            drag_ = Drag{};
+        } else if (padBack || input::keyPressed(KEY_TAB) || input::keyPressed(KEY_I) || input::keyPressed(KEY_ESCAPE) ||
+                   IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT)) {
             mode_ = Mode::Playing;
             drag_ = Drag{};
             for (Wand& w : run_.wands) w.resetDeck();
+        } else {
+            updateEditorPad();
         }
     } else if (mode_ == Mode::Paused) {
         if (ui::backPressed() || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT)) mode_ = Mode::Playing;

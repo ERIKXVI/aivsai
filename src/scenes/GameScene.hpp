@@ -41,6 +41,11 @@ private:
     void advanceStage();
     PlayerInput gatherInput();
     void latchInput();
+    void noteInputDevice();
+    void updateEditorPad();
+    /// Drops the dragged spell onto a wand slot (wand >= 0) or satchel slot (wand -1), swapping.
+    void dropDragOnto(int wand, int slot);
+    SpellId& editorSlot(int wand, int slot);
     void recordProfile(bool victory);
 
     void drawWorldOverlays(float alpha);
@@ -81,20 +86,27 @@ private:
     std::string discoveries_;                ///< new Grimoire entries this run ("2 spells, 1 perk")
     std::vector<std::string> unlockedPaths_; ///< starting paths unlocked by this run
     bool debugOverlay_ = false;
-    bool usingGamepad_ = false;
-    float heartbeat_ = 0.0f;     ///< seconds until the next low-health heartbeat  ///< last input came from a gamepad (for button prompts)
+    bool usingGamepad_ = false;  ///< last input came from a gamepad (for button prompts)
+    float heartbeat_ = 0.0f;     ///< seconds until the next low-health heartbeat
 
     // Input pressed between ticks is latched so nothing is lost at high frame rates.
     bool latchJump_ = false, latchInteract_ = false, latchDrink_ = false, latchCast_ = false;
     int latchWand_ = -1, latchCycle_ = 0;
 
-    // Inventory drag & drop.
+    // Inventory drag & drop. With a gamepad a slot cursor stands in for the mouse.
     struct Drag {
         bool active = false;
         SpellId spell = SpellId::None;
         int wand = -1; ///< -1 = satchel
         int slot = -1;
     } drag_;
+    struct SlotRef {
+        int wand = 0; ///< -1 = satchel
+        int slot = 0;
+    } padCursor_;
+    int stickX_ = 0, stickY_ = 0;   ///< left stick direction last frame, for flick navigation
+    float firstCastFlash_ = 0.0f;   ///< seconds left highlighting a changed wand's first-cast line
+    int firstCastWand_ = -1;
 };
 
 } // namespace pm

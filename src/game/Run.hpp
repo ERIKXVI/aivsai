@@ -67,6 +67,11 @@ struct RunState {
     int perkCount(PerkId p) const { return perks[static_cast<size_t>(p)]; }
     /// Puts a spell into the first free inventory slot; false if full.
     bool addSpell(SpellId s);
+    /// Slots a newly found attack spell straight into the active wand's first empty slot, so
+    /// a pickup changes how the wand casts without a trip to the editor. Spells that need
+    /// placing (modifiers, multicasts) or are risky to fire unawares (explosives, teleports,
+    /// matter orbs) are left for the satchel. False if the spell was not slotted.
+    bool trySlotIntoActiveWand(SpellId s);
     void applyPerk(PerkId p);
 
     float damageDealtMul() const;

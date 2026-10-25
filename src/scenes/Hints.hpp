@@ -10,8 +10,9 @@ namespace pm {
 class Level;
 struct RunState;
 
-// Values are bit positions in the seen-mask.
-enum class Hint : uint8_t { Absorb, Satchel, Heal, Sanctum, Transmuter, Compass, Gold, Burning, Count };
+// Values are bit positions in the seen-mask. WandGuide is not a banner: it marks the wand
+// editor's guided first drop as done, and its text captions that guide.
+enum class Hint : uint8_t { Absorb, Satchel, Heal, Sanctum, Transmuter, Compass, Gold, Burning, EditWands, WandGuide, Count };
 
 class HintTracker {
 public:
@@ -25,15 +26,21 @@ public:
     /// Forget the current hint (level change).
     void reset();
 
-private:
     bool seen(Hint h) const { return (seen_ >> static_cast<unsigned>(h)) & 1u; }
+    /// Records a lesson as learnt without showing it (e.g. the player found the editor alone).
+    void markSeen(Hint h) {
+        seen_ |= 1u << static_cast<unsigned>(h);
+        if (active_ == h) active_ = Hint::Count;
+    }
+    static const char* text(Hint h, bool gamepad);
+
+private:
     void show(Hint h);
 
     uint32_t& seen_;
     Hint active_ = Hint::Count;
     float timer_ = 0.0f;
     float scanTimer_ = 0.0f;
-    int baselineSpells_ = -1; ///< satchel size when the level began
 };
 
 } // namespace pm

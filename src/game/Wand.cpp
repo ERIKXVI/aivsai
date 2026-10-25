@@ -196,7 +196,7 @@ Wand makeStarterWand(int index) {
         w.manaMax = w.mana = 200.0f;
         w.manaCharge = 80.0f;
         w.spreadDeg = 0.0f;
-        w.slots = {SpellId::DiggingBolt, SpellId::Bomb, SpellId::None};
+        w.slots = {SpellId::DiggingBolt, SpellId::None, SpellId::None};
         w.handleColor = 0x4a4a52;
         w.gemColor = 0xffb040;
         w.length = 8;
