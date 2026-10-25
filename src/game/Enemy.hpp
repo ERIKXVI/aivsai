@@ -72,6 +72,8 @@ const EnemyDef& enemyDef(EnemyType type);
 Color enemyTint(EnemyType type);
 /// The guardian whose lair lies on this stage.
 EnemyType guardianFor(int levelIndex);
+/// A guardian's title for its introduction ("Keeper of the Mire"); empty for other creatures.
+const char* guardianEpithet(EnemyType type);
 /// The creature with this display name (e.g. a recorded death cause), if there is one.
 std::optional<EnemyType> enemyNamed(const char* name);
 

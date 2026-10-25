@@ -75,6 +75,16 @@ EnemyType guardianFor(int levelIndex) {
     return kGuardians[clamp(levelIndex, 0, 3)];
 }
 
+const char* guardianEpithet(EnemyType type) {
+    switch (type) {
+    case EnemyType::BlackToad: return "Keeper of the Mire";
+    case EnemyType::WhiteWraith: return "Keeper of the Frozen Hall";
+    case EnemyType::MineKing: return "Keeper of the Deep Seams";
+    case EnemyType::RedColossus: return "Keeper of the Forge";
+    default: return "";
+    }
+}
+
 static_assert(static_cast<size_t>(EnemyType::Count) <= kMaxCreatureTypes, "raise kMaxCreatureTypes");
 
 std::optional<EnemyType> enemyNamed(const char* name) {

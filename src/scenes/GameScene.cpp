@@ -86,6 +86,7 @@ void GameScene::finishLoading() {
     exiting_ = false;
     titleTimer_ = 4.0f;
     titleOmen_.clear();
+    announcedGuardian_ = 0;
     if (run_.inSanctum) {
         // Sanctums restore the alchemist completely.
         run_.hp = run_.maxHp;
@@ -343,6 +344,16 @@ void GameScene::frame(float dt) {
         fade_ = std::max(0.0f, fade_ - dt * 1.5f);
     }
     titleTimer_ = std::max(0.0f, titleTimer_ - dt);
+    // A guardian is announced with a title card the first time it notices the alchemist.
+    if (mode_ == Mode::Playing && level_) {
+        if (const Enemy* g = level_->bossBarTarget(); g && g->guardian() && g->id != announcedGuardian_) {
+            announcedGuardian_ = g->id;
+            titleMain_ = g->def().name;
+            titleSub_ = guardianEpithet(g->type());
+            titleOmen_.clear();
+            titleTimer_ = 4.0f;
+        }
+    }
     // The gold counter pops whenever gold comes in.
     goldPop_ = std::max(0.0f, goldPop_ - dt);
     if (shownGold_ >= 0 && run_.gold > shownGold_) goldPop_ = 0.25f;

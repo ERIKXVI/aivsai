@@ -100,6 +100,7 @@ private:
         Vec2 anchor;       ///< world spot where the rest began
     } lens_;
     int shownGold_ = -1;         ///< gold total the HUD last saw
+    uint32_t announcedGuardian_ = 0; ///< id of the guardian whose title card was last shown
     float goldPop_ = 0.0f;       ///< seconds left on the HUD gold counter's pop
 
     // Input pressed between ticks is latched so nothing is lost at high frame rates.
