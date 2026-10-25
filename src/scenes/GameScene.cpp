@@ -21,6 +21,7 @@ namespace pm {
 
 namespace {
 bool g_deathPreviewShown = false; ///< --ui death fells only the first run of the session
+uint32_t g_previewFeats = 0;      ///< feats announced in a preview session, kept out of the profile
 } // namespace
 
 GameScene::GameScene(App& app, RunState run)
@@ -119,6 +120,7 @@ void GameScene::advanceStage() {
     } else if (run_.levelIndex >= 4) {
         mode_ = Mode::Victory;
         endTimer_ = 0.0f;
+        titleTimer_ = 0.0f;
         recordProfile(true);
         return;
     } else {
@@ -280,6 +282,10 @@ void GameScene::stepLevel() {
         bot_.clearStuck();
     }
     level_->tick(in);
+    // Feats count only from ticks the alchemist was alive for: nothing that burns out on the
+    // death screen (the run is already recorded) is credited.
+    for (FeatId f : level_->takeFeats())
+        if (controllable) earnFeat(f);
     minimap_.update(*level_);
     if (mode_ == Mode::Playing && !autoplay && app_.settings().hints) hints_.update(*level_, run_, kTickDt);
 
@@ -296,6 +302,7 @@ void GameScene::stepLevel() {
         mode_ = Mode::Dead;
         exiting_ = false;
         endTimer_ = 0.0f;
+        titleTimer_ = 0.0f;
         slowMo_ = 0.35f;
         recordProfile(false);
         break;
@@ -334,6 +341,7 @@ void GameScene::frame(float dt) {
     if (mode_ == Mode::Victory) {
         endTimer_ += dt;
         fade_ = std::max(0.0f, fade_ - dt);
+        updateFeats(dt); // the ending's own feats are announced over the end screen
         return;
     }
     if (!level_) return;
@@ -452,7 +460,6 @@ void GameScene::render(float alpha) {
         if (mode_ == Mode::Playing && !lens_.title.empty() && lens_.same < 4.0f) ui::tooltip(lens_.title, lens_.body, lens_.color);
         if (mode_ == Mode::Playing && app_.settings().hints) hints_.draw(static_cast<float>(app_.screenWidth()), static_cast<float>(app_.screenHeight()), usingGamepad_);
         drawTitleCard();
-        drawFeatToast();
         if (mode_ != Mode::Dead && app_.settings().hints && !run_.inSanctum && run_.levelIndex == 0 && level_->time() < 30.0f)
             drawControlsHint();
     }
@@ -471,6 +478,7 @@ void GameScene::render(float alpha) {
     case Mode::Victory: drawEndScreen(true); break;
     default: break;
     }
+    drawFeatToast();
 
     if (fade_ > 0.0f) {
         DrawRectangle(0, 0, app_.screenWidth(), app_.screenHeight(), Color{0, 0, 0, static_cast<unsigned char>(fade_ * 255.0f)});
@@ -501,22 +509,30 @@ void GameScene::recordProfile(bool victory) {
     if (victory) earnFeat(FeatId::MagnumOpus);
     if (victory && run_.difficulty == Difficulty::Archmage) earnFeat(FeatId::Archmage);
     if (run_.daily && (victory || died)) earnFeat(FeatId::DailyRite);
-    if (!record_.unlockedPaths.empty()) earnFeat(FeatId::Pathfinder);
+    // Any path beyond the Apprentice's open, however it opened (an abandoned run included).
+    const Milestones m{after->deepest, after->victories, after->chestsOpened, after->totalKills};
+    for (int i = 1; i < kLoadoutCount; ++i)
+        if (loadoutUnlocked(static_cast<LoadoutId>(i), m)) {
+            earnFeat(FeatId::Pathfinder);
+            break;
+        }
     if (std::popcount(after->spellsSeen) >= 25) earnFeat(FeatId::Polymath);
 }
 
 void GameScene::earnFeat(FeatId feat) {
+    // Previews announce feats but leave the profile exactly as loaded, so no later save in the
+    // menu can write them to disk.
     Profile& p = app_.profile();
-    if (p.featsEarned & featBit(feat)) return;
-    p.featsEarned |= featBit(feat);
-    if (!app_.options().previewOnly()) saveProfile(p);
+    const bool preview = app_.options().previewOnly();
+    uint32_t& mask = preview ? g_previewFeats : p.featsEarned;
+    if ((mask | p.featsEarned) & featBit(feat)) return;
+    mask |= featBit(feat);
+    if (!preview) saveProfile(p);
     toasts_.push_back({feat});
     app_.audio().play(Sfx::Perk, 0.6f, 1.3f);
 }
 
 void GameScene::updateFeats(float dt) {
-    if (level_)
-        for (FeatId f : level_->takeFeats()) earnFeat(f);
     if (mode_ == Mode::Playing) {
         if (run_.gold >= 500) earnFeat(FeatId::Midas);
         if (run_.flask.amount >= Flask::kCapacity) earnFeat(FeatId::Brimming);

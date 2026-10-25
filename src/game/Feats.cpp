@@ -9,7 +9,7 @@ namespace {
 
 constexpr std::array<FeatDef, kFeatCount> kFeats = {{
     {"First Blood", "Slay your first creature."},
-    {"Spellwright", "Put a found spell onto a wand."},
+    {"Spellwright", "Slot a new spell into a wand."},
     {"Brimming", "Fill your flask to the brim."},
     {"Vitae", "Heal yourself with a draught of Vitae."},
     {"Doused", "Put out your own flames with water."},
