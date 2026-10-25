@@ -477,19 +477,37 @@ void Level::updateLanterns(float dt) {
     // A lantern whose ceiling is blasted away drops, and shatters into burning oil.
     World& w = world();
     for (Lantern& l : lanterns_) {
+        // Only matter that can bear weight holds a lantern up or stops its fall: not smoke or fire.
+        auto bearing = [&](int cx, int cy) {
+            const Phase p = phaseOf(w.at(cx, cy).mat);
+            return p == Phase::Solid || p == Phase::Powder || p == Phase::Liquid;
+        };
+        const int x = floorToInt(l.pos.x);
         if (l.fallSpeed <= 0.0f) {
             if (ticks_ % 10 != 0) continue;
-            const int ax = floorToInt(l.pos.x), ay = floorToInt(l.pos.y) - 5;
-            if (!w.inBounds(ax, ay) || phaseOf(w.at(ax, ay).mat) != Phase::Empty) continue;
+            const int ay = floorToInt(l.pos.y) - 5;
+            if (!w.inBounds(x, ay) || bearing(x, ay)) continue;
         }
+        const int fromY = floorToInt(l.pos.y) + 3;
         l.fallSpeed = std::min(l.fallSpeed + kGravity * dt, 420.0f);
         l.pos.y += l.fallSpeed * dt;
-        const int x = floorToInt(l.pos.x), y = floorToInt(l.pos.y) + 3;
+        // Sweep every row passed this tick so a fast lantern cannot slip through a thin floor.
+        int y = floorToInt(l.pos.y) + 3;
+        bool landed = false;
+        for (int ry = fromY + 1; ry <= y; ++ry) {
+            if (!w.inBounds(x, ry)) break;
+            if (bearing(x, ry)) {
+                y = ry;
+                l.pos.y = static_cast<float>(ry - 3);
+                landed = true;
+                break;
+            }
+        }
         if (!w.inBounds(x, y + 1)) {
             l.shattered = true;
             continue;
         }
-        if (phaseOf(w.at(x, y).mat) == Phase::Empty) continue;
+        if (!landed) continue;
         l.shattered = true;
         const Vec2 at{l.pos.x, l.pos.y + 1.0f};
         spawnBlob(at, mat::Oil, 10, {0.0f, -30.0f});

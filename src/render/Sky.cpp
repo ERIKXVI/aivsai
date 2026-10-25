@@ -67,6 +67,12 @@ void Sky::draw(const std::vector<int>& skyline, int surfaceY, int originX, int o
         if (x >= texW || y < 0 || y >= texH) continue;
         const int wx = clamp(originX + x, 0, worldW - 1);
         if (static_cast<int>(sy) >= skyline[static_cast<size_t>(wx)]) continue;
+        // Hidden behind a mountain range (checked in both passes so stars never glow through).
+        const float farTop = static_cast<float>(surfaceY) + 10.0f -
+                             mountainHeight(static_cast<float>(originX) * kFarParallax + static_cast<float>(x), 0x2311u, 70.0f);
+        const float nearTop = static_cast<float>(surfaceY) + 10.0f -
+                              mountainHeight(static_cast<float>(originX) * kNearParallax + static_cast<float>(x), 0x7177u, 46.0f);
+        if (sy >= std::min(farTop, nearTop)) continue;
         float twinkle = 0.6f + 0.4f * std::sin(time * (1.5f + hashToUnit(h >> 3) * 3.0f) + static_cast<float>(i));
         float bright = (0.4f + 0.6f * hashToUnit(h >> 7)) * twinkle;
         unsigned char v = static_cast<unsigned char>(255.0f * bright * (emissionPass ? 0.8f : 1.0f));

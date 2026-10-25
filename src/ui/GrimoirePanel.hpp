@@ -15,6 +15,8 @@ class GrimoirePanel {
 public:
     /// Draws the panel; returns true when the player chooses to go back.
     bool draw(App& app);
+    /// Replaying a chronicled seed abandons a suspended run: ask for a second click first.
+    void setReplayAbandonsRun(bool abandons) { replayAbandonsRun_ = abandons; }
     /// The chronicle entry the player chose to replay since the last call, if any.
     std::optional<size_t> takeReplayRequest() {
         auto r = replay_;
@@ -33,6 +35,8 @@ private:
     Tab tab_ = Tab::Spells;
     ui::NavList chronicleNav_;
     std::optional<size_t> replay_;
+    bool replayAbandonsRun_ = false;
+    int armedRow_ = -1; ///< row clicked once while replaying would abandon a suspended run
 };
 
 } // namespace pm

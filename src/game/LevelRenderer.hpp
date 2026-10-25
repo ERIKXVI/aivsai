@@ -23,8 +23,8 @@ public:
     void setHighQuality(bool high) { highQuality_ = high; }
 
 private:
-    void drawProps(const Level& level, float time, bool emissive);
-    void drawPickup(const Level& level, const Pickup& pk, float time, bool emissive);
+    void drawProps(const Level& level, float alpha, float time, bool emissive);
+    void drawPickup(const Level& level, const Pickup& pk, float alpha, float time, bool emissive);
     void addLights(const Level& level, float alpha, float time);
 
     SceneRenderer& scene_;

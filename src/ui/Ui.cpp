@@ -18,6 +18,13 @@ Audio* g_audio = nullptr;
 const void* g_lastHover = nullptr;
 Rectangle g_hoverRect{};
 
+/// The tooltip requested this frame; drawn by endFrame() above everything else.
+struct PendingTooltip {
+    bool active = false;
+    std::string title, body;
+    Color color{};
+} g_tooltip;
+
 bool sameRect(Rectangle a, Rectangle b) {
     return a.x == b.x && a.y == b.y && a.width == b.width && a.height == b.height;
 }
@@ -27,6 +34,7 @@ bool sameRect(Rectangle a, Rectangle b) {
 void beginFrame(int screenW, int screenH) {
     g_screenW = screenW;
     g_screenH = screenH;
+    g_tooltip.active = false;
     // Every screen is laid out for a 640x360 design area (480 wide at minimum), so the
     // scale is the largest integer that still fits it: 720p -> 2, 1080p -> 3, 1440p -> 4.
     g_scale = std::max(1, std::min(screenH / 360, screenW / 480));
@@ -259,7 +267,9 @@ void spellIcon(SpellId spell, Rectangle r, bool highlight) {
     }
 }
 
-void tooltip(const std::string& title, const std::string& body, Color titleColor) {
+namespace {
+
+void drawTooltip(const std::string& title, const std::string& body, Color titleColor) {
     const float s = static_cast<float>(g_scale);
     const int titleSize = fontSize(g_scale);
     const int bodySize = fontSize(std::max(1, g_scale - 1)) + (g_scale > 2 ? 0 : 0);
@@ -292,6 +302,18 @@ void tooltip(const std::string& title, const std::string& body, Color titleColor
         text(l, r.x + 4.0f * s, y, bodySize, color::kTextDim);
         y += static_cast<float>(bodySize) * 1.25f;
     }
+}
+
+} // namespace
+
+void tooltip(const std::string& title, const std::string& body, Color titleColor) {
+    g_tooltip = PendingTooltip{true, title, body, titleColor};
+}
+
+void endFrame() {
+    if (!g_tooltip.active) return;
+    drawTooltip(g_tooltip.title, g_tooltip.body, g_tooltip.color);
+    g_tooltip.active = false;
 }
 
 } // namespace pm::ui

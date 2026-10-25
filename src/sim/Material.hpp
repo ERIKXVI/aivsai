@@ -86,7 +86,7 @@ struct Reaction {
     uint8_t chance = 0; ///< n/256 per tick when touching
 };
 
-constexpr int kMaxReactions = 6;
+constexpr int kMaxReactions = 10;
 
 struct MaterialTables {
     std::array<MaterialDef, kMaterialCount> defs{};

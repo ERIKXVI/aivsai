@@ -44,6 +44,8 @@ private:
     float simMs_ = 0.0f;
     bool paused_ = false;
     bool pointerOverUi_ = false;
+    bool paintArmed_ = false; ///< false until the button has been up once in this scene
+    bool eraseArmed_ = false;
     bool explodeQueued_ = false;
     float paletteWidth_ = 0.0f; ///< screen pixels covered by the palette (last frame)
     uint32_t lastBlastSound_ = 0;

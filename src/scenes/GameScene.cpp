@@ -36,6 +36,9 @@ GameScene::~GameScene() {
 
 void GameScene::requestLevel() {
     mode_ = Mode::Loading;
+    // A drag begun during the exit fade must not carry wand/slot indices into the next stage.
+    drag_ = Drag{};
+    for (Wand& w : run_.wands) w.resetDeck();
     loadTimer_ = 0.0f;
     loadSkipped_ = false;
     level_.reset();
@@ -108,6 +111,9 @@ void GameScene::advanceStage() {
     } else {
         run_.inSanctum = true;
     }
+    // Save the cleared stage's gains straight away: closing the game during the fade or the
+    // loading screen then resumes at the next stage, as promised.
+    if (!app_.options().automated()) saveSuspendedRun(run_);
     requestLevel();
 }
 
@@ -329,7 +335,11 @@ void GameScene::render(float alpha) {
     ScopedTimer renderTimer(ProfileSection::Render);
     ClearBackground(BLACK);
     if (level_) {
-        const float a = (mode_ == Mode::Playing || mode_ == Mode::Dead) ? alpha : 1.0f;
+        // Interpolate across the level's own step: in death slow-motion a level step spans
+        // several app ticks, and during hit-stop the level holds still.
+        float a = 1.0f;
+        if ((mode_ == Mode::Playing || mode_ == Mode::Dead) && !level_->hitStopActive())
+            a = std::min(1.0f, tickAccumulator_ + alpha * slowMo_);
         Vec2 cam = camera_.position(level_->shake(), time_, app_.settings().screenShake);
         levelRenderer_.setHighQuality(app_.settings().highQuality);
         levelRenderer_.render(*level_, cam, a, time_, app_.screenWidth(), app_.screenHeight());

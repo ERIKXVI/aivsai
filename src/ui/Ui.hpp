@@ -72,7 +72,9 @@ bool confirmPressed();
 /// Spell icon with a frame coloured by spell type.
 void spellIcon(SpellId spell, Rectangle r, bool highlight = false);
 Color spellTypeColor(SpellId spell);
-/// Tooltip box anchored near the mouse.
+/// Tooltip box anchored near the mouse, drawn at endFrame() so later widgets never cover it.
 void tooltip(const std::string& title, const std::string& body, Color titleColor = color::kText);
+/// Finishes the UI for this frame (draws the pending tooltip). The App calls it after each render.
+void endFrame();
 
 } // namespace pm::ui

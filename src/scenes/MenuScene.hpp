@@ -50,6 +50,7 @@ private:
     GrimoirePanel grimoire_;
     ui::NavList nav_;
     std::optional<RunState> suspended_; ///< run that "Continue the Work" resumes
+    bool confirmDaily_ = false;         ///< Daily Rite pressed once with a run suspended
     float time_ = 0.0f;
     float nextEvent_ = 2.0f;
     int titleTop_ = 0, titleBottom_ = 0;

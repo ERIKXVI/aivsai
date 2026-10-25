@@ -210,9 +210,13 @@ void GrimoirePanel::drawChronicle(App& app, float x, float y) {
             mouseHot = true;
         }
     }
+    if (hot != armedRow_) armedRow_ = -1;
     if (hot >= 0) {
-        DrawRectangleRec(rowRect(static_cast<size_t>(hot)), Color{170, 130, 255, 40});
-        if ((mouseHot && input::mousePressed(MOUSE_BUTTON_LEFT)) || chronicleNav_.activated(hot)) replay_ = static_cast<size_t>(hot);
+        DrawRectangleRec(rowRect(static_cast<size_t>(hot)), armedRow_ == hot ? Color{230, 80, 80, 60} : Color{170, 130, 255, 40});
+        if ((mouseHot && input::mousePressed(MOUSE_BUTTON_LEFT)) || chronicleNav_.activated(hot)) {
+            if (replayAbandonsRun_ && armedRow_ != hot) armedRow_ = hot; // first press: confirm
+            else replay_ = static_cast<size_t>(hot);
+        }
     }
     float py = top;
     for (const RunHistoryEntry& e : p.history) {
@@ -226,9 +230,16 @@ void GrimoirePanel::drawChronicle(App& app, float x, float y) {
         ui::text(e.fate, x + cols[3], py, size, e.victory ? ui::color::kGold : Color{230, 150, 120, 255});
         py += rowH;
     }
-    if (mouseHot)
-        ui::tooltip(TextFormat("Seed %u", p.history[static_cast<size_t>(hot)].seed),
-                    "Walk this path again: the same stages, wands and treasures.", ui::color::kAccent);
+    if (mouseHot || armedRow_ >= 0) {
+        const char* title = TextFormat("Seed %u", p.history[static_cast<size_t>(hot)].seed);
+        if (armedRow_ == hot)
+            ui::tooltip(title, "Choose it again to begin: your suspended run will be abandoned.", ui::color::kDanger);
+        else if (replayAbandonsRun_)
+            ui::tooltip(title, "Walk this path again: the same stages, wands and treasures. Abandons your suspended run.",
+                        ui::color::kDanger);
+        else
+            ui::tooltip(title, "Walk this path again: the same stages, wands and treasures.", ui::color::kAccent);
+    }
 }
 
 } // namespace pm

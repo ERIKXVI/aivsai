@@ -133,9 +133,12 @@ void SandboxScene::explode(int cx, int cy, int radius) {
 void SandboxScene::tick() {
     Vec2 m = renderer_.screenToWorld(GetMousePosition());
     int mx = floorToInt(m.x), my = floorToInt(m.y);
+    // A stroke paints only if it began in the scene (not the click that opened the sandbox).
+    if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) paintArmed_ = true;
+    if (!IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) eraseArmed_ = true;
     if (!pointerOverUi_) {
-        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) paint(mx, my, brushRadius_, brush_);
-        if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) paint(mx, my, brushRadius_, mat::Empty);
+        if (paintArmed_ && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) paint(mx, my, brushRadius_, brush_);
+        if (eraseArmed_ && IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) paint(mx, my, brushRadius_, mat::Empty);
     }
     if (IsKeyDown(KEY_F)) torch(mx, my);
     if (explodeQueued_) {

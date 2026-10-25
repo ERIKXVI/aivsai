@@ -52,7 +52,7 @@ void LevelRenderer::render(const Level& level, Vec2 camera, float alpha, float t
     const LevelLayout& layout = level.layout();
     sky_.draw(layout.skyline, layout.surfaceY, v.originX, v.originY, v.texW, v.texH, time, false);
     scene_.drawWorldAlbedo();
-    drawProps(level, time, false);
+    drawProps(level, alpha, time, false);
     for (const auto& e : level.enemies())
         if (e->alive()) e->drawAlbedo(ctx);
     if (level.player().alive()) level.player().drawAlbedo(ctx);
@@ -64,7 +64,7 @@ void LevelRenderer::render(const Level& level, Vec2 camera, float alpha, float t
         gpu::BlendScope blend(gpu::Blend::AddColorKeepAlpha);
         sky_.draw(layout.skyline, layout.surfaceY, v.originX, v.originY, v.texW, v.texH, time, true);
     }
-    drawProps(level, time, true);
+    drawProps(level, alpha, time, true);
     for (const auto& e : level.enemies())
         if (e->alive()) e->drawEmission(ctx);
     if (level.player().alive()) level.player().drawEmission(ctx);
@@ -100,7 +100,7 @@ void LevelRenderer::render(const Level& level, Vec2 camera, float alpha, float t
     scene_.present(lp, time);
 }
 
-void LevelRenderer::drawProps(const Level& level, float time, bool emissive) {
+void LevelRenderer::drawProps(const Level& level, float alpha, float time, bool emissive) {
     // Lanterns hanging on chains.
     for (const Lantern& l : level.lanterns()) {
         const SpriteInfo& info = sprites_.info(SpriteId::Lantern);
@@ -142,11 +142,11 @@ void LevelRenderer::drawProps(const Level& level, float time, bool emissive) {
         else if (emissive) DrawCircleV(lc, 2.0f, Color{255, 240, 200, 255});
     }
 
-    for (const Pickup& pk : level.pickups()) drawPickup(level, pk, time, emissive);
+    for (const Pickup& pk : level.pickups()) drawPickup(level, pk, alpha, time, emissive);
 }
 
-void LevelRenderer::drawPickup(const Level& level, const Pickup& pk, float time, bool emissive) {
-    const Vec2 pos = lerp(pk.body.prevPos, pk.body.pos, 0.0f);
+void LevelRenderer::drawPickup(const Level& level, const Pickup& pk, float alpha, float time, bool emissive) {
+    const Vec2 pos = pk.body.interpolated(alpha);
     const float bob = std::sin(time * 3.0f + pos.x * 0.1f) * 1.5f;
     if (pk.price > 0 || level.isSanctum()) {
         if (pk.type != PickupType::PerkAltar) {
@@ -288,24 +288,25 @@ void LevelRenderer::addLights(const Level& level, float alpha, float time) {
     int lootLights = 0;
     for (const Pickup& pk : level.pickups()) {
         if (lootLights >= 12) break;
+        const Vec2 at = pk.body.interpolated(alpha);
         switch (pk.type) {
         case PickupType::PerkAltar: {
             Color c = hexColor(perkDef(pk.perk).color);
-            scene_.addLight(PointLight{pk.body.pos - Vec2{0.0f, 12.0f}, c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, 45.0f, 3.0f});
+            scene_.addLight(PointLight{at - Vec2{0.0f, 12.0f}, c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, 45.0f, 3.0f});
             ++lootLights;
             break;
         }
         case PickupType::Spell:
         case PickupType::Wand: {
             Color c = pk.type == PickupType::Spell ? spellColor(pk.spell) : hexColor(pk.wand ? pk.wand->gemColor : 0xffffff);
-            float pulse = 0.55f + 0.2f * std::sin(time * 3.0f + pk.body.pos.x);
-            scene_.addLight(PointLight{pk.body.pos, c.r / 255.0f * pulse, c.g / 255.0f * pulse, c.b / 255.0f * pulse, 28.0f, 2.0f});
+            float pulse = 0.55f + 0.2f * std::sin(time * 3.0f + at.x);
+            scene_.addLight(PointLight{at, c.r / 255.0f * pulse, c.g / 255.0f * pulse, c.b / 255.0f * pulse, 28.0f, 2.0f});
             ++lootLights;
             break;
         }
         case PickupType::Chest:
             if (!pk.opened) {
-                scene_.addLight(PointLight{pk.body.pos - Vec2{0.0f, 3.0f}, 0.7f, 0.55f, 0.25f, 30.0f, 3.0f});
+                scene_.addLight(PointLight{at - Vec2{0.0f, 3.0f}, 0.7f, 0.55f, 0.25f, 30.0f, 3.0f});
                 ++lootLights;
             }
             break;

@@ -1,5 +1,7 @@
 #include "sim/Material.hpp"
 
+#include <cassert>
+
 #include "core/Math.hpp"
 #include "core/Rng.hpp"
 
@@ -91,6 +93,7 @@ private:
 void react(MatId a, MatId b, MatId aInto, MatId bInto, int chance) {
     auto add = [](MatId self, MatId other, MatId selfInto, MatId otherInto, int c) {
         uint8_t& n = g_tables.reactionCount[self];
+        assert(n < kMaxReactions && "raise kMaxReactions");
         if (n >= kMaxReactions) return;
         g_tables.reactions[self][n++] = Reaction{other, selfInto, otherInto, static_cast<uint8_t>(c)};
     };

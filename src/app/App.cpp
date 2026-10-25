@@ -203,7 +203,10 @@ int App::run() {
         }
 
         BeginDrawing();
-        if (!options_.turbo || frameCount_ % 4 == 0) scene_->render(static_cast<float>(accumulator / kTickDt));
+        if (!options_.turbo || frameCount_ % 4 == 0) {
+            scene_->render(static_cast<float>(accumulator / kTickDt));
+            ui::endFrame();
+        }
         EndDrawing();
 
         ++frameCount_;

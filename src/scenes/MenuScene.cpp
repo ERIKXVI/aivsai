@@ -156,8 +156,8 @@ void MenuScene::tick() {
             particles_.addMatter({static_cast<float>(x), 1.0f}, {0.0f, 120.0f}, ember, 3.0f);
         }
     }
-    // Drains: matter reaching the bottom edge leaves the stage.
-    for (int y = kMenuH - 3; y < kMenuH; ++y)
+    // Drains: matter reaching the bottom of a drain pit (just above its bedrock) leaves the stage.
+    for (int y = kMenuH - 6; y < kMenuH - 3; ++y)
         for (int x = 0; x < kMenuW; ++x) {
             Phase p = phaseOf(w.at(x, y).mat);
             if (p == Phase::Liquid || p == Phase::Powder) w.clear(x, y);
@@ -213,6 +213,7 @@ void MenuScene::render(float alpha) {
     case Panel::Help: drawHelp(); break;
     case Panel::Loadout: drawLoadouts(); break;
     case Panel::Grimoire:
+        grimoire_.setReplayAbandonsRun(suspended_.has_value());
         if (grimoire_.draw(app_)) panel_ = Panel::Main;
         if (const auto replay = grimoire_.takeReplayRequest(); replay && *replay < app_.profile().history.size()) {
             const RunHistoryEntry entry = app_.profile().history[*replay]; // copied: abandoning may rewrite history
@@ -260,10 +261,22 @@ void MenuScene::drawMain() {
     if (item("Begin the Great Work")) panel_ = Panel::Loadout;
     if (suspended_ && ui::hovered(last))
         ui::tooltip("Begin the Great Work", "Starting anew abandons your suspended run.", ui::color::kDanger);
-    // Everyone attempts the daily rite with the same seed and the same kit.
-    if (item("Daily Rite")) startRun(true, LoadoutId::Apprentice);
-    if (ui::hovered(last))
-        ui::tooltip("Daily Rite", "Today's seed, the same for every alchemist, with the Apprentice's kit.", ui::color::kGold);
+    // Everyone attempts the daily rite with the same seed and the same kit. With a run
+    // suspended, the first press only asks for confirmation.
+    const int dailyIndex = index;
+    if (item(confirmDaily_ ? "Abandon run for the Rite?" : "Daily Rite")) {
+        if (suspended_ && !confirmDaily_) confirmDaily_ = true;
+        else startRun(true, LoadoutId::Apprentice);
+    }
+    const bool dailyHot = ui::hovered(last) || nav_.focused(dailyIndex);
+    if (!dailyHot) confirmDaily_ = false;
+    if (ui::hovered(last)) {
+        if (suspended_)
+            ui::tooltip("Daily Rite", "Today's seed with the Apprentice's kit. Starting it abandons your suspended run.",
+                        ui::color::kDanger);
+        else
+            ui::tooltip("Daily Rite", "Today's seed, the same for every alchemist, with the Apprentice's kit.", ui::color::kGold);
+    }
     Settings& st = app_.settings();
     int d = clamp(st.difficulty, 0, 2);
     if (item(std::string("Difficulty: ") + kDifficultyNames[d])) {

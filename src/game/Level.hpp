@@ -117,6 +117,7 @@ public:
         return true;
     }
     void addHitStop(int ticks) { hitStop_ = std::min(4, std::max(hitStop_, ticks)); }
+    bool hitStopActive() const { return hitStop_ > 0; }
     float time() const { return time_; }
     uint32_t ticks() const { return ticks_; }
     float shake() const { return shake_; }
