@@ -92,8 +92,10 @@ The descent follows the four stages of the alchemical Great Work:
   dirty chunks in four checkerboard phases on a fork-join thread pool. A cell never moves
   far enough to touch a chunk updated in the same phase, so no locking is needed. Rules
   cover powders, liquids (density, viscosity), gases, fire, burning, corrosion, melting,
-  electricity and a pairwise reaction table. Runs are deterministic for a seed (verified
-  by identical bot runs on Linux and Windows builds).
+  electricity and a pairwise reaction table. Nothing is left floating when the world is
+  carved away: cut vines crumble into litter, felled trees shed whatever is no longer
+  joined to their roots, and hanging lanterns drop and shatter into burning oil. Runs are
+  deterministic for a seed (verified by identical bot runs on Linux and Windows builds).
 - **Rendering**: the world is drawn at cell resolution (≈480×270) into albedo and
   emission layers. A light pass ray-marches up to 64 point lights through the occlusion
   field (emissive matter such as lava becomes lights automatically), a dual-Kawase
