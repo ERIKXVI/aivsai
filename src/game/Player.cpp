@@ -61,7 +61,8 @@ void Player::tick(Level& level) {
     animTime_ += dt;
     castFlash_ = std::max(0.0f, castFlash_ - dt);
 
-    unbury(body, level.world());
+    // Never leave the alchemist entombed: if no free spot is near, dig one out.
+    if (!unbury(body, level.world())) level.dig(body.pos, std::max(body.halfW, body.halfH) + 1.0f, 254, false);
     Environment env = sampleEnvironment(body, level.world());
     if (run_.hasPerk(PerkId::PhoenixStep)) {
         // The phoenix is healed by ordinary flames and never set alight; lava still burns.
@@ -333,10 +334,13 @@ void Player::collectGold(Level& level) {
             int x = floorToInt(body.pos.x) + level.rng().rangeInt(-r, r);
             int y = floorToInt(body.pos.y) + level.rng().rangeInt(-r, r);
             if (!world.inBounds(x, y) || world.at(x, y).mat != mat::GoldDust) continue;
-            Cell c = world.at(x, y);
             world.clear(x, y);
-            Vec2 from{static_cast<float>(x), static_cast<float>(y)};
-            level.particles().addMatter(from, (body.pos - from).normalized() * 220.0f, c, 0.4f);
+            ++collected;
+            // The grain is banked at once; a glint streaks to the alchemist to show it.
+            const Vec2 from{static_cast<float>(x), static_cast<float>(y)};
+            const Vec2 to = body.pos - from;
+            level.particles().addVisual(from, to.normalized() * 220.0f, {255, 214, 90, 255}, {255, 190, 60, 200},
+                                        std::max(kTickDt, to.length() / 220.0f), 0.0f, partflag::kFade | partflag::kNoGravity);
         }
     }
     if (collected > 0) {

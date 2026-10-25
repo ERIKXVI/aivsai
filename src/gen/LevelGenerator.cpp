@@ -19,6 +19,10 @@ Generator::Generator(BiomeId biome, int levelIndex, uint32_t seed, const GenOpti
       seed_(seed), rng_(seed), surface_(levelIndex == 0), omen_(omenFor(levelIndex, seed)) {
     // The first stage begins outdoors on the mountainside, so it gets extra sky above.
     if (surface_) h_ += kSkyRows;
+    // The World rounds its size up to whole chunks; generate exactly that area so the bottom
+    // rows are painted (and sealed) too.
+    w_ = (w_ + World::kChunkSize - 1) / World::kChunkSize * World::kChunkSize;
+    h_ = (h_ + World::kChunkSize - 1) / World::kChunkSize * World::kChunkSize;
 }
 
 LevelLayout Generator::run(ThreadPool& pool) {

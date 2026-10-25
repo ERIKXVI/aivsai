@@ -11,6 +11,7 @@
 #include "audio/Audio.hpp"
 #include "core/ThreadPool.hpp"
 #include "game/Actor.hpp"
+#include "game/Body.hpp"
 #include "game/Enemy.hpp"
 #include "game/Level.hpp"
 #include "gen/LevelGenerator.hpp"
@@ -243,4 +244,18 @@ TEST_CASE("sanctum lanterns stay hung") {
     CHECK(lanterns > 0);
     for (int i = 0; i < 60; ++i) level.tick(PlayerInput{});
     CHECK(level.lanterns().size() == lanterns);
+}
+
+TEST_CASE("a body frozen into solid ice is freed") {
+    initMaterials();
+    World w(128, 128, 3);
+    for (int y = 50; y < 72; ++y)
+        for (int x = 50; x < 72; ++x) w.place(x, y, mat::Ice);
+    Body b;
+    b.halfW = 3.0f;
+    b.halfH = 6.0f;
+    b.pos = b.prevPos = {61.0f, 61.0f};
+    CHECK(boxBlocked(w, b.pos, b.halfW, b.halfH));
+    CHECK(unbury(b, w));
+    CHECK(!boxBlocked(w, b.pos, b.halfW, b.halfH));
 }

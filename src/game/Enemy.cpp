@@ -33,6 +33,7 @@ Enemy::Enemy(EnemyType type, Vec2 pos, uint32_t id_, float hpScale) : type_(type
     resist = def_->resist;
     team = Team::Monster;
     home_ = pos;
+    lastSeen_ = pos;
     wanderDir_ = (id_ & 1u) ? 1.0f : -1.0f;
     attackTimer_ = def_->attackCooldown * 0.5f;
     if (def_->behaviour == Behaviour::Burrower) {
@@ -514,6 +515,9 @@ void Enemy::tickBoss(Level& level, Vec2 toPlayer, bool sees) {
 }
 
 void Enemy::onDamaged(Level& level, const DamageInfo& info, float dealt) {
+    // Provoked without seeing the player: head for the shooter, or hold position when the harm
+    // came from the world (burning, lava, a stray blast).
+    if (!aggro_) lastSeen_ = info.source == Team::Player ? level.player().body.pos : body.pos;
     aggro_ = true;
     lostSight_ = 0.0f;
     if (team == Team::Monster) level.run().stats.damageDealt += dealt;

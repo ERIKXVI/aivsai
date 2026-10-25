@@ -1,6 +1,8 @@
 #include "game/Body.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 #include "sim/World.hpp"
 
@@ -137,8 +139,8 @@ Environment sampleEnvironment(const Body& b, const World& world) {
 bool unbury(Body& b, World& world) {
     if (!boxBlocked(world, b.pos, b.halfW, b.halfH)) return true;
     // First try to pop free by moving a little.
-    static constexpr Vec2 kOffsets[] = {{0, -1}, {0, -2}, {0, -3}, {-1, 0}, {1, 0}, {-2, -1}, {2, -1},
-                                        {0, -4}, {-3, 0}, {3, 0}, {0, -5}, {0, -6}, {-4, -2}, {4, -2}};
+    static constexpr Vec2 kOffsets[] = {{0, -1}, {0, -2}, {0, -3}, {-1, 0}, {1, 0}, {-2, -1}, {2, -1}, {0, -4},
+                                        {-3, 0}, {3, 0}, {0, 1},  {0, 2},  {0, -5}, {0, -6}, {-4, -2}, {4, -2}};
     for (Vec2 o : kOffsets) {
         if (!boxBlocked(world, b.pos + o, b.halfW, b.halfH)) {
             b.pos += o;
@@ -162,7 +164,24 @@ bool unbury(Body& b, World& world) {
             }
         }
     }
-    return !boxBlocked(world, b.pos, b.halfW, b.halfH);
+    if (!boxBlocked(world, b.pos, b.halfW, b.halfH)) return true;
+    // Encased in solid matter (water frozen around the body, lava cooled to obsidian): move to
+    // the nearest free spot, searching ring by ring in a fixed order so runs stay deterministic.
+    constexpr int kMaxRing = 16;
+    for (int r = 1; r <= kMaxRing; ++r) {
+        for (int dy = -r; dy <= r; ++dy) {
+            for (int dx = -r; dx <= r; ++dx) {
+                if (std::max(std::abs(dx), std::abs(dy)) != r) continue;
+                const Vec2 o{static_cast<float>(dx), static_cast<float>(dy)};
+                if (!boxBlocked(world, b.pos + o, b.halfW, b.halfH)) {
+                    b.pos += o;
+                    b.prevPos = b.pos;
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }
 
 } // namespace pm
