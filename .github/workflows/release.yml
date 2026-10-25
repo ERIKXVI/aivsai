@@ -8,6 +8,10 @@ on:
       tag:
         description: "Release tag (e.g. v1.0.0)"
         required: true
+      dry_run:
+        description: "Build and package only; upload the zip as an artifact instead of publishing"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -46,10 +50,19 @@ jobs:
           Copy-Item README.md dist/PrimaMateria/README.md
           Compress-Archive -Path dist/PrimaMateria -DestinationPath "PrimaMateria-${{ steps.tag.outputs.name }}-windows-x64.zip"
 
+      - name: Upload package (dry run)
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: PrimaMateria-${{ steps.tag.outputs.name }}-windows-x64
+          path: PrimaMateria-${{ steps.tag.outputs.name }}-windows-x64.zip
+
       - name: Publish release
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.name }}
+          target_commitish: ${{ github.sha }}
           name: Prima Materia ${{ steps.tag.outputs.name }}
           body_path: docs/RELEASE_NOTES.md
           files: PrimaMateria-${{ steps.tag.outputs.name }}-windows-x64.zip
