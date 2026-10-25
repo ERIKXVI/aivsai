@@ -67,6 +67,9 @@ Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-p
 - **Vaults** hide off the main route: an alchemist's laboratory with a brimming cauldron, a
   powder magazine waiting for a spark, a flooded crypt, a guarded treasury and a healing
   spring.
+- **Guardians:** each of the first four stages hides a lair, marked on the map, where a giant
+  keeps a hoard - the Black Toad, the White Wraith, the Mine King and the Red Colossus. The
+  fight is optional; win it and the guardian's essence becomes a perk.
 - **Sanctums** between stages fully heal you and offer a shop and a choice of perks
   (22 perks, from *Salamander Skin* to a homunculus companion).
 - **Save & Quit** from the pause menu (or just close the window) and *Continue the Work*
@@ -117,8 +120,9 @@ automatically become shadow-casting lights - and a dual-Kawase pyramid provides 
 bloom. The final composite runs at screen resolution with sub-pixel camera scrolling,
 sharp-bilinear scaling, solid-depth shading, ACES tonemapping and screen effects.
 
-**Game (`src/game`).** Data-driven spells, wands and creatures; 14 monster types with 11
-behaviours (including a worm that tunnels through rock and a multi-phase boss); a fixed
+**Game (`src/game`).** Data-driven spells, wands and creatures; 17 monster types with 11
+behaviours (including a worm that tunnels through rock, four lair guardians and a
+multi-phase boss); a fixed
 60 Hz simulation with interpolated rendering for smooth high-refresh-rate play.
 
 **Generation (`src/gen`).** Levels combine domain-warped noise caves with a guaranteed
