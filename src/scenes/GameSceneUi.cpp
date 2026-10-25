@@ -618,9 +618,17 @@ void GameScene::drawPauseMenu() {
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
     const float s = static_cast<float>(ui::scale());
     DrawRectangle(0, 0, app_.screenWidth(), app_.screenHeight(), Color{0, 0, 0, 150});
-    Rectangle panelR{sw * 0.5f - 80.0f * s, sh * 0.5f - 66.0f * s, 160.0f * s, 132.0f * s};
+    Rectangle panelR{sw * 0.5f - 80.0f * s, sh * 0.5f - 72.0f * s, 160.0f * s, 144.0f * s};
     ui::panel(panelR);
     ui::text("PAUSED", sw * 0.5f, panelR.y + 8.0f * s, ui::fontSize(ui::scale() + 1), ui::color::kGold, ui::Align::Center);
+    // The run's seed (and ordeal, hover for its rules) at the foot of the panel.
+    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const std::string footer = run_.ordeal > 0 ? TextFormat("Seed %u - %s", run_.seed, ordealLabel(run_.ordeal).c_str())
+                                               : TextFormat("Seed %u", run_.seed);
+    const float footY = panelR.y + panelR.height - static_cast<float>(small) - 6.0f * s;
+    ui::text(footer, sw * 0.5f, footY, small, ui::color::kTextDim, ui::Align::Center);
+    if (run_.ordeal > 0 && ui::hovered({panelR.x, footY, panelR.width, static_cast<float>(small)}))
+        ui::tooltip(ordealLabel(run_.ordeal), ordealRules(run_.ordeal), Color{255, 140, 110, 255});
     float bw = 130.0f * s, bh = 18.0f * s, x = sw * 0.5f - bw * 0.5f, y = panelR.y + 30.0f * s;
     pauseNav_.update(4);
     int index = 0;
