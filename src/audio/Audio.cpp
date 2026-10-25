@@ -33,9 +33,10 @@ Audio::~Audio() {
 void Audio::play(Sfx sfx, float volume, float pitch, float pan) {
     if (!available_) return;
     const int i = static_cast<int>(sfx);
-    // Avoid machine-gunning the exact same sound within a couple of milliseconds.
-    if (time_ - lastPlayed_[i] < 0.025) volume *= 0.4f;
-    lastPlayed_[i] = static_cast<float>(time_);
+    // Avoid machine-gunning: soften a repeat of the same sound within 25 ms.
+    constexpr double kRetriggerWindow = 0.025;
+    if (time_ - lastPlayed_[i] < kRetriggerWindow) volume *= 0.4f;
+    lastPlayed_[i] = time_;
     Sound& s = sounds_[i][nextVoice_[i]];
     nextVoice_[i] = (nextVoice_[i] + 1) % kVoices;
     if (s.frameCount == 0) return;
@@ -73,7 +74,6 @@ void Audio::setAmbient(const AmbientLevels& levels) {
 
 void Audio::update(float dt) {
     time_ += dt;
-    if (music_) music_->update(dt);
 }
 
 } // namespace pm

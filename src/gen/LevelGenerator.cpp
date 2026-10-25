@@ -150,13 +150,13 @@ LevelLayout generateLevel(BiomeId biome, int levelIndex, uint32_t seed, ThreadPo
 bool pathExists(const World& world, Vec2 from, Vec2 to, std::vector<uint8_t>* reachedBlocks) {
     NavGrid nav;
     nav.build(world);
-    if (!nav.computeDistances(to)) return false;
+    const bool goalFits = nav.computeDistances(to); // distances are reset even when this fails
     if (reachedBlocks) {
-        reachedBlocks->assign(nav.distances().size(), 0);
-        for (size_t i = 0; i < nav.distances().size(); ++i)
-            (*reachedBlocks)[i] = nav.distances()[i] != NavGrid::kUnreachable ? 1 : 0;
+        const std::vector<int>& dist = nav.distances();
+        reachedBlocks->resize(dist.size());
+        for (size_t i = 0; i < dist.size(); ++i) (*reachedBlocks)[i] = dist[i] != NavGrid::kUnreachable ? 1 : 0;
     }
-    return nav.distanceAt(from) != NavGrid::kUnreachable;
+    return goalFits && nav.distanceAt(from) != NavGrid::kUnreachable;
 }
 
 LevelLayout generateSanctum(int levelIndex, uint32_t seed, ThreadPool& pool) {

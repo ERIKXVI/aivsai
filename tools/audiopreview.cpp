@@ -1,6 +1,7 @@
 // Developer tool: renders every sound effect and a few minutes of generative music to WAV
 // files and prints level statistics, so audio can be sanity-checked without speakers.
 //   pm_audiopreview <outdir>
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -12,11 +13,11 @@
 
 namespace {
 
-const char* kSfxNames[] = {"cast_spark", "cast_bolt", "cast_fire", "cast_heavy", "cast_magic", "cast_lightning",
-                           "dig", "explosion_small", "explosion_big", "hit", "enemy_hurt", "enemy_die",
-                           "player_hurt", "player_die", "jump", "land", "splash", "pickup", "coin", "potion",
-                           "drink", "chest_open", "portal", "perk", "ui_click", "ui_hover", "ui_deny", "sizzle",
-                           "freeze", "squish", "roar", "heartbeat", "rumble"};
+constexpr const char* kSfxNames[] = {"cast_spark", "cast_bolt", "cast_fire", "cast_heavy", "cast_magic",
+                                     "cast_lightning", "dig", "explosion_small", "explosion_big", "hit", "enemy_hurt",
+                                     "enemy_die", "player_hurt", "player_die", "jump", "land", "splash", "pickup",
+                                     "coin", "potion", "drink", "chest_open", "portal", "perk", "ui_click", "ui_hover",
+                                     "ui_deny", "sizzle", "freeze", "squish", "roar", "heartbeat", "rumble"};
 
 struct Stats {
     float peak = 0.0f, rms = 0.0f;
@@ -50,14 +51,20 @@ int main(int argc, char** argv) {
         const auto* data = static_cast<const short*>(w.data);
         for (unsigned j = 0; j < w.frameCount; ++j) f[j] = static_cast<float>(data[j]) / 32768.0f;
         Stats st = analyze(f.data(), f.size());
-        std::printf("sfx %-16s %5.2fs peak %.2f rms %.3f%s\n", kSfxNames[i], w.frameCount / 44100.0, st.peak, st.rms,
+        std::printf("sfx %-16s %5.2fs peak %.2f rms %.3f%s\n", kSfxNames[i],
+                    static_cast<double>(w.frameCount) / w.sampleRate, st.peak, st.rms,
                     st.finite ? "" : "  NON-FINITE!");
-        ExportWave(w, (out + "/sfx_" + kSfxNames[i] + ".wav").c_str());
+        const std::string path = out + "/sfx_" + kSfxNames[i] + ".wav";
+        if (!ExportWave(w, path.c_str())) {
+            std::fprintf(stderr, "failed to write %s\n", path.c_str());
+            UnloadWave(w);
+            return 1;
+        }
         UnloadWave(w);
     }
 
     // Music: 24 s per biome mode, intensity ramping from calm to combat.
-    for (int mode = 0; mode < 6; ++mode) {
+    for (int mode = 0; mode < MusicSynth::kModeCount; ++mode) {
         MusicSynth synth;
         synth.setVolume(0.7f);
         const int seconds = 24;
@@ -75,7 +82,11 @@ int main(int argc, char** argv) {
         std::vector<short> pcm(buffer.size());
         for (size_t i = 0; i < buffer.size(); ++i) pcm[i] = static_cast<short>(std::clamp(buffer[i], -1.0f, 1.0f) * 32767.0f);
         Wave w{static_cast<unsigned>(buffer.size() / 2), MusicSynth::kSampleRate, 16, 2, pcm.data()};
-        ExportWave(w, (out + "/music_mode" + std::to_string(mode) + ".wav").c_str());
+        const std::string path = out + "/music_mode" + std::to_string(mode) + ".wav";
+        if (!ExportWave(w, path.c_str())) {
+            std::fprintf(stderr, "failed to write %s\n", path.c_str());
+            return 1;
+        }
     }
     return 0;
 }

@@ -136,8 +136,9 @@ void Generator::placeVaults(World& world, LevelLayout& out) {
             if (std::abs(x - startX) % 14 < 2 && phaseOf(world.at(x, door - kVaultDoorHeight).mat) == Phase::Solid)
                 world.place(x, door - kVaultDoorHeight, mat::Wood);
         }
-        const Vec2 inside{static_cast<float>(plan.x0) + plan.w * 0.5f, static_cast<float>(plan.y0 + plan.h) - 10.0f};
-        if (!pathExists(world, start_, inside)) {
+        const Rectf bounds{static_cast<float>(plan.x0), static_cast<float>(plan.y0), static_cast<float>(plan.w),
+                           static_cast<float>(plan.h)};
+        if (!pathExists(world, start_, vaultProbePoint(bounds))) {
             size_t i = 0;
             for (int y = sy0; y <= sy1; ++y)
                 for (int x = sx0; x <= sx1; ++x) world.set(x, y, saved[i++]);
@@ -148,7 +149,7 @@ void Generator::placeVaults(World& world, LevelLayout& out) {
         nav.build(world);
         nav.computeDistances(start_);
         placed.push_back({c.x, c.y, static_cast<float>(plan.w), static_cast<float>(plan.h)});
-        out.vaults.push_back({static_cast<float>(plan.x0), static_cast<float>(plan.y0), static_cast<float>(plan.w), static_cast<float>(plan.h)});
+        out.vaults.push_back(bounds);
         used |= 1u << static_cast<unsigned>(plan.kind);
     }
 }

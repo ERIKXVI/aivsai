@@ -21,7 +21,7 @@ TEST_CASE("stages I-IV hide a guardian's lair") {
             const LevelLayout layout = generateLevel(biomeForDepth(index), index, seed, pool);
             ++levels;
             for (const SpawnPoint& s : layout.spawns) lairs += s.kind == SpawnKind::LairGuardian ? 1 : 0;
-            for (const Rectf& v : layout.vaults) CHECK(pathExists(*layout.world, layout.playerStart, {v.x + v.w * 0.5f, v.y + v.h - 10.0f}));
+            for (const Rectf& v : layout.vaults) CHECK(pathExists(*layout.world, layout.playerStart, vaultProbePoint(v)));
         }
     std::printf("    lairs placed: %d of %d stages\n", lairs, levels);
     CHECK(lairs >= levels * 3 / 4);
@@ -39,8 +39,7 @@ TEST_CASE("generated levels are traversable from entrance to exit") {
             CHECK(!layout.spawns.empty());
             // Vaults must be reachable through their doorways.
             for (const Rectf& v : layout.vaults) {
-                const Vec2 inside{v.x + v.w * 0.5f, v.y + v.h - 10.0f};
-                const bool open = pathExists(*layout.world, layout.playerStart, inside);
+                const bool open = pathExists(*layout.world, layout.playerStart, vaultProbePoint(v));
                 if (!open) std::printf("    sealed vault: seed %u level %d at %.0f,%.0f\n", seed, level, v.x, v.y);
                 CHECK(open);
             }

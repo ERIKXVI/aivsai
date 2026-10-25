@@ -58,6 +58,13 @@ struct LevelLayout {
     std::vector<TreeShape> trees;
 };
 
+/// Height above a vault's outer bottom edge of the point generation guarantees reachable.
+constexpr float kVaultProbeHeight = 10.0f;
+
+/// The point inside a vault (outer bounds, walls included) that generation checks is
+/// reachable from the entrance before keeping the vault: centred, just above its floor.
+constexpr Vec2 vaultProbePoint(const Rectf& v) { return {v.x + v.w * 0.5f, v.y + v.h - kVaultProbeHeight}; }
+
 struct GenOptions {
     int width = 832;
     int height = 1472;
@@ -77,7 +84,9 @@ LevelLayout generateSanctum(int levelIndex, uint32_t seed, ThreadPool& pool);
 
 /// True if a player-sized body can travel from `from` to `to` through open space
 /// (liquids count as open). Used by tests and as a generation safety net.
-/// `reachedBlocks`, when given, receives the BFS visit mask over 4x4-cell blocks (debugging).
+/// `reachedBlocks`, when given, always receives the BFS visit mask over NavGrid::kBlock-sized
+/// blocks (row-major, (world.width() / kBlock) x (world.height() / kBlock); all zero when `to`
+/// has no free space). Debugging only.
 bool pathExists(const World& world, Vec2 from, Vec2 to, std::vector<uint8_t>* reachedBlocks = nullptr);
 
 } // namespace pm

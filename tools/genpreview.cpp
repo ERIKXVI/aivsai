@@ -1,12 +1,16 @@
 // Developer tool: generates levels and writes full-size PNG previews (no window needed).
 //   pm_genpreview <outdir> [seed]
-#include <cstdio>
+// Exits non-zero when a level's entrance-to-exit route or a main-path segment is blocked.
 #include <chrono>
+#include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <vector>
 
 #include "core/ThreadPool.hpp"
 #include "gen/LevelGenerator.hpp"
+#include "gen/Navigation.hpp"
 #include "raylib.h"
 #include "render/WorldRenderer.hpp"
 #include "sim/World.hpp"
@@ -17,6 +21,7 @@ int main(int argc, char** argv) {
     uint32_t seed = argc > 2 ? static_cast<uint32_t>(std::strtoul(argv[2], nullptr, 10)) : 1234u;
     initMaterials();
     ThreadPool pool;
+    bool allOk = true;
     for (int level = 0; level < kStageCount; ++level) {
         auto t0 = std::chrono::steady_clock::now();
         LevelLayout layout = generateLevel(biomeForDepth(level), level, seed + static_cast<uint32_t>(level), pool);
@@ -45,15 +50,19 @@ int main(int argc, char** argv) {
         ImageDrawCircle(&img, static_cast<int>(layout.playerStart.x), static_cast<int>(layout.playerStart.y) - 5, 6, SKYBLUE);
         ImageDrawCircle(&img, static_cast<int>(layout.exitPos.x), static_cast<int>(layout.exitPos.y) - 5, 6, WHITE);
         std::vector<uint8_t> reached;
-        bool ok = pathExists(w, layout.playerStart, layout.exitPos, &reached);
-        for (int by = 0; by < w.height() / 4; ++by)
-            for (int bx = 0; bx < w.width() / 4; ++bx)
-                if (reached[static_cast<size_t>(by) * (w.width() / 4) + bx]) {
-                    Color& d = px[(by * 4 + 2) * w.width() + bx * 4 + 2];
+        const bool ok = pathExists(w, layout.playerStart, layout.exitPos, &reached);
+        allOk = allOk && ok;
+        constexpr int kB = NavGrid::kBlock;
+        const int blocksX = w.width() / kB, blocksY = w.height() / kB;
+        for (int by = 0; by < blocksY; ++by)
+            for (int bx = 0; bx < blocksX; ++bx)
+                if (reached[static_cast<size_t>(by) * blocksX + bx]) {
+                    Color& d = px[(by * kB + kB / 2) * w.width() + bx * kB + kB / 2];
                     d = Color{0, 255, 120, 255};
                 }
         for (size_t i = 1; i < layout.mainPath.size(); ++i) {
-            bool seg = pathExists(w, layout.mainPath[i - 1], layout.mainPath[i]);
+            const bool seg = pathExists(w, layout.mainPath[i - 1], layout.mainPath[i]);
+            allOk = allOk && seg;
             if (!seg) std::printf("  segment %zu (%.0f,%.0f)->(%.0f,%.0f) blocked\n", i, layout.mainPath[i - 1].x,
                                   layout.mainPath[i - 1].y, layout.mainPath[i].x, layout.mainPath[i].y);
         }
@@ -63,5 +72,5 @@ int main(int argc, char** argv) {
         std::printf("level %d (%s): gen %.0f ms, path %s, spawns %zu\n", level, biomeDef(layout.biome).name,
                     std::chrono::duration<double, std::milli>(t1 - t0).count(), ok ? "OK" : "BLOCKED", layout.spawns.size());
     }
-    return 0;
+    return allOk ? 0 : 1;
 }

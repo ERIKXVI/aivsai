@@ -77,6 +77,7 @@ public:
     /// Music control (biome mood and combat intensity).
     void setMusicMood(int root, int mode, float intensity);
     void setAmbient(const AmbientLevels& levels);
+    /// Advances the clock that softens rapid repeats of the same sound.
     void update(float dt);
 
 private:
@@ -86,7 +87,7 @@ private:
     static constexpr int kVoices = 4; ///< round-robin aliases per sound
     std::array<std::array<Sound, kVoices>, static_cast<int>(Sfx::Count)> sounds_{};
     std::array<int, static_cast<int>(Sfx::Count)> nextVoice_{};
-    std::array<float, static_cast<int>(Sfx::Count)> lastPlayed_{};
+    std::array<double, static_cast<int>(Sfx::Count)> lastPlayed_{};
     double time_ = 0.0;
     std::unique_ptr<MusicEngine> music_;
 };

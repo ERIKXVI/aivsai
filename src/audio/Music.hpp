@@ -16,6 +16,8 @@ namespace pm {
 class MusicSynth {
 public:
     static constexpr int kSampleRate = 44100;
+    /// Number of scale modes; setMood clamps `mode` to [0, kModeCount).
+    static constexpr int kModeCount = 6;
 
     MusicSynth();
     ~MusicSynth();
@@ -51,7 +53,6 @@ public:
     void setVolume(float v) { synth_.setVolume(v); }
     void setMood(int root, int mode, float intensity) { synth_.setMood(root, mode, intensity); }
     void setAmbient(float fire, float water, float lava) { synth_.setAmbient(fire, water, lava); }
-    void update(float) {}
 
 private:
     static void streamCallback(void* buffer, unsigned int frames);

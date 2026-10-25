@@ -11,8 +11,8 @@ namespace pm {
 
 namespace {
 
-constexpr int kRate = 44100;
-constexpr int kModes = 6;
+constexpr int kRate = MusicSynth::kSampleRate;
+constexpr int kModes = MusicSynth::kModeCount;
 
 // Phrygian, Lydian, Dorian, Harmonic minor, Phrygian dominant, Ionian.
 constexpr int kScales[kModes][7] = {
