@@ -20,18 +20,30 @@ jobs:
   release:
     name: Build and publish Windows release
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
 
+      # The tag comes from user input: pass it through the environment (never splice it into the
+      # script) and accept only vMAJOR.MINOR.PATCH[-suffix], so later steps can use it safely.
       - name: Resolve tag
         id: tag
         shell: bash
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "name=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          name="${INPUT_TAG:-$GITHUB_REF_NAME}"
+          if [[ ! "$name" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::Release tag '$name' is not of the form vMAJOR.MINOR.PATCH[-suffix]"; exit 1
           fi
+          # The tag must match project(VERSION), which also stamps the exe's version resource.
+          # CRLF-safe: Windows runners check out with autocrlf, so do not anchor on '$'.
+          ver=$(sed -n 's/^[[:space:]]*VERSION[[:space:]][[:space:]]*\([0-9][0-9.]*\).*/\1/p' CMakeLists.txt | head -n1)
+          base="${name#v}"; base="${base%%-*}"
+          if [[ "$base" != "$ver" ]]; then
+            echo "::error::Tag $name does not match project VERSION '$ver' in CMakeLists.txt"; exit 1
+          fi
+          echo "name=$name" >> "$GITHUB_OUTPUT"
 
       - name: Configure
         run: cmake -S . -B build -A x64
@@ -52,7 +64,7 @@ jobs:
 
       - name: Upload package (dry run)
         if: ${{ github.event.inputs.dry_run == 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: PrimaMateria-${{ steps.tag.outputs.name }}-windows-x64
           path: PrimaMateria-${{ steps.tag.outputs.name }}-windows-x64.zip

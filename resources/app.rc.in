@@ -1,11 +1,13 @@
-// Windows resources: application icon and version information.
+// Windows resources (application icon and version information). CMake's configure_file() writes
+// <build>/generated/app.rc from resources/app.rc.in, stamping the version from project(VERSION):
+// edit the template, not the generated copy.
 #include <winver.h>
 
-IDI_ICON1 ICON "icon.ico"
+IDI_ICON1 ICON "@PROJECT_SOURCE_DIR@/resources/icon.ico"
 
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION     1,0,0,0
-PRODUCTVERSION  1,0,0,0
+FILEVERSION     @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+PRODUCTVERSION  @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
 FILEOS          VOS_NT_WINDOWS32
 FILETYPE        VFT_APP
 BEGIN
@@ -15,11 +17,11 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "Prima Materia"
             VALUE "FileDescription",  "Prima Materia - a falling-sand alchemy roguelite"
-            VALUE "FileVersion",      "1.0.0"
+            VALUE "FileVersion",      "@PROJECT_VERSION@"
             VALUE "InternalName",     "PrimaMateria"
             VALUE "OriginalFilename", "PrimaMateria.exe"
             VALUE "ProductName",      "Prima Materia"
-            VALUE "ProductVersion",   "1.0.0"
+            VALUE "ProductVersion",   "@PROJECT_VERSION@"
         END
     END
     BLOCK "VarFileInfo"

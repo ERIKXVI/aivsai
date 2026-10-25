@@ -157,8 +157,9 @@ The descent follows the four stages of the alchemical Great Work:
   casting, loadouts, run saves, the chronicle and death advice.
 - `--autoplay --turbo [--god]`: a flow-field bot plays full runs headlessly; used for
   smoke tests, ASan runs and balance data (death causes per stage).
-- CI builds and tests on Windows (MSVC) and Linux; the Windows build is also exercised
-  under Wine with MinGW.
+- CI builds and tests on Windows (MSVC) and Linux (GCC, warnings as errors) and runs the
+  tests under ASan and UBSan with Clang; the Windows build is also exercised under Wine
+  with MinGW.
 
 ## Controls
 

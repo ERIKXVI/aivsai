@@ -1,8 +1,12 @@
 #pragma once
-// Tiny unit-test framework: TEST_CASE registers a function, CHECK records failures.
+// Tiny unit-test framework: TEST_CASE registers a function, CHECK records failures and REQUIRE
+// also ends the test. An exception escaping a test fails that test and the run goes on.
 
 #include <cstdio>
+#include <cstring>
+#include <exception>
 #include <functional>
+#include <utility>
 #include <vector>
 
 namespace pm::test {
@@ -26,16 +30,31 @@ struct Registrar {
     Registrar(const char* name, std::function<void()> fn) { registry().push_back({name, std::move(fn)}); }
 };
 
-inline int runAll() {
-    int failedTests = 0;
+/// Runs every test whose name contains `filter` (all of them when it is null or empty).
+inline int runAll(const char* filter = nullptr) {
+    int ran = 0, failedTests = 0;
     for (const auto& t : registry()) {
+        if (filter && *filter && !std::strstr(t.name, filter)) continue;
+        ++ran;
         int before = failures();
-        t.fn();
+        try {
+            t.fn();
+        } catch (const std::exception& e) {
+            std::printf("    uncaught exception: %s\n", e.what());
+            ++failures();
+        } catch (...) {
+            std::printf("    uncaught non-standard exception\n");
+            ++failures();
+        }
         bool ok = failures() == before;
         if (!ok) ++failedTests;
         std::printf("[%s] %s\n", ok ? " OK " : "FAIL", t.name);
     }
-    std::printf("\n%zu tests, %d failed\n", registry().size(), failedTests);
+    if (ran == 0 && filter && *filter) {
+        std::printf("no test name contains \"%s\"\n", filter);
+        return 1;
+    }
+    std::printf("\n%d tests, %d failed\n", ran, failedTests);
     return failedTests == 0 ? 0 : 1;
 }
 
@@ -53,5 +72,16 @@ inline int runAll() {
         if (!(expr)) {                                                                          \
             std::printf("    %s:%d: CHECK(%s) failed\n", __FILE__, __LINE__, #expr);           \
             ++::pm::test::failures();                                                           \
+        }                                                                                       \
+    } while (0)
+
+// Like CHECK, but stops the current test (returns from the enclosing function) on failure.
+// Use it when the following lines would dereference or index what was just checked.
+#define REQUIRE(expr)                                                                           \
+    do {                                                                                        \
+        if (!(expr)) {                                                                          \
+            std::printf("    %s:%d: REQUIRE(%s) failed\n", __FILE__, __LINE__, #expr);         \
+            ++::pm::test::failures();                                                           \
+            return;                                                                             \
         }                                                                                       \
     } while (0)

@@ -20,7 +20,9 @@ if(MSVC)
 endif()
 
 option(PM_BUILD_TESTS "Build the unit test executable" ON)
+option(PM_BUILD_TOOLS "Build developer tools (level and audio preview)" ON)
 option(PM_SANITIZE "Build with address/undefined sanitizers (GCC/Clang)" OFF)
+option(PM_WARNINGS_AS_ERRORS "Treat compiler warnings as errors in project targets (CI)" OFF)
 
 # ---------------------------------------------------------------------------
 # Dependencies
@@ -41,8 +43,8 @@ FetchContent_MakeAvailable(raylib)
 # ---------------------------------------------------------------------------
 # Embedded shaders
 # ---------------------------------------------------------------------------
-file(GLOB PM_SHADERS CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/shaders/*.vs" "${CMAKE_SOURCE_DIR}/shaders/*.fs")
-set(PM_GEN_DIR "${CMAKE_BINARY_DIR}/generated")
+file(GLOB PM_SHADERS CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/shaders/*.vs" "${PROJECT_SOURCE_DIR}/shaders/*.fs")
+set(PM_GEN_DIR "${PROJECT_BINARY_DIR}/generated")
 set(PM_EMBED_CPP "${PM_GEN_DIR}/EmbeddedShaders.cpp")
 set(PM_EMBED_HPP "${PM_GEN_DIR}/EmbeddedShaders.hpp")
 add_custom_command(
@@ -50,20 +52,33 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E make_directory "${PM_GEN_DIR}"
     COMMAND ${CMAKE_COMMAND}
         "-DOUTPUT=${PM_EMBED_CPP}" "-DHEADER=${PM_EMBED_HPP}" "-DINPUTS=${PM_SHADERS}"
-        -P "${CMAKE_SOURCE_DIR}/cmake/EmbedFiles.cmake"
-    DEPENDS ${PM_SHADERS} "${CMAKE_SOURCE_DIR}/cmake/EmbedFiles.cmake"
+        -P "${PROJECT_SOURCE_DIR}/cmake/EmbedFiles.cmake"
+    DEPENDS ${PM_SHADERS} "${PROJECT_SOURCE_DIR}/cmake/EmbedFiles.cmake"
     COMMENT "Embedding shaders"
     VERBATIM)
 
 # ---------------------------------------------------------------------------
+# Warning policy, linked PRIVATE into every first-party target (never raylib or GLFW)
+# ---------------------------------------------------------------------------
+add_library(pm_warnings INTERFACE)
+if(MSVC)
+    target_compile_options(pm_warnings INTERFACE /W4 /permissive- /utf-8 /wd4100 /wd4244 /wd4267 /wd4305
+        $<$<BOOL:${PM_WARNINGS_AS_ERRORS}>:/WX>)
+    target_compile_definitions(pm_warnings INTERFACE _CRT_SECURE_NO_WARNINGS)
+else()
+    target_compile_options(pm_warnings INTERFACE -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers
+        $<$<BOOL:${PM_WARNINGS_AS_ERRORS}>:-Werror>)
+endif()
+
+# ---------------------------------------------------------------------------
 # Game library (everything except the entry point, so tests can link it)
 # ---------------------------------------------------------------------------
-file(GLOB_RECURSE PM_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/src/*.cpp")
-list(REMOVE_ITEM PM_SOURCES "${CMAKE_SOURCE_DIR}/src/main.cpp")
+file(GLOB_RECURSE PM_SOURCES CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/src/*.cpp")
+list(REMOVE_ITEM PM_SOURCES "${PROJECT_SOURCE_DIR}/src/main.cpp")
 
 add_library(pm_game STATIC ${PM_SOURCES} "${PM_EMBED_CPP}")
-target_include_directories(pm_game PUBLIC "${CMAKE_SOURCE_DIR}/src" "${PM_GEN_DIR}")
-target_link_libraries(pm_game PUBLIC raylib)
+target_include_directories(pm_game PUBLIC "${PROJECT_SOURCE_DIR}/src" "${PM_GEN_DIR}")
+target_link_libraries(pm_game PUBLIC raylib PRIVATE pm_warnings)
 # GLFW's header (raylib bundles GLFW) for the click latch hook.
 target_include_directories(pm_game PRIVATE "${raylib_SOURCE_DIR}/src/external/glfw/include")
 target_compile_definitions(pm_game PUBLIC
@@ -73,19 +88,20 @@ target_compile_definitions(pm_game PUBLIC
 find_package(Threads REQUIRED)
 target_link_libraries(pm_game PUBLIC Threads::Threads)
 
+# Release optimisation comes from CMake's own per-config flags (/O2, -O3); these only add to it.
 if(MSVC)
-    target_compile_options(pm_game PRIVATE /W4 /permissive- /utf-8 /wd4100 /wd4244 /wd4267 /wd4305)
-    target_compile_definitions(pm_game PRIVATE _CRT_SECURE_NO_WARNINGS)
-    target_compile_options(pm_game PUBLIC $<$<CONFIG:Release>:/O2 /Oi /GL /fp:fast>)
+    # /O2 already implies /Oi; add whole-program optimisation and fast FP.
+    target_compile_options(pm_game PUBLIC $<$<CONFIG:Release>:/GL /fp:fast>)
     target_link_options(pm_game PUBLIC $<$<CONFIG:Release>:/LTCG>)
-else()
-    target_compile_options(pm_game PRIVATE -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers)
-    target_compile_options(pm_game PUBLIC $<$<CONFIG:Release>:-O2>)
+elseif(MINGW)
+    # Every executable (game, tests, tools) links the runtime statically: no DLLs to ship.
+    target_link_options(pm_game INTERFACE -static -static-libgcc -static-libstdc++)
 endif()
 
 if(PM_SANITIZE AND NOT MSVC)
-    target_compile_options(pm_game PUBLIC -fsanitize=address,undefined -fno-omit-frame-pointer)
-    target_link_options(pm_game PUBLIC -fsanitize=address,undefined)
+    # Make UBSan findings fatal: by default it only logs and exits 0, so ctest would pass.
+    target_compile_options(pm_game PUBLIC -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+    target_link_options(pm_game PUBLIC -fsanitize=address,undefined -fno-sanitize-recover=all)
 endif()
 
 # ---------------------------------------------------------------------------
@@ -93,40 +109,40 @@ endif()
 # ---------------------------------------------------------------------------
 set(PM_EXE_SOURCES src/main.cpp)
 if(WIN32)
-    list(APPEND PM_EXE_SOURCES resources/app.rc)
+    # Icon and VERSIONINFO, stamped from project(VERSION) (keep it MAJOR.MINOR.PATCH).
+    configure_file("${PROJECT_SOURCE_DIR}/resources/app.rc.in" "${PM_GEN_DIR}/app.rc" @ONLY)
+    list(APPEND PM_EXE_SOURCES "${PM_GEN_DIR}/app.rc")
 endif()
 add_executable(PrimaMateria WIN32 ${PM_EXE_SOURCES})
-target_link_libraries(PrimaMateria PRIVATE pm_game)
+target_link_libraries(PrimaMateria PRIVATE pm_game pm_warnings)
 if(MSVC)
     # Keep a standard main() while using the GUI subsystem (no console window).
     target_link_options(PrimaMateria PRIVATE /ENTRY:mainCRTStartup)
-elseif(MINGW)
-    # Every executable (game, tests, tools) links the runtime statically: no DLLs to ship.
-    target_link_options(pm_game INTERFACE -static -static-libgcc -static-libstdc++)
 endif()
 set_target_properties(PrimaMateria PROPERTIES
     OUTPUT_NAME "PrimaMateria"
-    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+    VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
 
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
 if(PM_BUILD_TESTS)
     enable_testing()
-    file(GLOB PM_TEST_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/tests/*.cpp")
+    file(GLOB PM_TEST_SOURCES CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/tests/*.cpp")
     add_executable(pm_tests ${PM_TEST_SOURCES})
-    target_link_libraries(pm_tests PRIVATE pm_game)
-    target_include_directories(pm_tests PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(pm_tests PRIVATE pm_game pm_warnings)
+    target_include_directories(pm_tests PRIVATE "${PROJECT_SOURCE_DIR}")
     add_test(NAME pm_tests COMMAND pm_tests)
+    # A hang (a deadlocked pool, a generator that never settles) fails the run instead of stalling CI.
+    set_tests_properties(pm_tests PROPERTIES TIMEOUT 600)
 endif()
 
 # ---------------------------------------------------------------------------
 # Developer tools
 # ---------------------------------------------------------------------------
-option(PM_BUILD_TOOLS "Build developer tools (level and audio preview)" ON)
 if(PM_BUILD_TOOLS)
     add_executable(pm_genpreview tools/genpreview.cpp)
-    target_link_libraries(pm_genpreview PRIVATE pm_game)
+    target_link_libraries(pm_genpreview PRIVATE pm_game pm_warnings)
     add_executable(pm_audiopreview tools/audiopreview.cpp)
-    target_link_libraries(pm_audiopreview PRIVATE pm_game)
+    target_link_libraries(pm_audiopreview PRIVATE pm_game pm_warnings)
 endif()

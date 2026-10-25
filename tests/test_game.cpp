@@ -64,7 +64,7 @@ TEST_CASE("wand decks cast modifiers, multicasts and triggers") {
     // A modifier boosts the projectile that follows it.
     CastShot plain = castOnce({SpellId::SparkBolt});
     CastShot boosted = castOnce({SpellId::DamageUp, SpellId::SparkBolt});
-    CHECK(plain.projectiles.size() == 1 && boosted.projectiles.size() == 1);
+    REQUIRE(plain.projectiles.size() == 1 && boosted.projectiles.size() == 1);
     CHECK(boosted.projectiles[0].def.damage > plain.projectiles[0].def.damage);
     CHECK(boosted.mana > plain.mana);
 
@@ -74,9 +74,9 @@ TEST_CASE("wand decks cast modifiers, multicasts and triggers") {
 
     // A trigger carries the next card as its impact payload.
     CastShot trig = castOnce({SpellId::SparkTrigger, SpellId::Bomb});
-    CHECK(trig.projectiles.size() == 1);
-    CHECK(trig.projectiles[0].payload != nullptr);
-    if (trig.projectiles[0].payload) CHECK(trig.projectiles[0].payload->projectiles.size() == 1);
+    REQUIRE(trig.projectiles.size() == 1);
+    REQUIRE(trig.projectiles[0].payload != nullptr);
+    CHECK(trig.projectiles[0].payload->projectiles.size() == 1);
 
     // Casting walks the deck and recharges once it is exhausted.
     Wand w = makeStarterWand(0);
@@ -181,24 +181,22 @@ TEST_CASE("suspended runs survive a save and load") {
     const auto path = std::filesystem::temp_directory_path() / "pm_test_run.sav";
     writeRunSave(run, path);
     const std::optional<RunState> loaded = readRunSave(path);
-    CHECK(loaded.has_value());
-    if (loaded) {
-        const RunState& r = *loaded;
-        CHECK(r.seed == run.seed && r.difficulty == run.difficulty && r.loadout == run.loadout && r.ordeal == 4 && r.essences == 0b0101);
-        CHECK(r.levelIndex == 3 && r.inSanctum && r.gold == 777 && r.activeWand == 1);
-        CHECK(r.hp == run.hp && r.maxHp == run.maxHp);
-        CHECK(r.wands.size() == run.wands.size());
-        for (size_t i = 0; i < r.wands.size() && i < run.wands.size(); ++i) {
-            CHECK(r.wands[i].name == run.wands[i].name);
-            CHECK(r.wands[i].slots == run.wands[i].slots);
-            CHECK(r.wands[i].castDelay == run.wands[i].castDelay && r.wands[i].manaMax == run.wands[i].manaMax);
-        }
-        CHECK(r.inventory == run.inventory);
-        CHECK(r.flask.mat == mat::Vitae && r.flask.amount == 333);
-        CHECK(r.perks == run.perks);
-        CHECK(r.stats.kills == 57 && r.stats.time == run.stats.time);
-        CHECK(r.killsByType == run.killsByType && r.spellsSeen == run.spellsSeen);
+    REQUIRE(loaded.has_value());
+    const RunState& r = *loaded;
+    CHECK(r.seed == run.seed && r.difficulty == run.difficulty && r.loadout == run.loadout && r.ordeal == 4 && r.essences == 0b0101);
+    CHECK(r.levelIndex == 3 && r.inSanctum && r.gold == 777 && r.activeWand == 1);
+    CHECK(r.hp == run.hp && r.maxHp == run.maxHp);
+    CHECK(r.wands.size() == run.wands.size());
+    for (size_t i = 0; i < r.wands.size() && i < run.wands.size(); ++i) {
+        CHECK(r.wands[i].name == run.wands[i].name);
+        CHECK(r.wands[i].slots == run.wands[i].slots);
+        CHECK(r.wands[i].castDelay == run.wands[i].castDelay && r.wands[i].manaMax == run.wands[i].manaMax);
     }
+    CHECK(r.inventory == run.inventory);
+    CHECK(r.flask.mat == mat::Vitae && r.flask.amount == 333);
+    CHECK(r.perks == run.perks);
+    CHECK(r.stats.kills == 57 && r.stats.time == run.stats.time);
+    CHECK(r.killsByType == run.killsByType && r.spellsSeen == run.spellsSeen);
 
     // A damaged file is rejected rather than half-loaded.
     {
@@ -223,11 +221,13 @@ TEST_CASE("the death screen names the killer and offers advice") {
     victim.lastHitCause = "Lava";
     victim.lastHitType = DamageType::Fire;
     CHECK(deathCause(victim) == "Undone by lava");
+    REQUIRE(deathAdvice(victim) != nullptr);
     CHECK(std::strstr(deathAdvice(victim), "obsidian") != nullptr);
 
     victim.lastHitCause = "Bomb";
     victim.lastHitSelf = true;
     CHECK(deathCause(victim) == "Undone by your own Bomb");
+    REQUIRE(deathAdvice(victim) != nullptr);
     CHECK(std::strstr(deathAdvice(victim), "Your own spells") != nullptr);
 }
 
@@ -380,14 +380,17 @@ TEST_CASE("guardians rage, the toad sheds its brood and the slayer earns a perk"
     const size_t before = level.enemies().size();
     hurtTo(0.6f);
     CHECK(level.enemies().size() == before + 2); // the first brood
+    REQUIRE(find() != nullptr);
     CHECK(!find()->enraged());
     hurtTo(0.45f);
+    REQUIRE(find() != nullptr);
     CHECK(find()->enraged());
     hurtTo(0.3f);
     CHECK(level.enemies().size() == before + 4); // and the second
     int perks = 0;
     for (uint8_t n : run.perks) perks += n;
     Enemy* t = find();
+    REQUIRE(t != nullptr);
     t->applyDamage(level, {1.0e6f, DamageType::Physical, {}, Team::Player, false, false, "test"});
     int after = 0;
     for (uint8_t n : run.perks) after += n;

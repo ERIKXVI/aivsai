@@ -168,12 +168,12 @@ RunRecord foldRun(Profile& p, const RunState& run, bool victory, const std::stri
         const auto id = static_cast<LoadoutId>(i);
         if (!loadoutUnlocked(id, was) && loadoutUnlocked(id, now)) record.unlockedPaths.push_back(loadoutDef(id).name);
         // The locked path nearest to opening is the carrot for the next run.
-        const UnlockProgress before = loadoutProgress(id, was), after = loadoutProgress(id, now);
+        const UnlockProgress prior = loadoutProgress(id, was), after = loadoutProgress(id, now);
         if (after.target <= 0 || after.value >= after.target) continue;
         const float fraction = static_cast<float>(after.value) / static_cast<float>(after.target);
         if (fraction <= best) continue;
         best = fraction;
-        record.nearestPath = PathProgress{loadoutDef(id).name, after.text, before.value, after.value, after.target};
+        record.nearestPath = PathProgress{loadoutDef(id).name, after.text, prior.value, after.value, after.target};
     }
     // Completing the Work under the highest ordeal open (or any ordeal, the first time) opens the next.
     if (victory && run.ordeal >= p.ordealUnlocked && p.ordealUnlocked < kMaxOrdeal) {

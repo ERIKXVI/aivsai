@@ -1,13 +1,15 @@
 // Level generation: every biome, several seeds, must have a traversable main route; omens
 // follow their rules and stay traversable too.
-#include <cstdio>
+#include <algorithm>
 #include <array>
+#include <cstdio>
 #include <cstring>
 
 #include "core/ThreadPool.hpp"
 #include "gen/LevelGenerator.hpp"
 #include "sim/World.hpp"
 #include "tests/TestFramework.hpp"
+#include "tests/TestWorld.hpp"
 
 using namespace pm;
 
@@ -47,14 +49,26 @@ TEST_CASE("generated levels are traversable from entrance to exit") {
     }
 }
 
-TEST_CASE("generation is deterministic for a seed") {
+TEST_CASE("generation is deterministic for a seed, whatever the worker count") {
+    // Everyone gets the same Daily Rite seed, and the app's pool is sized from the hardware,
+    // so a level must not depend on how many workers built it.
     initMaterials();
-    ThreadPool pool;
-    LevelLayout a = generateLevel(BiomeId::Nigredo, 0, 777u, pool);
-    LevelLayout b = generateLevel(BiomeId::Nigredo, 0, 777u, pool);
-    CHECK(a.playerStart.x == b.playerStart.x);
-    CHECK(a.exitPos.y == b.exitPos.y);
-    CHECK(a.spawns.size() == b.spawns.size());
+    ThreadPool one(1), many(4);
+    auto sameSpawn = [](const SpawnPoint& p, const SpawnPoint& q) {
+        return p.kind == q.kind && p.pos.x == q.pos.x && p.pos.y == q.pos.y && p.difficulty == q.difficulty;
+    };
+    auto sameRect = [](const Rectf& p, const Rectf& q) { return p.x == q.x && p.y == q.y && p.w == q.w && p.h == q.h; };
+    for (int index : {0, 3}) {
+        const LevelLayout a = generateLevel(biomeForDepth(index), index, 777u, one);
+        const LevelLayout b = generateLevel(biomeForDepth(index), index, 777u, many);
+        CHECK(pm::test::sameCells(*a.world, *b.world));
+        CHECK(a.playerStart.x == b.playerStart.x && a.playerStart.y == b.playerStart.y);
+        CHECK(a.exitPos.x == b.exitPos.x && a.exitPos.y == b.exitPos.y);
+        CHECK(std::equal(a.spawns.begin(), a.spawns.end(), b.spawns.begin(), b.spawns.end(), sameSpawn));
+        CHECK(std::equal(a.vaults.begin(), a.vaults.end(), b.vaults.begin(), b.vaults.end(), sameRect));
+        CHECK(a.omen == b.omen && a.surfaceY == b.surfaceY && a.skyline == b.skyline);
+        CHECK(a.trees.size() == b.trees.size());
+    }
 }
 
 TEST_CASE("sanctum has start, exit and shop slots") {

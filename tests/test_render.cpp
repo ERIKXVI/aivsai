@@ -159,8 +159,7 @@ TEST_CASE("a keyed light ranked inside the budget fades in and never flickers") 
             selector.select(lights, budget, kViewDiag, kViewArea, dt);
             CHECK(static_cast<int>(lights.size()) == candidates);
             const PointLight* l = findKey(lights, lanternAt(0).key);
-            CHECK(l != nullptr);
-            if (!l) break;
+            REQUIRE(l != nullptr);
             CHECK(l->r >= last - 1e-5f);
             last = l->r;
         }

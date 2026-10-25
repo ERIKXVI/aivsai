@@ -1,5 +1,6 @@
 // Simulation invariants: movement conserves matter, reactions behave, chunks go to sleep,
 // and vines cut loose from the ceiling fall.
+#include <memory>
 #include <vector>
 
 #include "core/ThreadPool.hpp"
@@ -152,6 +153,31 @@ TEST_CASE("vines hang from rock and crumble when cut loose") {
     CHECK(countMat(w, mat::GlowVine) == 0);
     CHECK(countMat(w, mat::Litter) == 20);
     CHECK(countMat(w, mat::Spore) == 20);
+}
+
+TEST_CASE("the simulation does not depend on the worker count") {
+    // Chunks updated in one checkerboard phase run in any order on any worker; the result must
+    // be the same, or a Daily Rite seed would play out differently on different machines.
+    initMaterials();
+    auto run = [](ThreadPool& pool) {
+        auto w = std::make_unique<World>(256, 192, 7);
+        buildBox(*w);
+        for (int x = 20; x < 236; ++x) w->place(x, 120, mat::Rock);
+        for (int x = 60; x < 200; x += 9) w->clear(x, 120); // drains through the shelf
+        for (int y = 20; y < 60; ++y)
+            for (int x = 20; x < 236; ++x) {
+                const int band = (x / 24) % 6;
+                const MatId m = band == 0 ? mat::Sand : band == 1 ? mat::Water : band == 2 ? mat::Oil
+                              : band == 3 ? mat::Lava : band == 4 ? mat::Gunpowder : mat::Acid;
+                w->place(x, y, m);
+            }
+        for (int x = 20; x < 236; x += 16) w->ignite(x, 59);
+        for (int i = 0; i < 300; ++i) w->step(pool);
+        return w;
+    };
+    ThreadPool one(1), many(4);
+    const std::unique_ptr<World> a = run(one), b = run(many);
+    CHECK(pm::test::sameCells(*a, *b));
 }
 
 TEST_CASE("liquids never flow further in a tick than the chunk updater may reach") {

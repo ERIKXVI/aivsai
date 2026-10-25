@@ -1,9 +1,21 @@
 #pragma once
 // Shared fixtures for headless world tests.
 
+#include <cstring>
+#include <type_traits>
+
 #include "sim/World.hpp"
 
 namespace pm::test {
+
+static_assert(std::has_unique_object_representations_v<Cell>, "sameCells() compares Cell bytes; Cell must have no padding");
+
+/// True when both worlds have the same size and byte-identical cells.
+inline bool sameCells(const World& a, const World& b) {
+    return a.width() == b.width() && a.height() == b.height() &&
+           std::memcmp(&a.at(0, 0), &b.at(0, 0),
+                       sizeof(Cell) * static_cast<size_t>(a.width()) * static_cast<size_t>(a.height())) == 0;
+}
 
 /// Cells of material `m` anywhere in the world.
 inline int countMat(const World& w, MatId m) {
