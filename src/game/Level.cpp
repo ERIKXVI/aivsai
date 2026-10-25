@@ -24,6 +24,8 @@ Level::Level(LevelLayout layout, RunState& run, Audio& audio, ThreadPool& pool)
 
 Level::~Level() = default;
 
+Affix Level::rollAffix() { return static_cast<Affix>(rng_.rangeInt(1, static_cast<int>(Affix::Count) - 1)); }
+
 void Level::populate() {
     const int tier = std::min(4, layout_.levelIndex);
     const bool lucky = run_.hasPerk(PerkId::LuckyDay);
@@ -39,7 +41,7 @@ void Level::populate() {
             Vec2 pos = s.kind == SpawnKind::GroundEnemy ? Vec2{s.pos.x, s.pos.y - d.halfH} : s.pos;
             Enemy& e = spawnEnemy(t, pos);
             const float eliteChance = 0.05f + 0.03f * static_cast<float>(layout_.levelIndex) + 0.05f * s.difficulty;
-            if (t != EnemyType::Worm && rng_.chance(eliteChance)) e.makeElite();
+            if (t != EnemyType::Worm && rng_.chance(eliteChance)) e.makeElite(rollAffix());
             break;
         }
         case SpawnKind::Guardian: {
@@ -49,7 +51,7 @@ void Level::populate() {
             for (int tries = 0; tries < 6 && t == EnemyType::Worm; ++tries) t = pickEnemy(layout_.levelIndex, false, 1.0f, rng_);
             if (t == EnemyType::Worm) t = EnemyType::Ghoul;
             Enemy& e = spawnEnemy(t, {s.pos.x, s.pos.y - enemyDef(t).halfH});
-            if (guardians++ % 2 == 0) e.makeElite();
+            if (guardians++ % 2 == 0) e.makeElite(rollAffix());
             break;
         }
         case SpawnKind::Wand: pickups_.push_back(makeWandPickup(s.pos - Vec2{0.0f, 6.0f}, makeRandomWand(std::min(4, tier + 1), rng_))); break;

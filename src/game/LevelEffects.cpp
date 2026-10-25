@@ -386,6 +386,7 @@ void Level::onEnemyKilled(Enemy& e) {
             run_.hp = player_->hp;
         }
         int total = static_cast<int>(static_cast<float>(d.gold) * (1.0f + 0.3f * static_cast<float>(layout_.levelIndex)));
+        if (e.affix() == Affix::Gilded) total *= 3;
         int pieces = std::min(4, 1 + total / 15);
         for (int i = 0; i < pieces && total > 0; ++i) {
             int v = i == pieces - 1 ? total : total / pieces;
@@ -394,14 +395,18 @@ void Level::onEnemyKilled(Enemy& e) {
         }
         if (rng_.chance(0.06f)) pickups_.push_back(makeHeart(e.body.pos));
         if (e.elite()) {
-            // Elites carry treasure: a spell or a potion, plus extra gold.
+            // Elites carry treasure: a spell or a potion, plus extra gold. A Burning elite
+            // always carries fire.
             const int tier = std::min(4, layout_.levelIndex + 1);
-            Pickup loot = rng_.chance(0.6f) ? makeSpellPickup(e.body.pos, randomSpell(tier, rng_))
-                                            : makePotion(e.body.pos, randomPotionMaterial(tier, rng_), 700);
+            static constexpr SpellId kFireSpells[] = {SpellId::FireBolt, SpellId::Fireball, SpellId::Incendiary, SpellId::FireTrail};
+            Pickup loot = e.affix() == Affix::Burning
+                              ? makeSpellPickup(e.body.pos, kFireSpells[rng_.rangeInt(0, static_cast<int>(std::size(kFireSpells)) - 1)])
+                          : rng_.chance(0.6f) ? makeSpellPickup(e.body.pos, randomSpell(tier, rng_))
+                                              : makePotion(e.body.pos, randomPotionMaterial(tier, rng_), 700);
             loot.body.vel = {rng_.range(-50.0f, 50.0f), -150.0f};
             pickups_.push_back(std::move(loot));
             pickups_.push_back(makeGold(e.body.pos, d.gold * 2, {rng_.range(-60.0f, 60.0f), -120.0f}));
-            addFloatText(e.body.pos - Vec2{0.0f, 10.0f}, "Elite slain!", 0xffc850, 1.2f);
+            addFloatText(e.body.pos - Vec2{0.0f, 10.0f}, std::string(affixName(e.affix())) + " " + d.name + " slain!", 0xffc850, 1.2f);
         }
         if (run_.hasPerk(PerkId::VolatileFoes)) {
             ExplosionSpec s;

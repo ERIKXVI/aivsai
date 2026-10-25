@@ -35,17 +35,28 @@ Enemy::Enemy(EnemyType type, Vec2 pos, uint32_t id_, float hpScale) : type_(type
     home_ = pos;
     lastSeen_ = pos;
     wanderDir_ = (id_ & 1u) ? 1.0f : -1.0f;
-    attackTimer_ = def_->attackCooldown * 0.5f;
+    attackTimer_ = attackCooldown() * 0.5f;
     if (def_->behaviour == Behaviour::Burrower) {
         body.collides = false;
         for (int i = 0; i < kWormSegments; ++i) segments.push_back(pos + Vec2{0.0f, kWormSpacing * static_cast<float>(i)});
     }
 }
 
-void Enemy::makeElite() {
+const char* affixName(Affix affix) {
+    switch (affix) {
+    case Affix::Burning: return "Burning";
+    case Affix::Swift: return "Swift";
+    case Affix::Gilded: return "Gilded";
+    default: return "Elite";
+    }
+}
+
+void Enemy::makeElite(Affix affix) {
     elite_ = true;
+    affix_ = affix;
     maxHp *= 2.6f;
     hp = maxHp;
+    if (affix_ == Affix::Burning) resist[static_cast<size_t>(DamageType::Fire)] = 0.0f;
 }
 
 void Enemy::tick(Level& level) {
@@ -84,6 +95,12 @@ void Enemy::tick(Level& level) {
     }
     if (!pl.alive()) aggro_ = false;
     if (!aggro_) windup_ = 0.0f; // a telegraph never hangs on once the creature stands down
+    // A Burning elite on the hunt leaves flames in its wake.
+    if (affix_ == Affix::Burning && aggro_ && level.ticks() % 12 == 0 && body.vel.lengthSq() > 25.0f) {
+        Rng& rng = level.rng();
+        world.placeIfEmpty(floorToInt(body.pos.x + rng.range(-body.halfW, body.halfW)), floorToInt(body.pos.y + body.halfH) - 1,
+                           mat::Fire);
+    }
 
     switch (def_->behaviour) {
     case Behaviour::Hopper: tickHopper(level, toPlayer, sees); break;
@@ -184,8 +201,8 @@ void Enemy::tickHopper(Level& level, Vec2 toPlayer, bool sees) {
         if (stateTimer_ <= 0.0f) {
             float dir = aggro_ ? sign(toPlayer.x) : (rng.chance(0.5f) ? -1.0f : 1.0f);
             float power = aggro_ ? rng.range(0.9f, 1.25f) : rng.range(0.4f, 0.7f);
-            body.vel = {dir * def_->speed * power * (status.chilled > 0 ? 0.5f : 1.0f), -165.0f * power};
-            stateTimer_ = def_->attackCooldown * rng.range(0.7f, 1.3f) * (aggro_ ? 0.8f : 2.0f);
+            body.vel = {dir * moveSpeed() * power * (status.chilled > 0 ? 0.5f : 1.0f), -165.0f * power};
+            stateTimer_ = attackCooldown() * rng.range(0.7f, 1.3f) * (aggro_ ? 0.8f : 2.0f);
             special_ = 0.25f; // squash timer
             if (sees) level.audio().playAt(Sfx::Squish, body.pos, 0.35f, rng.range(0.9f, 1.2f));
         }
@@ -196,7 +213,7 @@ void Enemy::tickHopper(Level& level, Vec2 toPlayer, bool sees) {
 void Enemy::tickWalker(Level& level, Vec2 toPlayer, bool sees) {
     const float dt = kTickDt;
     World& world = level.world();
-    float speed = def_->speed * (status.chilled > 0.0f ? 0.5f : 1.0f);
+    float speed = moveSpeed() * (status.chilled > 0.0f ? 0.5f : 1.0f);
     float dist = toPlayer.length();
     float dir = wanderDir_;
     float targetSpeed = speed * 0.4f;
@@ -209,14 +226,14 @@ void Enemy::tickWalker(Level& level, Vec2 toPlayer, bool sees) {
             else if (dist < 120.0f) targetSpeed = 0.0f;
             if (readyToFire(level, sees && attackTimer_ <= 0.0f && dist < 200.0f)) {
                 fireAt(level, level.player().body.pos, def_->attack, 0.05f);
-                attackTimer_ = def_->attackCooldown * level.rng().range(0.8f, 1.2f);
+                attackTimer_ = attackCooldown() * level.rng().range(0.8f, 1.2f);
                 special_ = 0.35f;
             }
         } else if (dist < 14.0f) {
             targetSpeed = speed * 0.3f;
             if (attackTimer_ <= 0.0f) {
                 special_ = 0.3f; // swing animation; contact damage does the rest
-                attackTimer_ = def_->attackCooldown;
+                attackTimer_ = attackCooldown();
                 body.vel.x += dir * 60.0f;
             }
         }
@@ -241,7 +258,7 @@ void Enemy::tickWalker(Level& level, Vec2 toPlayer, bool sees) {
 
 void Enemy::tickFlyer(Level& level, Vec2 toPlayer, bool sees) {
     const float dt = kTickDt;
-    float speed = def_->speed * (status.chilled > 0.0f ? 0.5f : 1.0f);
+    float speed = moveSpeed() * (status.chilled > 0.0f ? 0.5f : 1.0f);
     Vec2 desired;
     if (aggro_) {
         Vec2 target = sees ? level.player().body.pos : lastSeen_;
@@ -265,7 +282,7 @@ void Enemy::tickFlyer(Level& level, Vec2 toPlayer, bool sees) {
 
 void Enemy::tickCaster(Level& level, Vec2 toPlayer, bool sees) {
     const float dt = kTickDt;
-    float speed = def_->speed * (status.chilled > 0.0f ? 0.5f : 1.0f);
+    float speed = moveSpeed() * (status.chilled > 0.0f ? 0.5f : 1.0f);
     float dist = toPlayer.length();
     Vec2 desired;
     if (aggro_) {
@@ -279,7 +296,7 @@ void Enemy::tickCaster(Level& level, Vec2 toPlayer, bool sees) {
         if (readyToFire(level, sees && attackTimer_ <= 0.0f)) {
             Vec2 lead = level.player().body.pos + level.player().body.vel * (dist / 300.0f);
             fireAt(level, lead, def_->attack, 0.08f);
-            attackTimer_ = def_->attackCooldown * level.rng().range(0.8f, 1.3f);
+            attackTimer_ = attackCooldown() * level.rng().range(0.8f, 1.3f);
             special_ = 0.3f;
         }
     } else {
@@ -303,7 +320,7 @@ void Enemy::tickSpore(Level& level, Vec2 toPlayer, bool) {
         for (int i = 0; i < 10; ++i)
             level.particles().addMatter(body.pos + Vec2{0.0f, -body.halfH}, {rng.range(-60.0f, 60.0f), rng.range(-90.0f, -30.0f)},
                                         makeCell(mat::Spore, rng.next()));
-        attackTimer_ = def_->attackCooldown;
+        attackTimer_ = attackCooldown();
         special_ = 0.5f;
         level.audio().playAt(Sfx::Squish, body.pos, 0.4f, 0.7f);
     }
@@ -320,7 +337,7 @@ void Enemy::tickTurret(Level& level, Vec2 toPlayer, bool sees) {
             level.audio().playAt(Sfx::CastSpark, body.pos, 0.5f, 0.8f);
             if (special_ >= 3.0f) {
                 special_ = 0.0f;
-                attackTimer_ = def_->attackCooldown * 2.2f;
+                attackTimer_ = attackCooldown() * 2.2f;
             } else {
                 attackTimer_ = 0.18f;
             }
@@ -334,7 +351,7 @@ void Enemy::tickTurret(Level& level, Vec2 toPlayer, bool sees) {
 void Enemy::tickKamikaze(Level& level, Vec2 toPlayer, bool sees) {
     float dist = toPlayer.length();
     float dir = aggro_ ? sign(toPlayer.x) : wanderDir_;
-    float speed = aggro_ ? def_->speed : def_->speed * 0.3f;
+    float speed = aggro_ ? moveSpeed() : moveSpeed() * 0.3f;
     if (status.chilled > 0.0f) speed *= 0.5f;
     body.vel.x = approach(body.vel.x, dir * speed, 400.0f * kTickDt);
     if (body.hitWall && body.onGround) {
@@ -352,7 +369,7 @@ void Enemy::tickKamikaze(Level& level, Vec2 toPlayer, bool sees) {
 
 void Enemy::tickBurrower(Level& level, Vec2 toPlayer, bool) {
     const float dt = kTickDt;
-    float speed = def_->speed * (status.chilled > 0.0f ? 0.5f : 1.0f);
+    float speed = moveSpeed() * (status.chilled > 0.0f ? 0.5f : 1.0f);
     Vec2 target = aggro_ ? level.player().body.pos
                          : home_ + Vec2{std::cos(animTime_ * 0.4f) * 60.0f, std::sin(animTime_ * 0.5f) * 40.0f};
     Vec2 to = target - body.pos;
@@ -402,7 +419,7 @@ void Enemy::tickBrute(Level& level, Vec2 toPlayer, bool sees) {
     if (aggro_ && sees && dist < 36.0f && body.onGround && attackTimer_ <= 0.0f) {
         body.vel = {sign(toPlayer.x) * 40.0f, -170.0f};
         phase_ = 1;
-        attackTimer_ = def_->attackCooldown;
+        attackTimer_ = attackCooldown();
         level.audio().playAt(Sfx::Roar, body.pos, 0.35f, 1.6f);
     }
     (void)dt;
@@ -419,14 +436,14 @@ void Enemy::tickCompanion(Level& level) {
         unbury(body, level.world());
         dist = 0.0f;
     }
-    if (dist > 28.0f) body.vel.x = approach(body.vel.x, sign(toPlayer.x) * def_->speed, 500.0f * dt);
+    if (dist > 28.0f) body.vel.x = approach(body.vel.x, sign(toPlayer.x) * moveSpeed(), 500.0f * dt);
     else body.vel.x = approach(body.vel.x, 0.0f, 400.0f * dt);
     if (body.onGround && (body.hitWall || toPlayer.y < -24.0f)) body.vel.y = -175.0f;
     if (Actor* foe = level.nearestHostile(body.pos, Team::Player, 150.0f)) {
         facingRight_ = foe->body.pos.x > body.pos.x;
         if (attackTimer_ <= 0.0f && level.lineOfSight(body.pos, foe->body.pos)) {
             fireAt(level, foe->body.pos, def_->attack, 0.04f);
-            attackTimer_ = def_->attackCooldown;
+            attackTimer_ = attackCooldown();
         }
     } else if (std::fabs(body.vel.x) > 3.0f) {
         facingRight_ = body.vel.x > 0.0f;
@@ -454,7 +471,7 @@ void Enemy::tickBoss(Level& level, Vec2 toPlayer, bool sees) {
     // Hover above the alchemist, weaving side to side.
     Vec2 anchor = pl.body.pos + Vec2{std::sin(animTime_ * (0.5f + 0.15f * static_cast<float>(phase_))) * 90.0f, -70.0f};
     Vec2 to = anchor - body.pos;
-    float speed = def_->speed * (1.0f + 0.35f * static_cast<float>(phase_));
+    float speed = moveSpeed() * (1.0f + 0.35f * static_cast<float>(phase_));
     body.vel = damp(body.vel, to.normalized() * std::min(speed, to.length() * 2.0f), 2.0f, dt);
     if (body.hitWall) body.vel.x *= -0.5f;
     if (body.hitCeiling || body.onGround) body.vel.y *= -0.5f;
@@ -529,6 +546,7 @@ void Enemy::onDamaged(Level& level, const DamageInfo& info, float dealt) {
         return;
     }
     level.bleed(body.pos, def_->blood, std::min(10, 2 + static_cast<int>(dealt / 4.0f)), info.knockback);
+    if (affix_ == Affix::Gilded) level.bleed(body.pos, mat::GoldDust, std::min(8, 1 + static_cast<int>(dealt / 6.0f)), info.knockback);
     level.audio().playAt(Sfx::EnemyHurt, body.pos, 0.45f, level.rng().range(0.85f, 1.2f));
     std::string text = std::to_string(static_cast<int>(std::ceil(dealt)));
     level.addFloatText(body.pos + Vec2{level.rng().range(-3.0f, 3.0f), -body.halfH - 4.0f}, info.crit ? text + "!" : text,
@@ -608,8 +626,12 @@ void Enemy::drawAlbedo(DrawContext& ctx) const {
     const bool flip = !facingRight_;
     ctx.sprites.draw(def_->sprite, frame, lp, flip, tint);
     if (elite_) {
+        // The aura's hue tells the affix: embers, quicksilver or gold.
         const unsigned char a = static_cast<unsigned char>(60.0f + 40.0f * std::sin(ctx.time * 5.0f));
-        ctx.sprites.drawSilhouette(def_->sprite, frame, lp, flip, Color{255, 200, 80, a});
+        Color aura{255, 200, 80, a};
+        if (affix_ == Affix::Burning) aura = {255, 100, 40, a};
+        else if (affix_ == Affix::Swift) aura = {140, 220, 255, a};
+        ctx.sprites.drawSilhouette(def_->sprite, frame, lp, flip, aura);
     }
     if (windup_ > 0.0f) {
         // Telegraph: the creature brightens as its attack charges.

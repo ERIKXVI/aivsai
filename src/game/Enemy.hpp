@@ -28,6 +28,12 @@ enum class EnemyType : uint8_t {
     Count
 };
 
+/// An elite's trait on top of its toughness, changing how the fight plays: a Burning elite
+/// trails fire and shrugs it off, a Swift one moves and strikes half again as fast, and a
+/// Gilded one bleeds gold dust and pays out treble.
+enum class Affix : uint8_t { None, Burning, Swift, Gilded, Count };
+const char* affixName(Affix affix);
+
 enum class Behaviour : uint8_t { Hopper, Walker, Flyer, Caster, Spore, Turret, Kamikaze, Burrower, Brute, Companion, Boss };
 
 struct EnemyDef {
@@ -66,9 +72,13 @@ public:
     void addLights(DrawContext& ctx) const override;
 
     EnemyType type() const { return type_; }
-    /// Elites are rare, tougher variants that glow and always drop treasure.
-    void makeElite();
+    /// Elites are rare, tougher variants that glow, carry an affix and always drop treasure.
+    void makeElite(Affix affix);
     bool elite() const { return elite_; }
+    Affix affix() const { return affix_; }
+    /// Movement speed (cells / s) and attack cooldown (s), after a Swift elite's haste.
+    float moveSpeed() const { return def_->speed * (affix_ == Affix::Swift ? 1.5f : 1.0f); }
+    float attackCooldown() const { return def_->attackCooldown * (affix_ == Affix::Swift ? 0.67f : 1.0f); }
     float damageScale() const { return elite_ ? 1.35f : 1.0f; }
     const EnemyDef& def() const { return *def_; }
     bool aggro() const { return aggro_; }
@@ -119,6 +129,7 @@ private:
     int phase_ = 0;
     float special_ = 0.0f;
     bool elite_ = false;
+    Affix affix_ = Affix::None;
 };
 
 } // namespace pm

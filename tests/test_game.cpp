@@ -313,6 +313,33 @@ TEST_CASE("a spell through a lantern knocks it down to shatter") {
     CHECK(level.lanterns().size() < lanterns);
 }
 
+TEST_CASE("elites carry an affix, rolled from the seed") {
+    initMaterials();
+    ThreadPool pool(4);
+    Audio audio;
+    auto elites = [&](uint32_t seed) {
+        RunState run = newRun(seed, Difficulty::Archmage, false);
+        run.levelIndex = 3;
+        Level level(generateLevel(biomeForDepth(3), 3, seed, pool), run, audio, pool);
+        std::vector<std::pair<int, int>> out;
+        for (const auto& e : level.enemies())
+            if (e->elite()) out.emplace_back(static_cast<int>(e->type()), static_cast<int>(e->affix()));
+        return out;
+    };
+    const auto a = elites(21u), b = elites(21u);
+    CHECK(!a.empty());
+    CHECK(a == b);
+    for (const auto& [type, affix] : a) CHECK(affix > static_cast<int>(Affix::None) && affix < static_cast<int>(Affix::Count));
+
+    // Swift elites move and strike faster; Burning ones shrug off fire.
+    Enemy swift(EnemyType::Ghoul, {0.0f, 0.0f}, 1, 1.0f), burning(EnemyType::Ghoul, {0.0f, 0.0f}, 2, 1.0f);
+    const float baseSpeed = swift.moveSpeed(), baseCooldown = swift.attackCooldown();
+    swift.makeElite(Affix::Swift);
+    burning.makeElite(Affix::Burning);
+    CHECK(swift.moveSpeed() > baseSpeed && swift.attackCooldown() < baseCooldown);
+    CHECK(burning.resist[static_cast<size_t>(DamageType::Fire)] == 0.0f);
+}
+
 TEST_CASE("stage lanterns hang from solid ceilings, not pooled steam") {
     initMaterials();
     ThreadPool pool(4);

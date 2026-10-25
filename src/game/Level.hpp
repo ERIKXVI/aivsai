@@ -175,6 +175,7 @@ public:
 
 private:
     void populate();
+    Affix rollAffix();
     void updateEntities(const PlayerInput& input, float dt);
     void handleSimEvents();
     void updatePickups(float dt);
