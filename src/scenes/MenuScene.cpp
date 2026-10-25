@@ -196,7 +196,7 @@ void MenuScene::render(float alpha) {
     float t = time_;
     scene_.addLight(PointLight{{kMenuW * 0.3f + std::sin(t * 0.4f) * 60.0f, 30.0f}, 1.6f, 1.2f, 0.7f, 170.0f, 0.0f});
     scene_.addLight(PointLight{{kMenuW * 0.7f + std::sin(t * 0.33f + 2.0f) * 60.0f, 110.0f}, 0.7f, 0.8f, 1.8f, 170.0f, 0.0f});
-    scene_.addEmissiveLights(16);
+    scene_.addEmissiveLights();
     LightingParams lp;
     lp.highQuality = app_.settings().highQuality;
     lp.ambientR = 0.12f;

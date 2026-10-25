@@ -15,16 +15,10 @@
 #include "core/Math.hpp"
 #include "raylib.h"
 #include "render/Gpu.hpp"
+#include "render/LightBudget.hpp"
 #include "render/WorldRenderer.hpp"
 
 namespace pm {
-
-struct PointLight {
-    Vec2 pos;             ///< world position in cells
-    float r = 1, g = 1, b = 1;
-    float radius = 64.0f; ///< in cells
-    float bodySkip = 0.0f; ///< cells near the light that should not occlude it
-};
 
 struct LightingParams {
     float ambientR = 0.16f, ambientG = 0.15f, ambientB = 0.19f;
@@ -35,7 +29,7 @@ struct LightingParams {
     float tintR = 1.0f, tintG = 1.0f, tintB = 1.0f;
     float damageFlash = 0.0f;
     float aberration = 0.0f; ///< chromatic split in cells
-    bool highQuality = true; ///< false: shorter shadow rays and fewer lights for weak GPUs
+    bool highQuality = true; ///< false: shorter shadow rays and a smaller light budget for weak GPUs
 };
 
 struct ViewInfo {
@@ -50,7 +44,9 @@ struct ViewInfo {
 class SceneRenderer {
 public:
     static constexpr float kViewHeightCells = 270.0f;
-    static constexpr int kMaxLights = 64;
+    static constexpr int kMaxLights = 64;      ///< light budget on High (the shader's slot count)
+    static constexpr int kLowQualityLights = 28; ///< light budget on Low
+    static constexpr int kMaxEmissiveLights = 8;
     static constexpr int kGlowLevels = 4;
 
     SceneRenderer();
@@ -75,13 +71,19 @@ public:
     void beginEmission();
     void endEmission();
 
+    /// Registers a candidate light; the budget picks which ones are drawn when presenting.
     void addLight(const PointLight& light);
     /// Adds a refractive ring centred on a world position for this frame.
     void addShockwave(Vec2 world, float radius, float strength);
     /// Turns the brightest emissive regions of the world layer (lava, fire, glowing fungus)
-    /// into shadow-casting point lights. Call after the world layer is uploaded.
-    void addEmissiveLights(int maxLights);
-    int lightCount() const { return static_cast<int>(lights_.size()); }
+    /// into shadow-casting point lights, one per cluster of neighbouring blocks (at most
+    /// kMaxEmissiveLights). Call after the world layer is uploaded.
+    void addEmissiveLights(int maxLights = kMaxEmissiveLights);
+    /// Forgets light fades, so a new level does not inherit the last one's lights.
+    void resetLights() { selector_.reset(); }
+    /// Lights drawn and lights registered in the last presented frame.
+    int lightsSelected() const { return lightsSelected_; }
+    int lightCandidates() const { return lightCandidates_; }
 
     /// Runs lighting, glow and composite, drawing to the current framebuffer (the screen).
     void present(const LightingParams& params, float time);
@@ -96,7 +98,7 @@ public:
 private:
     void ensureTargets();
     void releaseTargets();
-    void runLightPass(bool highQuality);
+    void runLightPass(bool highQuality, float dt);
     void runGlowPass();
 
     ViewInfo view_;
@@ -107,6 +109,9 @@ private:
 
     gpu::ShaderProgram lightShader_, downShader_, upShader_, compositeShader_;
     std::vector<PointLight> lights_;
+    LightSelector selector_;
+    float lastTime_ = -1.0f;
+    int lightsSelected_ = 0, lightCandidates_ = 0;
     std::vector<float> lightPosData_, lightColorData_;
     static constexpr int kMaxShockwaves = 6;
     std::vector<float> shockData_;

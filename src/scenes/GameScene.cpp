@@ -61,6 +61,7 @@ void GameScene::finishLoading() {
     LevelLayout layout = pending_.get();
     level_ = std::make_unique<Level>(std::move(layout), run_, app_.audio(), app_.pool());
     camera_.reset(level_->player().body.pos);
+    scene_.resetLights();
     bot_ = Bot{};
     hints_.reset();
     minimap_.reset(*level_);

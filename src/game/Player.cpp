@@ -456,12 +456,12 @@ void Player::drawEmission(DrawContext& ctx) const {
 
 void Player::addLights(DrawContext& ctx) const {
     const Vec2 p = body.interpolated(ctx.alpha);
-    ctx.scene.addLight(PointLight{{p.x, p.y - 3.0f}, 2.6f, 2.2f, 1.75f, 150.0f, 3.0f});
+    ctx.scene.addLight(PointLight{{p.x, p.y - 3.0f}, 2.6f, 2.2f, 1.75f, 150.0f, 3.0f, 100.0f}); // always gets a slot
     if (castFlash_ > 0.0f && !run_.wands.empty()) {
         const Wand& w = run_.wands[static_cast<size_t>(run_.activeWand)];
         Color g = hexColor(w.gemColor);
         float k = castFlash_ / 0.08f * 2.5f;
-        ctx.scene.addLight(PointLight{wandTip(), g.r / 255.0f * k, g.g / 255.0f * k, g.b / 255.0f * k, 45.0f, 1.0f});
+        ctx.scene.addLight(PointLight{wandTip(), g.r / 255.0f * k, g.g / 255.0f * k, g.b / 255.0f * k, 45.0f, 1.0f, 2.0f});
     }
 }
 

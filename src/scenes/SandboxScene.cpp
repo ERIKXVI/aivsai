@@ -253,9 +253,9 @@ void SandboxScene::render(float alpha) {
     renderer_.endEmission();
 
     const Vec2 m = renderer_.screenToWorld(GetMousePosition());
-    renderer_.addLight(PointLight{m, 1.6f, 1.3f, 1.0f, 120.0f});
-    for (const Flash& f : flashes_) renderer_.addLight(PointLight{f.pos, 6.0f * f.life, 4.0f * f.life, 2.0f * f.life, 140.0f});
-    renderer_.addEmissiveLights(24);
+    renderer_.addLight(PointLight{m, 1.6f, 1.3f, 1.0f, 120.0f, 0.0f, 100.0f});
+    for (const Flash& f : flashes_) renderer_.addLight(PointLight{f.pos, 6.0f * f.life, 4.0f * f.life, 2.0f * f.life, 140.0f, 0.0f, 2.0f});
+    renderer_.addEmissiveLights();
 
     ClearBackground(BLACK);
     LightingParams lp;

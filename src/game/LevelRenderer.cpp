@@ -251,13 +251,14 @@ void LevelRenderer::addLights(const Level& level, float alpha, float time) {
 
     for (const LightFlash& f : level.flashes()) {
         float k = f.life / f.maxLife;
-        scene_.addLight(PointLight{f.pos, f.r * k, f.g * k, f.b * k, f.radius, 2.0f});
+        scene_.addLight(PointLight{f.pos, f.r * k, f.g * k, f.b * k, f.radius, 2.0f, 2.0f});
     }
 
-    // The exit portal is a beacon.
+    // The exit portal is a beacon, as sure of its slot as the player's own light.
     if (!level.boss()) {
         float pulse = 1.0f + 0.25f * std::sin(time * 3.0f);
-        scene_.addLight(PointLight{level.exitPos() - Vec2{0.0f, 9.0f}, 1.2f * pulse, 0.7f * pulse, 2.0f * pulse, 110.0f, 7.0f});
+        scene_.addLight(PointLight{level.exitPos() - Vec2{0.0f, 9.0f}, 1.2f * pulse, 0.7f * pulse, 2.0f * pulse, 110.0f, 7.0f,
+                                   100.0f, lightKey(LightKind::Portal, 0)});
     }
 
     for (const auto& e : level.enemies())
@@ -269,19 +270,25 @@ void LevelRenderer::addLights(const Level& level, float alpha, float time) {
         Color c = hexColor(p.def.color);
         float k = p.def.flags & projflag::kHitscan ? 3.0f : 1.4f;
         Vec2 pos = (p.def.flags & projflag::kHitscan) ? lerp(p.pos, p.beamEnd, 0.5f) : lerp(p.prevPos, p.pos, alpha);
-        scene_.addLight(PointLight{pos, c.r / 255.0f * k, c.g / 255.0f * k, c.b / 255.0f * k, p.def.lightRadius, 1.5f});
+        scene_.addLight(PointLight{pos, c.r / 255.0f * k, c.g / 255.0f * k, c.b / 255.0f * k, p.def.lightRadius, 1.5f, 1.0f});
     }
 
-    for (const Lantern& l : level.lanterns()) {
+    // Fixtures outrank the projectiles of a busy fight and fade if they ever lose their slot.
+    const std::vector<Lantern>& lanterns = level.lanterns();
+    for (size_t i = 0; i < lanterns.size(); ++i) {
+        const Lantern& l = lanterns[i];
         float flicker = 0.85f + 0.15f * std::sin(time * 13.0f + l.phase) * std::sin(time * 7.3f + l.phase * 2.0f);
-        scene_.addLight(PointLight{l.pos + Vec2{0.0f, 3.0f}, 1.6f * flicker, 1.1f * flicker, 0.55f * flicker, 85.0f, 4.0f});
+        scene_.addLight(PointLight{l.pos + Vec2{0.0f, 3.0f}, 1.6f * flicker, 1.1f * flicker, 0.55f * flicker, 85.0f, 4.0f, 3.0f,
+                                   lightKey(LightKind::Lantern, static_cast<uint32_t>(i))});
     }
 
-    for (const Transmuter& t : level.transmuters()) {
+    const std::vector<Transmuter>& transmuters = level.transmuters();
+    for (size_t i = 0; i < transmuters.size(); ++i) {
+        const Transmuter& t = transmuters[i];
         const Rgba m = materialColor(t.wants);
         const float k = t.complete ? 0.5f : 1.1f;
         scene_.addLight(PointLight{t.pos - Vec2{0.0f, 20.0f}, m.r / 255.0f * k + 0.3f, m.g / 255.0f * k + 0.2f,
-                                   m.b / 255.0f * k + 0.5f, 60.0f, 2.0f});
+                                   m.b / 255.0f * k + 0.5f, 60.0f, 2.0f, 3.0f, lightKey(LightKind::Transmuter, static_cast<uint32_t>(i))});
     }
 
     // Treasure glints so it catches the eye in the dark.
@@ -292,7 +299,7 @@ void LevelRenderer::addLights(const Level& level, float alpha, float time) {
         switch (pk.type) {
         case PickupType::PerkAltar: {
             Color c = hexColor(perkDef(pk.perk).color);
-            scene_.addLight(PointLight{at - Vec2{0.0f, 12.0f}, c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, 45.0f, 3.0f});
+            scene_.addLight(PointLight{at - Vec2{0.0f, 12.0f}, c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, 45.0f, 3.0f, 0.5f});
             ++lootLights;
             break;
         }
@@ -300,13 +307,13 @@ void LevelRenderer::addLights(const Level& level, float alpha, float time) {
         case PickupType::Wand: {
             Color c = pk.type == PickupType::Spell ? spellColor(pk.spell) : hexColor(pk.wand ? pk.wand->gemColor : 0xffffff);
             float pulse = 0.55f + 0.2f * std::sin(time * 3.0f + at.x);
-            scene_.addLight(PointLight{at, c.r / 255.0f * pulse, c.g / 255.0f * pulse, c.b / 255.0f * pulse, 28.0f, 2.0f});
+            scene_.addLight(PointLight{at, c.r / 255.0f * pulse, c.g / 255.0f * pulse, c.b / 255.0f * pulse, 28.0f, 2.0f, 0.5f});
             ++lootLights;
             break;
         }
         case PickupType::Chest:
             if (!pk.opened) {
-                scene_.addLight(PointLight{at - Vec2{0.0f, 3.0f}, 0.7f, 0.55f, 0.25f, 30.0f, 3.0f});
+                scene_.addLight(PointLight{at - Vec2{0.0f, 3.0f}, 0.7f, 0.55f, 0.25f, 30.0f, 3.0f, 0.5f});
                 ++lootLights;
             }
             break;
@@ -315,7 +322,7 @@ void LevelRenderer::addLights(const Level& level, float alpha, float time) {
     }
 
     // Brightest emissive regions (lava, fires, glowing fungus) cast shadowed light.
-    scene_.addEmissiveLights(18);
+    scene_.addEmissiveLights();
 }
 
 } // namespace pm

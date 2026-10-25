@@ -708,6 +708,8 @@ void GameScene::drawDebugOverlay() {
         ui::text(TextFormat("chunks %d  particles %zu  projectiles %zu  enemies %zu", level_->world().activeChunkCount(),
                             level_->particles().count(), level_->projectiles().size(), level_->enemies().size()),
                  x, y, small, GREEN);
+        y += static_cast<float>(small) * 1.2f;
+        ui::text(TextFormat("lights %d/%d", scene_.lightsSelected(), scene_.lightCandidates()), x, y, small, GREEN);
     }
 }
 

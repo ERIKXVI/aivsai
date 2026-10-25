@@ -678,21 +678,21 @@ void Enemy::drawEmission(DrawContext& ctx) const {
 
 void Enemy::addLights(DrawContext& ctx) const {
     const Vec2 p = body.interpolated(ctx.alpha);
-    if (elite_) ctx.scene.addLight(PointLight{p, 1.4f, 1.0f, 0.35f, 46.0f, 4.0f});
+    if (elite_) ctx.scene.addLight(PointLight{p, 1.4f, 1.0f, 0.35f, 46.0f, 4.0f, 1.0f});
     if (windup_ > 0.0f) {
         const Color c = def_->glow ? hexColor(def_->glow) : Color{255, 240, 200, 255};
         const float k = 0.4f + 1.4f * (1.0f - windup_ / 0.4f);
-        ctx.scene.addLight(PointLight{p, c.r / 255.0f * k, c.g / 255.0f * k, c.b / 255.0f * k, 34.0f, 2.0f});
+        ctx.scene.addLight(PointLight{p, c.r / 255.0f * k, c.g / 255.0f * k, c.b / 255.0f * k, 34.0f, 2.0f, 1.0f});
     }
     if (def_->glow == 0) return;
     Color c = hexColor(def_->glow);
     if (type_ == EnemyType::Boss) {
         // The Rebis lights its arena from above its heads, so its own body is not blown out.
-        ctx.scene.addLight(PointLight{p - Vec2{0.0f, 44.0f}, c.r / 255.0f * 0.95f, c.g / 255.0f * 0.95f, c.b / 255.0f * 0.95f, 170.0f, 0.0f});
+        ctx.scene.addLight(PointLight{p - Vec2{0.0f, 44.0f}, c.r / 255.0f * 0.95f, c.g / 255.0f * 0.95f, c.b / 255.0f * 0.95f, 170.0f, 0.0f, 3.0f});
         return;
     }
     constexpr float k = 0.9f;
-    ctx.scene.addLight(PointLight{p, c.r / 255.0f * k, c.g / 255.0f * k, c.b / 255.0f * k, 40.0f, 4.0f});
+    ctx.scene.addLight(PointLight{p, c.r / 255.0f * k, c.g / 255.0f * k, c.b / 255.0f * k, 40.0f, 4.0f, 1.0f});
 }
 
 } // namespace pm

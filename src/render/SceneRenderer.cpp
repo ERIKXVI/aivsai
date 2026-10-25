@@ -8,12 +8,21 @@
 
 namespace pm {
 
+namespace {
+
+/// Fade key of an emissive cluster: the world block (not the view-local one) holding its centre.
+uint32_t emissiveKey(int blockX, int blockY) {
+    return lightKey(LightKind::Emissive, (static_cast<uint32_t>(blockX) & 0x3FFFu) | ((static_cast<uint32_t>(blockY) & 0x3FFFu) << 14));
+}
+
+} // namespace
+
 SceneRenderer::SceneRenderer() {
     lightShader_.load(embedded::light_fs, "light.fs");
     downShader_.load(embedded::down_fs, "down.fs");
     upShader_.load(embedded::up_fs, "up.fs");
     compositeShader_.load(embedded::composite_fs, "composite.fs");
-    lights_.reserve(kMaxLights);
+    lights_.reserve(kMaxLights * 2);
 }
 
 SceneRenderer::~SceneRenderer() { releaseTargets(); }
@@ -85,7 +94,6 @@ void SceneRenderer::beginEmission() {
 void SceneRenderer::endEmission() { EndTextureMode(); }
 
 void SceneRenderer::addLight(const PointLight& light) {
-    if (static_cast<int>(lights_.size()) >= kMaxLights) return;
     // Cull lights whose radius doesn't reach the view.
     float lx = light.pos.x - static_cast<float>(view_.originX);
     float ly = light.pos.y - static_cast<float>(view_.originY);
@@ -102,23 +110,80 @@ void SceneRenderer::addShockwave(Vec2 world, float radius, float strength) {
 }
 
 void SceneRenderer::addEmissiveLights(int maxLights) {
-    std::vector<const EmissiveBlock*> blocks;
-    for (const EmissiveBlock& b : world_.emissiveBlocks())
-        if (b.weight > 2500.0f) blocks.push_back(&b);
-    const size_t count = std::min(blocks.size(), static_cast<size_t>(std::max(0, maxLights)));
-    std::partial_sort(blocks.begin(), blocks.begin() + static_cast<long>(count), blocks.end(),
-                      [](const EmissiveBlock* a, const EmissiveBlock* b) { return a->weight > b->weight; });
-    for (size_t i = 0; i < count; ++i) {
-        const EmissiveBlock& b = *blocks[i];
-        const float total = b.r + b.g + b.b;
-        const float k = clamp(std::sqrt(b.weight) / 140.0f, 0.2f, 2.2f) * 3.0f / total;
-        addLight(PointLight{{b.x, b.y}, b.r * k, b.g * k, b.b * k, 35.0f + std::sqrt(b.weight) * 0.22f, 2.5f});
+    const std::vector<EmissiveBlock>& blocks = world_.emissiveBlocks();
+    const int bw = world_.blocksWide(), bh = world_.blocksHigh();
+    const int maxClusters = std::min(maxLights, kMaxEmissiveLights);
+    // Bright blocks seed clusters, heaviest first, and each cluster takes the unclaimed blocks
+    // around its seed: a lava lake becomes a few broad lights instead of one per block.
+    std::vector<int> seeds;
+    for (int i = 0; i < static_cast<int>(blocks.size()); ++i)
+        if (blocks[static_cast<size_t>(i)].weight > 2500.0f) seeds.push_back(i);
+    std::stable_sort(seeds.begin(), seeds.end(),
+                     [&](int a, int b) { return blocks[static_cast<size_t>(a)].weight > blocks[static_cast<size_t>(b)].weight; });
+    std::vector<uint8_t> used(blocks.size(), 0);
+    std::vector<uint32_t> claimed;
+    for (int seed : seeds) {
+        if (static_cast<int>(claimed.size()) >= maxClusters) break;
+        if (used[static_cast<size_t>(seed)]) continue;
+        const int sx = seed % bw, sy = seed / bw;
+        float x = 0, y = 0, r = 0, g = 0, b = 0, weight = 0;
+        float blockLight = 0.0f; // what the blocks would have shone as separate lights
+        for (int ny = std::max(0, sy - 1); ny <= std::min(bh - 1, sy + 1); ++ny) {
+            for (int nx = std::max(0, sx - 1); nx <= std::min(bw - 1, sx + 1); ++nx) {
+                const size_t j = static_cast<size_t>(ny) * bw + nx;
+                const EmissiveBlock& e = blocks[j];
+                if (used[j] || e.weight <= 0.0f) continue;
+                used[j] = 1;
+                blockLight += std::min(std::sqrt(e.weight) / 140.0f, 2.2f);
+                x += e.x * e.weight;
+                y += e.y * e.weight;
+                r += e.r;
+                g += e.g;
+                b += e.b;
+                weight += e.weight;
+            }
+        }
+        x /= weight;
+        y /= weight;
+
+        // Keep the key of a cluster seen last frame within a block of this one, so a centre
+        // wobbling across a block edge does not restart its fade.
+        const int kx = floorDiv(floorToInt(x), 1 << WorldRenderer::kBlockShift);
+        const int ky = floorDiv(floorToInt(y), 1 << WorldRenderer::kBlockShift);
+        uint32_t key = 0;
+        float bestFade = -1.0f;
+        for (int dy = -1; dy <= 1; ++dy) {
+            for (int dx = -1; dx <= 1; ++dx) {
+                const uint32_t k = emissiveKey(kx + dx, ky + dy);
+                if (!selector_.tracks(k) || std::find(claimed.begin(), claimed.end(), k) != claimed.end()) continue;
+                const float f = selector_.fade(k) + (dx == 0 && dy == 0 ? 0.01f : 0.0f);
+                if (f > bestFade) {
+                    bestFade = f;
+                    key = k;
+                }
+            }
+        }
+        if (key == 0 && std::find(claimed.begin(), claimed.end(), emissiveKey(kx, ky)) == claimed.end()) key = emissiveKey(kx, ky);
+        claimed.push_back(key);
+
+        const float total = r + g + b;
+        // One broad light stands in for several blocks: take the geometric mean of the merged
+        // brightness and the blocks' summed brightness, so a pool keeps its glow without a hot
+        // spot at its centre.
+        const float intensity = std::max(0.2f, std::sqrt(std::sqrt(weight) / 140.0f * blockLight));
+        const float k = intensity * 3.0f / total;
+        const float radius = std::min(35.0f + std::sqrt(weight) * 0.22f, 120.0f);
+        addLight(PointLight{{x, y}, r * k, g * k, b * k, radius, 2.5f, 3.0f, key});
     }
 }
 
-void SceneRenderer::runLightPass(bool highQuality) {
-    // Low quality keeps the brightest-registered half of the lights and shortens shadow rays.
-    if (!highQuality && lights_.size() > kMaxLights / 2) lights_.resize(kMaxLights / 2);
+void SceneRenderer::runLightPass(bool highQuality, float dt) {
+    // Every registered light competes for the budget; Low quality has fewer slots and shorter
+    // shadow rays.
+    lightCandidates_ = static_cast<int>(lights_.size());
+    const float viewDiag = std::sqrt(view_.viewW * view_.viewW + view_.viewH * view_.viewH);
+    selector_.select(lights_, highQuality ? kMaxLights : kLowQualityLights, viewDiag, dt);
+    lightsSelected_ = static_cast<int>(lights_.size());
     lightPosData_.clear();
     lightColorData_.clear();
     for (const PointLight& l : lights_) {
@@ -170,7 +235,10 @@ void SceneRenderer::runGlowPass() {
 }
 
 void SceneRenderer::present(const LightingParams& p, float time) {
-    runLightPass(p.highQuality);
+    // Light fades follow the caller's clock; a stalled or restarted clock just holds them.
+    const float dt = lastTime_ < 0.0f ? 0.0f : clamp(time - lastTime_, 0.0f, 0.25f);
+    lastTime_ = time;
+    runLightPass(p.highQuality, dt);
     runGlowPass();
 
     const float w = static_cast<float>(allocW_), h = static_cast<float>(allocH_);
