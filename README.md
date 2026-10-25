@@ -18,6 +18,7 @@ yourself from spell cards.
 | ![The map](docs/media/map.jpg) | ![The Grimoire](docs/media/grimoire.jpg) |
 | ![Alchemy Sandbox](docs/media/sandbox.jpg) | ![Wand editing](docs/media/inventory.jpg) |
 | ![A Volatile omen announced on the title card](docs/media/omen.jpg) | ![The chronicle of recent runs](docs/media/chronicle.jpg) |
+| ![The White Wraith in its lair](docs/media/guardian.jpg) | ![The death screen: the culprit, the next path and a retry](docs/media/deathscreen.jpg) |
 
 ## Playing
 
