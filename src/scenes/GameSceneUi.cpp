@@ -26,6 +26,33 @@ std::string formatTime(float seconds) {
     return buf;
 }
 
+/// The squared circle, emblem of the philosophers' stone: a circle holding a triangle,
+/// a square and a small inner circle. The triangle and square turn in opposite directions.
+void drawStoneSigil(Vector2 c, float r, float time, Color color) {
+    const float thick = std::max(1.0f, r * 0.045f);
+    auto ring = [&](float radius) {
+        constexpr int kSegments = 48;
+        for (int i = 0; i < kSegments; ++i) {
+            const float a0 = kTau * static_cast<float>(i) / kSegments, a1 = kTau * static_cast<float>(i + 1) / kSegments;
+            DrawLineEx({c.x + std::cos(a0) * radius, c.y + std::sin(a0) * radius},
+                       {c.x + std::cos(a1) * radius, c.y + std::sin(a1) * radius}, thick, color);
+        }
+    };
+    auto polygon = [&](int sides, float radius, float angle) {
+        for (int i = 0; i < sides; ++i) {
+            const float a0 = angle + kTau * static_cast<float>(i) / static_cast<float>(sides);
+            const float a1 = angle + kTau * static_cast<float>(i + 1) / static_cast<float>(sides);
+            DrawLineEx({c.x + std::cos(a0) * radius, c.y + std::sin(a0) * radius},
+                       {c.x + std::cos(a1) * radius, c.y + std::sin(a1) * radius}, thick, color);
+        }
+    };
+    ring(r);
+    const float spin = time * 0.35f;
+    polygon(3, r, -kPi * 0.5f + spin);         // triangle inscribed in the circle
+    polygon(4, r * 0.5f, kPi * 0.25f - spin);  // square inscribed in the triangle's incircle
+    ring(r * 0.5f * 0.7071f);                  // circle inscribed in the square
+}
+
 } // namespace
 
 void GameScene::drawWorldOverlays(float alpha) {
@@ -498,12 +525,35 @@ void GameScene::drawDebugOverlay() {
 }
 
 void GameScene::drawLoading() {
+    // An alchemical motto for each step of the descent: the Latin, then its meaning.
+    struct Motto {
+        const char* latin;
+        const char* english;
+    };
+    static constexpr Motto kStageMottos[] = {
+        {"Visita interiora terrae, rectificando invenies occultum lapidem",
+         "Visit the interior of the earth; by rectifying, you will find the hidden stone."},
+        {"Solve et coagula", "Dissolve, and bind together."},
+        {"Quod est inferius est sicut quod est superius", "That which is below is as that which is above."},
+        {"Igne natura renovatur integra", "Through fire, nature is renewed whole."},
+        {"Ars totum requirit hominem", "The Art demands the whole of you."},
+    };
+    static constexpr Motto kSanctumMotto = {"Ora, lege, lege, lege, relege, labora et invenies",
+                                            "Pray, read, read, read, reread, work, and you will find."};
+
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
     const int s = ui::scale();
     std::string text = run_.inSanctum ? "Entering the sanctum" : "Descending";
     int dots = static_cast<int>(time_ * 3.0f) % 4;
-    ui::text(text + std::string(static_cast<size_t>(dots), '.'), sw * 0.5f, sh * 0.5f, ui::fontSize(s + 1), ui::color::kTextDim,
+    ui::text(text + std::string(static_cast<size_t>(dots), '.'), sw * 0.5f, sh * 0.42f, ui::fontSize(s + 1), ui::color::kTextDim,
              ui::Align::Center);
+
+    const Motto& motto = run_.inSanctum ? kSanctumMotto : kStageMottos[clamp(run_.levelIndex, 0, 4)];
+    const auto alpha = static_cast<unsigned char>(255.0f * clamp(loadTimer_ * 2.5f - 0.3f, 0.0f, 1.0f));
+    drawStoneSigil({sw * 0.5f, sh * 0.29f}, 24.0f * static_cast<float>(s), time_, Color{214, 186, 120, static_cast<unsigned char>(alpha / 2)});
+    const float font = static_cast<float>(ui::fontSize(s));
+    ui::text(motto.latin, sw * 0.5f, sh * 0.52f, ui::fontSize(s), Color{214, 186, 120, alpha}, ui::Align::Center);
+    ui::text(motto.english, sw * 0.5f, sh * 0.52f + font * 1.5f, ui::fontSize(s), Color{150, 140, 165, alpha}, ui::Align::Center);
 }
 
 } // namespace pm

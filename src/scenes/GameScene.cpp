@@ -36,6 +36,7 @@ GameScene::~GameScene() {
 
 void GameScene::requestLevel() {
     mode_ = Mode::Loading;
+    loadTimer_ = 0.0f;
     level_.reset();
     const bool sanctum = run_.inSanctum;
     const int index = run_.levelIndex;
@@ -224,8 +225,13 @@ void GameScene::frame(float dt) {
     audio.update(dt);
 
     if (mode_ == Mode::Loading) {
+        // The loading screen lingers long enough to read its motto (bot runs skip ahead).
+        constexpr float kMinLoadSeconds = 1.6f;
         fade_ = 1.0f;
-        if (pending_.valid() && pending_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) finishLoading();
+        loadTimer_ += dt;
+        const bool lingered = loadTimer_ >= kMinLoadSeconds || app_.options().autoplay;
+        if (lingered && pending_.valid() && pending_.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+            finishLoading();
         return;
     }
     if (mode_ == Mode::Victory) {
