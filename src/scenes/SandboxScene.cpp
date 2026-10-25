@@ -133,7 +133,8 @@ void SandboxScene::explode(int cx, int cy, int radius) {
 void SandboxScene::tick() {
     Vec2 m = renderer_.screenToWorld(GetMousePosition());
     int mx = floorToInt(m.x), my = floorToInt(m.y);
-    // A stroke paints only if it began in the scene (not the click that opened the sandbox).
+    // A stroke paints only if the button went down over the canvas (not on the palette, nor
+    // the click that opened the sandbox); releasing the button re-arms it.
     if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) paintArmed_ = true;
     if (!IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) eraseArmed_ = true;
     if (!pointerOverUi_) {
@@ -270,6 +271,9 @@ void SandboxScene::render(float alpha) {
     const Rectangle panel = drawPalette();
     paletteWidth_ = panel.x + panel.width;
     pointerOverUi_ = CheckCollisionPointRec(c, panel);
+    // A press that lands on the palette must not turn into a stroke when dragged off it.
+    if (pointerOverUi_ && input::mousePressed(MOUSE_BUTTON_LEFT)) paintArmed_ = false;
+    if (pointerOverUi_ && input::mousePressed(MOUSE_BUTTON_RIGHT)) eraseArmed_ = false;
     if (!pointerOverUi_) {
         const Rgba bc = materialColor(brush_);
         DrawCircleLinesV(c, rpx, Color{bc.r, bc.g, bc.b, 200});

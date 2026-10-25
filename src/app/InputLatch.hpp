@@ -15,7 +15,8 @@ void beginFrame();
 bool mousePressed(int button);
 /// True if `key` went down since the previous frame, however briefly.
 bool keyPressed(int key);
-/// True if any key went down since the previous frame.
+/// True if any key other than a lone modifier (Shift, Ctrl, Alt, Super) went down since the
+/// previous frame.
 bool anyKeyPressed();
 /// Hides `key`'s press from the rest of this frame, once a global shortcut has used it.
 void consumeKey(int key);

@@ -202,7 +202,10 @@ void writeRunSave(const RunState& r, const fs::path& path) {
 
 std::optional<RunState> readRunSave(const fs::path& path) {
     std::error_code ec;
-    if (!fs::exists(path, ec)) return std::nullopt;
+    fs::path tmp = path;
+    tmp += ".tmp";
+    // readKeyValues falls back to the temporary file when a replace was interrupted.
+    if (!fs::exists(path, ec) && !fs::exists(tmp, ec)) return std::nullopt;
     const KeyValues kv = readKeyValues(path);
     auto get = [&](const char* key) -> std::string {
         auto it = kv.find(key);
@@ -262,7 +265,10 @@ std::optional<RunState> loadSuspendedRun() { return readRunSave(savePath()); }
 
 void discardSuspendedRun() {
     std::error_code ec;
+    fs::path tmp = savePath();
+    tmp += ".tmp";
     fs::remove(savePath(), ec);
+    fs::remove(tmp, ec); // a leftover temporary file must not bring a finished run back
 }
 
 } // namespace pm

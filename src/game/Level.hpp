@@ -114,10 +114,13 @@ public:
     bool consumeHitStop() {
         if (hitStop_ <= 0) return false;
         --hitStop_;
+        heldSinceTick_ = true;
         return true;
     }
     void addHitStop(int ticks) { hitStop_ = std::min(4, std::max(hitStop_, ticks)); }
-    bool hitStopActive() const { return hitStop_ > 0; }
+    /// True from a hit-stop until the level steps again, so rendering holds the frozen frame
+    /// instead of interpolating back towards the previous tick when the last frozen tick ends.
+    bool hitStopActive() const { return hitStop_ > 0 || heldSinceTick_; }
     float time() const { return time_; }
     /// Spells picked up on this stage that went to the satchel rather than onto a wand.
     int spellsToSatchel() const { return spellsToSatchel_; }
@@ -201,6 +204,7 @@ private:
     std::vector<Transmuter> transmuters_;
     std::vector<Shockwave> shockwaves_;
     int hitStop_ = 0;
+    bool heldSinceTick_ = false; ///< a hit-stop tick was consumed and the level has not stepped since
     PlayerInput input_;
     float time_ = 0.0f;
     int spellsToSatchel_ = 0;

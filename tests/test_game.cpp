@@ -15,6 +15,7 @@
 #include "game/Body.hpp"
 #include "game/Enemy.hpp"
 #include "game/Level.hpp"
+#include "gen/Biome.hpp"
 #include "gen/LevelGenerator.hpp"
 #include "sim/World.hpp"
 #include "game/Loadouts.hpp"
@@ -267,6 +268,22 @@ TEST_CASE("sanctum lanterns stay hung") {
     CHECK(lanterns > 0);
     for (int i = 0; i < 60; ++i) level.tick(PlayerInput{});
     CHECK(level.lanterns().size() == lanterns);
+}
+
+TEST_CASE("stage lanterns hang from solid ceilings, not pooled steam") {
+    initMaterials();
+    ThreadPool pool(4);
+    Audio audio;
+    // Seed 5's Athanor once hung lanterns from steam; they fell and burned as the player arrived.
+    for (int index = 0; index < 5; ++index) {
+        RunState run = newRun(5, Difficulty::Adept, false);
+        run.levelIndex = index;
+        Level level(generateLevel(biomeForDepth(index), index, 5u, pool), run, audio, pool);
+        const size_t lanterns = level.lanterns().size();
+        CHECK(lanterns > 0);
+        for (int i = 0; i < 60; ++i) level.tick(PlayerInput{});
+        CHECK(level.lanterns().size() == lanterns);
+    }
 }
 
 TEST_CASE("a body frozen into solid ice is freed") {

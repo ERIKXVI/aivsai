@@ -80,14 +80,17 @@ void Level::populate() {
             }
             break;
         case SpawnKind::Lantern: {
-            // Hang from the first matter above the spawn point (updateLanterns drops a lantern
-            // whose anchor, 5 rows above its centre, is open air).
+            // Hang from the first solid above the spawn point, climbing through steam or smoke
+            // pooled under the ceiling (updateLanterns drops a lantern whose anchor, 5 rows
+            // above its centre, cannot bear it). No ceiling in reach: no lantern.
             Vec2 hook = s.pos;
             const int hx = floorToInt(hook.x);
-            for (int k = 0; k < 40 && world().inBounds(hx, floorToInt(hook.y) - 1) &&
-                            phaseOf(world().at(hx, floorToInt(hook.y) - 1).mat) == Phase::Empty;
-                 ++k)
-                hook.y -= 1.0f;
+            auto ceiling = [&] {
+                const int y = floorToInt(hook.y) - 1;
+                return !world().inBounds(hx, y) || phaseOf(world().at(hx, y).mat) == Phase::Solid;
+            };
+            for (int k = 0; k < 40 && !ceiling(); ++k) hook.y -= 1.0f;
+            if (!world().inBounds(hx, floorToInt(hook.y) - 1) || !ceiling()) break;
             lanterns_.push_back({hook + Vec2{0.0f, 4.0f}, rng_.range(0.0f, kTau)});
             break;
         }
@@ -152,6 +155,7 @@ const Enemy* Level::boss() const {
 void Level::tick(const PlayerInput& input) {
     ScopedTimer tickTimer(ProfileSection::Tick);
     const float dt = kTickDt;
+    heldSinceTick_ = false;
     input_ = input;
     ++ticks_;
     time_ += dt;

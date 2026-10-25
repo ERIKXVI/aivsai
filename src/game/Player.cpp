@@ -198,14 +198,19 @@ void Player::handleWands(Level& level) {
 
     Wand& wand = run_.wands[static_cast<size_t>(run_.activeWand)];
     if (!input_.castHeld) return;
+    const bool wasReady = wand.cooldown <= 0.0f;
     CastOutcome outcome = wand.tryCast(level.rng());
+    if (wasReady && wand.cooldown > 0.0f) {
+        // Perpetual Motion shortens every delay and recharge the press started, including a
+        // recharge after a modifier-only tail or a skipped unaffordable group.
+        wand.cooldown *= run_.castSpeedMul();
+        wand.cooldownTotal = wand.cooldown; // keeps the HUD reload bar honest
+    }
     if (outcome.status == CastStatus::NoMana) {
         if (level.ticks() % 20 == 0) level.audio().play(Sfx::UiDeny, 0.25f);
         return;
     }
     if (outcome.status != CastStatus::Cast) return;
-    wand.cooldown *= run_.castSpeedMul();
-    wand.cooldownTotal = wand.cooldown; // keeps the HUD reload bar honest
     float angle = angleOf(aimDir_);
     level.castShot(outcome.shot, wandTip(), angle, Team::Player, id, run_.damageDealtMul());
     run_.stats.spellsCast++;
@@ -346,11 +351,14 @@ void Player::collectGold(Level& level) {
             int x = floorToInt(body.pos.x) + level.rng().rangeInt(-r, r);
             int y = floorToInt(body.pos.y) + level.rng().rangeInt(-r, r);
             if (!world.inBounds(x, y) || world.at(x, y).mat != mat::GoldDust) continue;
+            // Only grains with a clear line to the alchemist fly: none through rock or vault
+            // walls, nor from inside a pile (the test starts just outside the grain itself).
+            const Vec2 from{static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f};
+            const Vec2 to = body.pos - from;
+            if (to.length() > 1.5f && !level.lineOfSight(from + to.normalized() * 1.5f, body.pos)) continue;
             world.clear(x, y);
             ++collected;
             // The grain is banked at once; a glint streaks to the alchemist to show it.
-            const Vec2 from{static_cast<float>(x), static_cast<float>(y)};
-            const Vec2 to = body.pos - from;
             level.particles().addVisual(from, to.normalized() * 220.0f, {255, 214, 90, 255}, {255, 190, 60, 200},
                                         std::max(kTickDt, to.length() / 220.0f), 0.0f, partflag::kFade | partflag::kNoGravity);
         }

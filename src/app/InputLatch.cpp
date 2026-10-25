@@ -41,7 +41,9 @@ void beginFrame() {
     g_anyKey = false;
     for (int key = GetKeyPressed(); key != 0; key = GetKeyPressed()) {
         if (key > 0 && key < kKeys) g_keys[static_cast<size_t>(key)] = true;
-        g_anyKey = true;
+        // A modifier alone is not "a key": Alt goes down a frame before the Enter of
+        // Alt+Enter or the Tab of Alt+Tab.
+        if (key < KEY_LEFT_SHIFT || key > KEY_RIGHT_SUPER) g_anyKey = true;
     }
 }
 

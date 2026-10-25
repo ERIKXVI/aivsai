@@ -185,9 +185,9 @@ void Generator::collectSpawns(const World& world, LevelLayout& out) {
         for (float t = 40.0f; t < len; t += 110.0f) {
             Vec2 p = lerp(a, b, t / len);
             int x = static_cast<int>(p.x), y = static_cast<int>(p.y);
-            // Hang from the ceiling above the corridor centre.
+            // Hang from the ceiling above the corridor centre (gas pooled under it is no ceiling).
             int cy = y;
-            while (cy > 5 && world.inBounds(x, cy) && phaseOf(world.at(x, cy).mat) == Phase::Empty && y - cy < 30) --cy;
+            while (cy > 5 && world.inBounds(x, cy) && phaseOf(world.at(x, cy).mat) != Phase::Solid && y - cy < 30) --cy;
             if (y - cy < 30 && y - cy > 6)
                 out.spawns.push_back({SpawnKind::Lantern, {static_cast<float>(x), static_cast<float>(cy + 1)}, 0.0f});
         }
