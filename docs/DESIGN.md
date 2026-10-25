@@ -121,8 +121,9 @@ The descent follows the four stages of the alchemical Great Work:
 
 ## Quality
 
-- `pm_tests`: simulation invariants (conservation, reactions, sleeping), generation
-  (route and vault reachability, determinism), spell table, deck casting and loadouts.
+- `pm_tests`: simulation invariants (conservation, reactions, sleeping, hanging vines),
+  generation (route and vault reachability, determinism, omens, trees), spell table, deck
+  casting, loadouts, run saves, the chronicle and death advice.
 - `--autoplay --turbo [--god]`: a flow-field bot plays full runs headlessly; used for
   smoke tests, ASan runs and balance data (death causes per stage).
 - CI builds and tests on Windows (MSVC) and Linux; the Windows build is also exercised

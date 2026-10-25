@@ -123,8 +123,9 @@ reacting to combat intensity, with fire/water/lava ambience mixed in.
 
 ### Testing tools
 
-- `pm_tests` - unit tests for simulation invariants, generation (route and vault
-  reachability, determinism), the spell table, deck casting and starting loadouts.
+- `pm_tests` - unit tests for simulation invariants (conservation, reactions, blasts,
+  hanging vines), generation (route and vault reachability, determinism, omens, trees), the
+  spell table, deck casting, starting loadouts, run saves, the chronicle and death advice.
 - `PrimaMateria --play --autoplay --turbo [--god] [--seed N] [--level N]` - an autopilot
   plays through runs headlessly as an end-to-end smoke test.
 - `pm_genpreview <dir>` renders full level maps; `pm_audiopreview <dir>` renders every sound
