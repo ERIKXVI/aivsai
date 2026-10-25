@@ -19,6 +19,12 @@ constexpr int kCornerW = 104, kCornerH = 68; ///< corner view, in blocks (= desi
 constexpr Color kOpen{14, 11, 20, 175};
 constexpr Color kUnknown{0, 0, 0, 0};
 
+// Marker colours, shared by drawMarkers() and the drawFull() legend so the two cannot drift.
+constexpr Color kVaultColor{255, 200, 90, 220};
+constexpr Color kCircleColor{120, 230, 255, 230};
+constexpr Color kGuardianColor{230, 70, 60, 240};
+constexpr Color kPortalColor{200, 140, 255, 255};
+
 Color shade(Rgba c, float k, uint8_t alpha) {
     return Color{static_cast<unsigned char>(static_cast<float>(c.r) * k), static_cast<unsigned char>(static_cast<float>(c.g) * k),
                  static_cast<unsigned char>(static_cast<float>(c.b) * k), alpha};
@@ -116,12 +122,12 @@ void Minimap::drawMarkers(const Level& level, Rectangle dest, Rectangle src, flo
         a.y = std::max(a.y, dest.y);
         b.x = std::min(b.x, dest.x + dest.width);
         b.y = std::min(b.y, dest.y + dest.height);
-        if (b.x > a.x && b.y > a.y) DrawRectangleLinesEx({a.x, a.y, b.x - a.x, b.y - a.y}, std::max(1.0f, m * 0.25f), Color{255, 200, 90, 220});
+        if (b.x > a.x && b.y > a.y) DrawRectangleLinesEx({a.x, a.y, b.x - a.x, b.y - a.y}, std::max(1.0f, m * 0.25f), kVaultColor);
     }
     for (const Transmuter& t : level.transmuters()) {
         if (t.complete || !exploredNear(t.pos)) continue;
         const Vector2 s = toScreen(t.pos);
-        if (inside(s)) DrawCircleV(s, m * 0.6f, Color{120, 230, 255, 230});
+        if (inside(s)) DrawCircleV(s, m * 0.6f, kCircleColor);
     }
     // A lair's guardian is known by rumour: marked from the start, so the fight can be sought.
     for (const auto& e : level.enemies()) {
@@ -129,13 +135,13 @@ void Minimap::drawMarkers(const Level& level, Rectangle dest, Rectangle src, flo
         const Vector2 g = toScreen(e->body.pos);
         if (!inside(g)) continue;
         const float r = m * (0.75f + 0.1f * std::sin(time * 3.0f));
-        DrawPoly(g, 3, r, 90.0f, Color{230, 70, 60, 240});
+        DrawPoly(g, 3, r, 90.0f, kGuardianColor);
     }
     if (!level.isSanctum() && exploredNear(level.exitPos())) {
         const Vector2 s = toScreen(level.exitPos());
         if (inside(s)) {
             const float r = m * (0.9f + 0.15f * std::sin(time * 4.0f));
-            DrawPoly(s, 4, r, 45.0f, Color{200, 140, 255, 255});
+            DrawPoly(s, 4, r, 45.0f, kPortalColor);
         }
     }
     const Vector2 s = toScreen(level.player().center());
@@ -162,8 +168,8 @@ void Minimap::drawCorner(const Level& level, float screenW, float top, float tim
 void Minimap::drawFull(const Level& level, float screenW, float screenH, float time) const {
     if (texture_.id == 0) return;
     const float s = static_cast<float>(ui::scale());
-    const int size = ui::fontSize(ui::scale() + 1), small = ui::fontSize(std::max(1, ui::scale() - 1));
-    DrawRectangle(0, 0, static_cast<int>(screenW), static_cast<int>(screenH), Color{0, 0, 0, 200});
+    const int size = ui::fontSize(ui::scale() + 1), small = ui::smallFontSize();
+    ui::dimScreen(200);
     const float scale = std::min((screenH - 70.0f * s) / static_cast<float>(bh_), (screenW - 40.0f * s) / static_cast<float>(bw_));
     const float w = static_cast<float>(bw_) * scale, h = static_cast<float>(bh_) * scale;
     Rectangle dest{(screenW - w) * 0.5f, (screenH - h) * 0.5f + 6.0f * s, w, h};
@@ -184,10 +190,10 @@ void Minimap::drawFull(const Level& level, float screenW, float screenH, float t
     };
     if (lx + 60.0f * s < screenW) {
         legend(WHITE, "You");
-        legend(Color{200, 140, 255, 255}, "Portal");
-        legend(Color{255, 200, 90, 255}, "Vault");
-        legend(Color{230, 70, 60, 240}, "Guardian");
-        legend(Color{120, 230, 255, 255}, "Circle");
+        legend(kPortalColor, "Portal");
+        legend(kVaultColor, "Vault");
+        legend(kGuardianColor, "Guardian");
+        legend(kCircleColor, "Circle");
     }
     ui::text("M / Esc to close", screenW * 0.5f, dest.y + dest.height + 6.0f * s, small, ui::color::kTextDim, ui::Align::Center);
 }

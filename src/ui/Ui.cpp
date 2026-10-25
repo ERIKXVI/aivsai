@@ -2,11 +2,12 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <sstream>
-#include <vector>
 
 #include "app/InputLatch.hpp"
 #include "audio/Audio.hpp"
+#include "render/ColorUtil.hpp"
 
 namespace pm::ui {
 
@@ -15,7 +16,6 @@ namespace {
 int g_scale = 2;
 int g_screenW = 1280, g_screenH = 720;
 Audio* g_audio = nullptr;
-const void* g_lastHover = nullptr;
 Rectangle g_hoverRect{};
 
 /// The tooltip requested this frame; drawn by endFrame() above everything else.
@@ -47,18 +47,28 @@ void setAudio(Audio* audio) { g_audio = audio; }
 
 int fontSize(int step) { return 10 * std::max(1, step); }
 
+int smallFontSize() { return fontSize(g_scale - 1); }
+
 int measure(const std::string& s, int size) { return MeasureText(s.c_str(), size); }
 
 void text(const std::string& s, float x, float y, int size, Color c, Align align, bool shadow) {
-    int w = measure(s, size);
-    if (align == Align::Center) x -= static_cast<float>(w) * 0.5f;
-    else if (align == Align::Right) x -= static_cast<float>(w);
+    if (align != Align::Left) {
+        const float w = static_cast<float>(measure(s, size));
+        x -= align == Align::Center ? w * 0.5f : w;
+    }
     int ix = static_cast<int>(std::round(x)), iy = static_cast<int>(std::round(y));
     if (shadow) {
         int off = std::max(1, size / 10);
         DrawText(s.c_str(), ix + off, iy + off, size, Color{0, 0, 0, static_cast<unsigned char>(c.a * 0.7f)});
     }
     DrawText(s.c_str(), ix, iy, size, c);
+}
+
+std::string formatClock(float seconds) {
+    const int s = static_cast<int>(seconds);
+    char buf[32];
+    std::snprintf(buf, sizeof(buf), "%d:%02d", s / 60, s % 60);
+    return buf;
 }
 
 namespace {
@@ -116,6 +126,8 @@ void bar(Rectangle r, float fraction, Color fill, Color back) {
     DrawRectangleLinesEx(r, 1.0f, Color{0, 0, 0, 160});
 }
 
+void dimScreen(unsigned char alpha) { DrawRectangle(0, 0, g_screenW, g_screenH, Color{0, 0, 0, alpha}); }
+
 bool hovered(Rectangle r) { return CheckCollisionPointRec(GetMousePosition(), r); }
 
 bool button(Rectangle r, const std::string& label, bool enabled, bool focused) {
@@ -138,9 +150,8 @@ bool button(Rectangle r, const std::string& label, bool enabled, bool focused) {
     int size = fontSize(g_scale);
     text(label, r.x + r.width * 0.5f, r.y + (r.height - static_cast<float>(size)) * 0.5f, size,
          enabled ? (hover ? WHITE : color::kText) : color::kTextDim, Align::Center);
-    bool clicked = enabled && hovered(r) && input::mousePressed(MOUSE_BUTTON_LEFT);
+    const bool clicked = mouseOver && input::mousePressed(MOUSE_BUTTON_LEFT);
     if (clicked && g_audio) g_audio->play(Sfx::UiClick, 0.7f);
-    (void)g_lastHover;
     return clicked;
 }
 
@@ -149,9 +160,8 @@ void NavList::update(int count) {
     if (count <= 0) return;
     const Vector2 delta = GetMouseDelta();
     if (delta.x * delta.x + delta.y * delta.y > 4.0f) active_ = false;
-    const bool up = input::keyPressed(KEY_UP) || input::keyPressed(KEY_W) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_UP);
-    const bool down =
-        input::keyPressed(KEY_DOWN) || input::keyPressed(KEY_S) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN);
+    const bool up = navUpPressed();
+    const bool down = navDownPressed();
     if (up || down) {
         if (active_) index_ = (index_ + (down ? 1 : -1) + count) % count;
         active_ = true;
@@ -172,6 +182,18 @@ bool backPressed() { return input::keyPressed(KEY_ESCAPE) || IsGamepadButtonPres
 
 bool confirmPressed() { return input::keyPressed(KEY_ENTER) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN); }
 
+namespace {
+/// One menu direction: its arrow key, its WASD key or its D-pad button, pressed this frame.
+bool navPressed(int arrow, int wasd, int dpad) {
+    return input::keyPressed(arrow) || input::keyPressed(wasd) || IsGamepadButtonPressed(0, dpad);
+}
+} // namespace
+
+bool navUpPressed() { return navPressed(KEY_UP, KEY_W, GAMEPAD_BUTTON_LEFT_FACE_UP); }
+bool navDownPressed() { return navPressed(KEY_DOWN, KEY_S, GAMEPAD_BUTTON_LEFT_FACE_DOWN); }
+bool navLeftPressed() { return navPressed(KEY_LEFT, KEY_A, GAMEPAD_BUTTON_LEFT_FACE_LEFT); }
+bool navRightPressed() { return navPressed(KEY_RIGHT, KEY_D, GAMEPAD_BUTTON_LEFT_FACE_RIGHT); }
+
 Color spellTypeColor(SpellId spell) {
     switch (spellDef(spell).type) {
     case SpellType::Projectile: return Color{90, 140, 230, 255};
@@ -191,9 +213,7 @@ void spellIcon(SpellId spell, Rectangle r, bool highlight) {
 
     const Vector2 c{r.x + r.width * 0.5f, r.y + r.height * 0.5f};
     const float u = r.width / 10.0f; // icon grid unit
-    const uint32_t hex = d.proj.color;
-    Color pc{static_cast<unsigned char>((hex >> 16) & 0xFF), static_cast<unsigned char>((hex >> 8) & 0xFF),
-             static_cast<unsigned char>(hex & 0xFF), 255};
+    const Color pc = hexColor(d.proj.color);
 
     if (d.type == SpellType::Projectile) {
         switch (d.proj.visual) {
@@ -228,8 +248,8 @@ void spellIcon(SpellId spell, Rectangle r, bool highlight) {
             DrawCircleV(c, 1.4f * u, Color{30, 30, 36, 255});
             break;
         case ProjVisual::Beam: {
-            Vector2 pts[5] = {{c.x - 1 * u, c.y - 4 * u}, {c.x + 1.5f * u, c.y - u}, {c.x - 1.5f * u, c.y + 0.5f * u},
-                              {c.x + 1.0f * u, c.y + 4 * u}, {c.x + 1.0f * u, c.y + 4 * u}};
+            const Vector2 pts[4] = {{c.x - 1 * u, c.y - 4 * u}, {c.x + 1.5f * u, c.y - u},
+                                    {c.x - 1.5f * u, c.y + 0.5f * u}, {c.x + 1.0f * u, c.y + 4 * u}};
             for (int i = 0; i < 3; ++i) DrawLineEx(pts[i], pts[i + 1], u * 1.1f, pc);
             break;
         }
@@ -284,36 +304,17 @@ namespace {
 void drawTooltip(const std::string& title, const std::string& body, Color titleColor) {
     const float s = static_cast<float>(g_scale);
     const int titleSize = fontSize(g_scale);
-    const int bodySize = fontSize(std::max(1, g_scale - 1)) + (g_scale > 2 ? 0 : 0);
+    const int bodySize = smallFontSize();
     const float width = 150.0f * s;
-    // Estimate body height by wrapping into a dry run.
-    std::istringstream words(body);
-    std::string word, line;
-    int lines = 0;
-    std::vector<std::string> wrapped;
-    while (words >> word) {
-        std::string candidate = line.empty() ? word : line + " " + word;
-        if (measure(candidate, bodySize) > width - 8.0f * s && !line.empty()) {
-            wrapped.push_back(line);
-            line = word;
-        } else {
-            line = candidate;
-        }
-    }
-    if (!line.empty()) wrapped.push_back(line);
-    lines = static_cast<int>(wrapped.size());
-    float h = static_cast<float>(titleSize) + 10.0f * s + static_cast<float>(lines) * static_cast<float>(bodySize) * 1.25f;
-    Vector2 m = GetMousePosition();
+    const float bodyW = width - 8.0f * s;
+    const float h = static_cast<float>(titleSize) + 10.0f * s + wrappedHeight(body, bodyW, bodySize);
+    const Vector2 m = GetMousePosition();
     Rectangle r{m.x + 12.0f * s, m.y + 12.0f * s, width, h};
     if (r.x + r.width > static_cast<float>(g_screenW)) r.x = m.x - r.width - 6.0f * s;
     if (r.y + r.height > static_cast<float>(g_screenH)) r.y = static_cast<float>(g_screenH) - r.height - 4.0f;
     panel(r, Color{12, 10, 18, 245});
     text(title, r.x + 4.0f * s, r.y + 3.0f * s, titleSize, titleColor);
-    float y = r.y + 6.0f * s + static_cast<float>(titleSize);
-    for (const std::string& l : wrapped) {
-        text(l, r.x + 4.0f * s, y, bodySize, color::kTextDim);
-        y += static_cast<float>(bodySize) * 1.25f;
-    }
+    textWrapped(body, r.x + 4.0f * s, r.y + 6.0f * s + static_cast<float>(titleSize), bodyW, bodySize, color::kTextDim);
 }
 
 } // namespace

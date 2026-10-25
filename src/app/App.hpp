@@ -1,6 +1,7 @@
 #pragma once
 // Application shell: window, audio device, worker threads, settings and the scene stack.
 
+#include <cstdint>
 #include <memory>
 #include <string>
 
@@ -41,6 +42,10 @@ struct LaunchOptions {
     /// --ui death preview.
     bool previewOnly() const { return automated() || openUi == "death"; }
 };
+
+/// A fresh random seed for a new run. Never 0, because `LaunchOptions::seed == 0` means
+/// "random", so every seed shown to the player can be replayed with --seed.
+uint32_t randomRunSeed();
 
 class App {
 public:

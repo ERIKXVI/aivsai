@@ -27,6 +27,9 @@ struct RunRecord {
     int unlockedOrdeal = 0;                 ///< the ordeal this run opened, if any
 };
 
+/// The profile's lifetime progress, as the loadout unlock rules read it.
+Milestones milestonesOf(const Profile& p);
+
 /// Folds a finished or abandoned run into the profile (statistics, Grimoire, chronicle).
 /// `fate` says how the run ended, for the chronicle. Pure: nothing is written to disk.
 RunRecord foldRun(Profile& profile, const RunState& run, bool victory, const std::string& fate);

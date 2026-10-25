@@ -1,6 +1,7 @@
 #include "app/RunRecords.hpp"
 
 #include <algorithm>
+#include <bit>
 #include <cstdlib>
 #include <iomanip>
 #include <sstream>
@@ -20,12 +21,6 @@ namespace fs = std::filesystem;
 constexpr int kSaveVersion = 1;
 
 fs::path savePath() { return dataDirectory() / "run.sav"; }
-
-int countBits(uint64_t v) {
-    int n = 0;
-    for (; v; v &= v - 1) ++n;
-    return n;
-}
 
 // --- Encoding ------------------------------------------------------------------------
 
@@ -120,6 +115,8 @@ RunRecord recordRun(Profile& profile, const RunState& run, bool victory, const s
     return record;
 }
 
+Milestones milestonesOf(const Profile& p) { return {p.deepest, p.victories, p.chestsOpened, p.totalKills}; }
+
 RunRecord foldRun(Profile& p, const RunState& run, bool victory, const std::string& fate) {
     const Profile before = p;
     p.runs++;
@@ -158,7 +155,8 @@ RunRecord foldRun(Profile& p, const RunState& run, bool victory, const std::stri
     if (p.history.size() > Profile::kHistorySize) p.history.resize(Profile::kHistorySize);
 
     RunRecord record;
-    const int spells = countBits(p.spellsSeen & ~before.spellsSeen), perks = countBits(p.perksSeen & ~before.perksSeen);
+    const int spells = std::popcount(p.spellsSeen & ~before.spellsSeen);
+    const int perks = std::popcount(p.perksSeen & ~before.perksSeen);
     int creatures = 0;
     for (size_t i = 0; i < p.creatureKills.size(); ++i) creatures += before.creatureKills[i] == 0 && p.creatureKills[i] > 0 ? 1 : 0;
     auto add = [&](int n, const char* one, const char* many) {
@@ -169,8 +167,8 @@ RunRecord foldRun(Profile& p, const RunState& run, bool victory, const std::stri
     add(spells, "spell", "spells");
     add(creatures, "creature", "creatures");
     add(perks, "perk", "perks");
-    const Milestones was{before.deepest, before.victories, before.chestsOpened, before.totalKills};
-    const Milestones now{p.deepest, p.victories, p.chestsOpened, p.totalKills};
+    const Milestones was = milestonesOf(before);
+    const Milestones now = milestonesOf(p);
     float best = -1.0f;
     for (int i = 0; i < kLoadoutCount; ++i) {
         const auto id = static_cast<LoadoutId>(i);

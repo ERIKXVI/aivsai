@@ -173,7 +173,7 @@ void SandboxScene::frame(float dt) {
 
 Rectangle SandboxScene::drawPalette() {
     const float s = static_cast<float>(ui::scale());
-    const int size = ui::fontSize(ui::scale()), small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const int size = ui::fontSize(ui::scale()), small = ui::smallFontSize();
     constexpr int kColumns = 7;
     const float swatch = 12.0f * s, gap = 2.0f * s;
     const float panelW = kColumns * (swatch + gap) + 14.0f * s;
@@ -281,7 +281,7 @@ void SandboxScene::render(float alpha) {
     }
 
     const float s = static_cast<float>(ui::scale());
-    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const int small = ui::smallFontSize();
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
     const float hx = panel.x + panel.width + (sw - panel.x - panel.width) * 0.5f;
     ui::text(TextFormat("%s   brush %d%s", matDef(brush_).name, brushRadius_, paused_ ? "   PAUSED" : ""), hx, 8.0f * s,

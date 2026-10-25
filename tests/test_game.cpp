@@ -150,6 +150,14 @@ TEST_CASE("loadouts unlock through milestones") {
     }
     Milestones veteran{5, 1, 40, 1000};
     for (int l = 0; l < kLoadoutCount; ++l) CHECK(loadoutUnlocked(static_cast<LoadoutId>(l), veteran));
+    // The profile's lifetime counters feed the same fields (all ints, so a swap would compile).
+    Profile p;
+    p.deepest = 5;
+    p.victories = 1;
+    p.chestsOpened = 40;
+    p.totalKills = 1000;
+    const Milestones m = milestonesOf(p);
+    CHECK(m.deepest == 5 && m.victories == 1 && m.chestsOpened == 40 && m.totalKills == 1000);
 }
 
 TEST_CASE("suspended runs survive a save and load") {

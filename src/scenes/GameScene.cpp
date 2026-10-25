@@ -88,7 +88,7 @@ void GameScene::finishLoading() {
     else if (app_.options().openUi == "death" && !std::exchange(g_deathPreviewShown, true)) // the end screen, once
         level_->player().applyDamage(*level_, {1.0e6f, DamageType::Fire, {}, Team::Monster, false, true, enemyDef(EnemyType::Imp).name});
     exiting_ = false;
-    titleTimer_ = 4.0f;
+    titleTimer_ = kTitleCardSeconds;
     titleOmen_.clear();
     announcedGuardian_ = 0;
     stageDamageStart_ = run_.stats.damageTaken;
@@ -367,7 +367,7 @@ void GameScene::frame(float dt) {
             titleMain_ = g->def().name;
             titleSub_ = guardianEpithet(g->type());
             titleOmen_.clear();
-            titleTimer_ = 4.0f;
+            titleTimer_ = kTitleCardSeconds;
         }
     }
     // A stage event announces itself under the title card's place.
@@ -380,7 +380,7 @@ void GameScene::frame(float dt) {
     eventNoticeTime_ += dt;
     // The gold counter pops whenever gold comes in.
     goldPop_ = std::max(0.0f, goldPop_ - dt);
-    if (shownGold_ >= 0 && run_.gold > shownGold_) goldPop_ = 0.25f;
+    if (shownGold_ >= 0 && run_.gold > shownGold_) goldPop_ = kGoldPopSeconds;
     shownGold_ = run_.gold;
 
     if (input::keyPressed(KEY_F3)) debugOverlay_ = !debugOverlay_;
@@ -405,9 +405,7 @@ void GameScene::frame(float dt) {
             mode_ = Mode::Inventory;
             hints_.markSeen(Hint::EditWands); // found the editor; no need to point at it
             // A stick still held from walking must not count as a flick of the slot cursor.
-            const float lx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X), ly = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y);
-            stickX_ = lx < -0.6f ? -1 : (lx > 0.6f ? 1 : 0);
-            stickY_ = ly < -0.6f ? -1 : (ly > 0.6f ? 1 : 0);
+            syncStickFlick();
         }
         else if (!level_->isSanctum() && (input::keyPressed(KEY_M) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN)))
             mode_ = Mode::Map;
@@ -480,20 +478,18 @@ void GameScene::render(float alpha) {
     case Mode::Map: minimap_.drawFull(*level_, static_cast<float>(app_.screenWidth()), static_cast<float>(app_.screenHeight()), time_); break;
     case Mode::Paused: drawPauseMenu(); break;
     case Mode::Settings:
-        DrawRectangle(0, 0, app_.screenWidth(), app_.screenHeight(), Color{0, 0, 0, 150});
+        ui::dimScreen(150);
         if (drawSettingsPanel(app_)) mode_ = Mode::Paused;
         break;
     case Mode::Dead:
-        if (endTimer_ > 1.6f) drawEndScreen(false);
+        if (endTimer_ > kDeathScreenDelay) drawEndScreen(false);
         break;
     case Mode::Victory: drawEndScreen(true); break;
     default: break;
     }
     drawFeatToast();
 
-    if (fade_ > 0.0f) {
-        DrawRectangle(0, 0, app_.screenWidth(), app_.screenHeight(), Color{0, 0, 0, static_cast<unsigned char>(fade_ * 255.0f)});
-    }
+    if (fade_ > 0.0f) ui::dimScreen(static_cast<unsigned char>(fade_ * 255.0f));
     if (mode_ == Mode::Loading) drawLoading();
     if (app_.settings().showFps || debugOverlay_) drawDebugOverlay();
 }
@@ -522,7 +518,7 @@ void GameScene::recordProfile(bool victory) {
     if (victory && run_.difficulty == Difficulty::Archmage) earnFeat(FeatId::Archmage);
     if (run_.daily && (victory || died)) earnFeat(FeatId::DailyRite);
     // Any path beyond the Apprentice's open, however it opened (an abandoned run included).
-    const Milestones m{after->deepest, after->victories, after->chestsOpened, after->totalKills};
+    const Milestones m = milestonesOf(*after);
     for (int i = 1; i < kLoadoutCount; ++i)
         if (loadoutUnlocked(static_cast<LoadoutId>(i), m)) {
             earnFeat(FeatId::Pathfinder);
@@ -551,8 +547,7 @@ void GameScene::updateFeats(float dt) {
         if (run_.stats.chestsOpened >= 5) earnFeat(FeatId::TreasureHunter);
     }
     // Toasts show one at a time.
-    constexpr float kToastTime = 3.5f;
-    if (!toasts_.empty() && (toasts_.front().time += dt) > kToastTime) toasts_.erase(toasts_.begin());
+    if (!toasts_.empty() && (toasts_.front().time += dt) > kToastSeconds) toasts_.erase(toasts_.begin());
 }
 
 } // namespace pm

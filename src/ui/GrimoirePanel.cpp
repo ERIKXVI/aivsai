@@ -1,7 +1,7 @@
 #include "ui/GrimoirePanel.hpp"
 
 #include <algorithm>
-#include <cstdio>
+#include <bit>
 #include <string>
 
 #include "app/App.hpp"
@@ -26,20 +26,7 @@ constexpr float kPanelW = 460.0f, kPanelH = 300.0f;
 /// Creatures listed in the Grimoire (the homunculus companion is a perk, not a foe).
 bool listedCreature(EnemyType t) { return t != EnemyType::Companion; }
 
-int countBits(uint64_t v) {
-    int n = 0;
-    for (; v; v &= v - 1) ++n;
-    return n;
-}
-
 bool spellKnown(const Profile& p, int i) { return (p.spellsSeen >> i) & 1ull; }
-
-std::string clockTime(float seconds) {
-    const int t = static_cast<int>(seconds);
-    char buf[32];
-    std::snprintf(buf, sizeof(buf), "%d:%02d", t / 60, t % 60);
-    return buf;
-}
 
 } // namespace
 
@@ -47,8 +34,8 @@ bool GrimoirePanel::draw(App& app) {
     const Profile& p = app.profile();
     const float sw = static_cast<float>(app.screenWidth()), sh = static_cast<float>(app.screenHeight());
     const float s = static_cast<float>(ui::scale());
-    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
-    DrawRectangle(0, 0, app.screenWidth(), app.screenHeight(), Color{0, 0, 0, 150});
+    const int small = ui::smallFontSize();
+    ui::dimScreen(150);
     Rectangle r{sw * 0.5f - kPanelW * 0.5f * s, sh * 0.5f - kPanelH * 0.5f * s, kPanelW * s, kPanelH * s};
     ui::panel(r);
     ui::text("GRIMOIRE", sw * 0.5f, r.y + 8.0f * s, ui::fontSize(ui::scale() + 1), ui::color::kGold, ui::Align::Center);
@@ -61,8 +48,8 @@ bool GrimoirePanel::draw(App& app) {
         ++creatureTotal;
         creatures += p.creatureKills[static_cast<size_t>(i)] > 0 ? 1 : 0;
     }
-    const int perks = countBits(p.perksSeen);
-    const int feats = countBits(p.featsEarned);
+    const int perks = std::popcount(p.perksSeen);
+    const int feats = std::popcount(p.featsEarned);
 
     // Tabs double as the completion summary.
     constexpr int kTabs = static_cast<int>(Tab::Count);
@@ -78,8 +65,8 @@ bool GrimoirePanel::draw(App& app) {
     }
 
     // Left/right (A/D, D-pad) flip between the tabs.
-    const bool left = input::keyPressed(KEY_LEFT) || input::keyPressed(KEY_A) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_LEFT);
-    const bool right = input::keyPressed(KEY_RIGHT) || input::keyPressed(KEY_D) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_RIGHT);
+    const bool left = ui::navLeftPressed();
+    const bool right = ui::navRightPressed();
     if (left || right) tab_ = static_cast<Tab>((static_cast<int>(tab_) + (right ? 1 : kTabs - 1)) % kTabs);
 
     const float cx = r.x + 20.0f * s, cy = r.y + 54.0f * s;
@@ -130,7 +117,7 @@ void GrimoirePanel::drawCreatures(App& app, float x, float y) {
     const Profile& p = app.profile();
     const SpriteBank& sprites = app.sprites();
     const float s = static_cast<float>(ui::scale());
-    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const int small = ui::smallFontSize();
     // Six to a row, four rows: room for every creature (guardians included) and a few more.
     constexpr int kColumns = 6, kRows = 4;
     static_assert(static_cast<int>(EnemyType::Count) - 1 <= kColumns * kRows, "the bestiary holds four rows");
@@ -164,7 +151,7 @@ void GrimoirePanel::drawCreatures(App& app, float x, float y) {
 void GrimoirePanel::drawFeats(App& app, float x, float y) {
     const Profile& p = app.profile();
     const float s = static_cast<float>(ui::scale());
-    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const int small = ui::smallFontSize();
     // Three columns of nine leave room for every feat with a few slots to spare.
     constexpr int kRows = 9;
     static_assert(kFeatCount <= 3 * kRows, "the feats page holds three columns");
@@ -191,7 +178,7 @@ void GrimoirePanel::drawFeats(App& app, float x, float y) {
 void GrimoirePanel::drawPerks(App& app, float x, float y) {
     const Profile& p = app.profile();
     const float s = static_cast<float>(ui::scale());
-    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const int small = ui::smallFontSize();
     constexpr int kRows = 11;
     const float colW = 200.0f * s, rowH = 16.0f * s;
     int hovered = -1;
@@ -215,7 +202,7 @@ void GrimoirePanel::drawPerks(App& app, float x, float y) {
 void GrimoirePanel::drawChronicle(App& app, float x, float y) {
     const Profile& p = app.profile();
     const float s = static_cast<float>(ui::scale());
-    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const int small = ui::smallFontSize();
     if (p.history.empty()) {
         ui::text("No runs recorded yet. Your first descent will be written here.", x + (kPanelW - 40.0f) * 0.5f * s, y + 40.0f * s,
                  small, ui::color::kTextDim, ui::Align::Center);
@@ -260,7 +247,7 @@ void GrimoirePanel::drawChronicle(App& app, float x, float y) {
         const Color main = e.victory ? ui::color::kGold : ui::color::kText;
         ui::text(path, x + cols[0], py, size, main);
         ui::text(depthLabel(e), x + cols[1], py, size, main);
-        ui::text(clockTime(e.time), x + cols[2], py, size, ui::color::kTextDim);
+        ui::text(ui::formatClock(e.time), x + cols[2], py, size, ui::color::kTextDim);
         ui::text(e.fate, x + cols[3], py, size, e.victory ? ui::color::kGold : Color{230, 150, 120, 255});
         py += rowH;
     }

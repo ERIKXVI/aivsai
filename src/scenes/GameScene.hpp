@@ -35,6 +35,12 @@ public:
 private:
     enum class Mode { Loading, Playing, Inventory, Map, Paused, Settings, Dead, Victory };
 
+    // Durations shared by the update half (GameScene.cpp) and the drawing half (GameSceneUi.cpp).
+    static constexpr float kTitleCardSeconds = 4.0f;  ///< how long a stage/guardian title card shows
+    static constexpr float kToastSeconds = 3.5f;      ///< how long one feat toast shows
+    static constexpr float kGoldPopSeconds = 0.25f;   ///< HUD gold counter pop after gold comes in
+    static constexpr float kDeathScreenDelay = 1.6f;  ///< seconds after death before the end screen fades in
+
     void requestLevel();
     void stepLevel();
     static void logAutoplay(const char* message);
@@ -47,25 +53,27 @@ private:
     /// Records a feat in the profile the first time it is earned, and queues its toast.
     void earnFeat(FeatId feat);
     void updateFeats(float dt);
-    void drawFeatToast();
+    void drawFeatToast() const;
     void drawEssences(float right, float y) const;
     void updateEditorPad();
+    /// Records the left stick's current direction, so a stick already held does not count as a flick.
+    void syncStickFlick();
     /// Drops the dragged spell onto a wand slot (wand >= 0) or satchel slot (wand -1), swapping.
     void dropDragOnto(int wand, int slot);
     SpellId& editorSlot(int wand, int slot);
     void recordProfile(bool victory);
 
-    void drawWorldOverlays(float alpha);
-    void drawHud();
-    void drawCompass(float alpha);
+    void drawWorldOverlays(float alpha) const;
+    void drawHud() const;
+    void drawCompass(float alpha) const;
     void drawInventory();
     void drawPauseMenu();
     void drawEndScreen(bool victory);
-    void drawTitleCard();
-    void drawEventNotice();
-    void drawLoading();
-    void drawControlsHint();
-    void drawDebugOverlay();
+    void drawTitleCard() const;
+    void drawEventNotice() const;
+    void drawLoading() const;
+    void drawControlsHint() const;
+    void drawDebugOverlay() const;
 
     RunState run_;
     std::unique_ptr<Level> level_;

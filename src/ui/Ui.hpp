@@ -36,15 +36,21 @@ void setAudio(Audio* audio);
 
 /// Font sizes are multiples of the 10px pixel font so glyphs stay crisp.
 int fontSize(int step);
+/// The secondary text size, one step below the body text (never below the smallest step).
+int smallFontSize();
 int measure(const std::string& text, int size);
 void text(const std::string& text, float x, float y, int size, Color c, Align align = Align::Left, bool shadow = true);
 /// Draws text wrapped to `width`; returns the height used.
 float textWrapped(const std::string& text, float x, float y, float width, int size, Color c);
 /// Height textWrapped would use for the same text, without drawing it.
 float wrappedHeight(const std::string& text, float width, int size);
+/// "m:ss" for a duration in seconds (whole seconds, truncated).
+std::string formatClock(float seconds);
 
 void panel(Rectangle r, Color fill = color::kPanel, Color border = color::kPanelBorder);
 void bar(Rectangle r, float fraction, Color fill, Color back = Color{30, 24, 36, 230});
+/// Darkens the whole screen behind a modal panel (or for a fade) with black at the given alpha.
+void dimScreen(unsigned char alpha);
 bool hovered(Rectangle r);
 /// Button with hover feedback; returns true when clicked (or activated by keyboard focus).
 bool button(Rectangle r, const std::string& label, bool enabled = true, bool focused = false);
@@ -70,6 +76,11 @@ private:
 bool backPressed();
 /// "Confirm" in menus: Enter or the gamepad's A button.
 bool confirmPressed();
+/// Menu navigation, pressed this frame: arrow key, WASD or the gamepad's D-pad.
+bool navUpPressed();
+bool navDownPressed();
+bool navLeftPressed();
+bool navRightPressed();
 
 /// Spell icon with a frame coloured by spell type.
 void spellIcon(SpellId spell, Rectangle r, bool highlight = false);

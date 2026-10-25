@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdio>
 
 #include "app/App.hpp"
 #include "app/InputLatch.hpp"
@@ -19,18 +18,23 @@ namespace pm {
 
 namespace {
 
-std::string formatTime(float seconds) {
-    int s = static_cast<int>(seconds);
-    char buf[32];
-    std::snprintf(buf, sizeof(buf), "%d:%02d", s / 60, s % 60);
-    return buf;
+constexpr float kStickFlick = 0.6f; ///< left-stick deflection that counts as one step of the slot cursor
+int stickStep(float axis) { return axis < -kStickFlick ? -1 : (axis > kStickFlick ? 1 : 0); }
+
+const char* spellTypeName(SpellType type) {
+    switch (type) {
+    case SpellType::Projectile: return "Projectile";
+    case SpellType::Modifier: return "Modifier";
+    case SpellType::Multicast: return "Multicast";
+    }
+    return "";
 }
 
 /// The wand editor's info card: details of `shown`, or the rules of wands when nothing is
 /// under the cursor.
 void drawSpellCard(Rectangle card, SpellId shown) {
     const float s = static_cast<float>(ui::scale());
-    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const int small = ui::smallFontSize();
     ui::panel(card, Color{12, 9, 18, 230});
     const float cx = card.x + 8.0f * s, cw = card.width - 16.0f * s;
     float cy = card.y + 8.0f * s;
@@ -38,8 +42,7 @@ void drawSpellCard(Rectangle card, SpellId shown) {
         const SpellDef& d = spellDef(shown);
         ui::spellIcon(shown, {cx, cy, 24.0f * s, 24.0f * s});
         ui::text(d.name, cx + 30.0f * s, cy + 2.0f * s, small, ui::spellTypeColor(shown));
-        static constexpr const char* kTypeNames[] = {"Projectile", "Modifier", "Multicast"};
-        ui::text(kTypeNames[static_cast<int>(d.type)], cx + 30.0f * s, cy + 4.0f * s + static_cast<float>(small), small,
+        ui::text(spellTypeName(d.type), cx + 30.0f * s, cy + 4.0f * s + static_cast<float>(small), small,
                  ui::color::kTextDim);
         cy += 32.0f * s;
         ui::textWrapped(spellDetails(shown), cx, cy, cw, small, ui::color::kText);
@@ -85,7 +88,7 @@ void drawStoneSigil(Vector2 c, float r, float time, Color color) {
 
 } // namespace
 
-void GameScene::drawWorldOverlays(float alpha) {
+void GameScene::drawWorldOverlays(float alpha) const {
     const int s = ui::scale();
     // Enemy health bars.
     for (const auto& e : level_->enemies()) {
@@ -106,7 +109,7 @@ void GameScene::drawWorldOverlays(float alpha) {
     for (const Transmuter& t : level_->transmuters()) {
         if ((t.pos - level_->player().body.pos).length() > 110.0f) continue;
         Vector2 sp = scene_.worldToScreen(t.pos - Vec2{0.0f, 36.0f});
-        const int small = ui::fontSize(std::max(1, s - 1));
+        const int small = ui::smallFontSize();
         if (t.complete) {
             ui::text("The circle is spent", sp.x, sp.y, small, ui::color::kTextDim, ui::Align::Center);
             continue;
@@ -128,17 +131,17 @@ void GameScene::drawWorldOverlays(float alpha) {
             ui::text(label, sp.x, sp.y, ui::fontSize(s), p->price > 0 && run_.gold < p->price ? ui::color::kDanger : ui::color::kText,
                      ui::Align::Center);
             if (p->type == PickupType::Spell) {
-                ui::text(spellDef(p->spell).description, sp.x, sp.y + 12.0f * s, ui::fontSize(std::max(1, s - 1)), ui::color::kTextDim,
-                         ui::Align::Center);
+                ui::text(spellDef(p->spell).description, sp.x, sp.y + 12.0f * s, ui::smallFontSize(),
+                         ui::color::kTextDim, ui::Align::Center);
             } else if (p->type == PickupType::PerkAltar) {
-                ui::text(perkDef(p->perk).description, sp.x, sp.y + 12.0f * s, ui::fontSize(std::max(1, s - 1)), ui::color::kTextDim,
-                         ui::Align::Center);
+                ui::text(perkDef(p->perk).description, sp.x, sp.y + 12.0f * s, ui::smallFontSize(),
+                         ui::color::kTextDim, ui::Align::Center);
             }
         }
     }
 }
 
-void GameScene::drawCompass(float alpha) {
+void GameScene::drawCompass(float alpha) const {
     // A faint arrow orbiting the alchemist points towards the exit portal.
     const Player& pl = level_->player();
     if (!pl.alive() || level_->isSanctum()) return;
@@ -158,10 +161,10 @@ void GameScene::drawCompass(float alpha) {
     DrawTriangle(tip, left, right, col);
 }
 
-void GameScene::drawHud() {
+void GameScene::drawHud() const {
     const float s = static_cast<float>(ui::scale());
     const int size = ui::fontSize(ui::scale());
-    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const int small = ui::smallFontSize();
     const Player& pl = level_->player();
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
 
@@ -213,7 +216,7 @@ void GameScene::drawHud() {
 
     // Gold and stage.
     // A fresh coin pops the counter up a size and flashes it pale gold for a moment.
-    const float pop = goldPop_ / 0.25f;
+    const float pop = goldPop_ / kGoldPopSeconds;
     const int goldSize = pop > 0.5f ? ui::fontSize(ui::scale() + 1) : size;
     const Color goldColor = ColorLerp(ui::color::kGold, Color{255, 248, 210, 255}, pop);
     ui::text(TextFormat("%d gold", run_.gold), sw - 10.0f * s, 10.0f * s - static_cast<float>(goldSize - size) * 0.5f, goldSize, goldColor,
@@ -248,7 +251,8 @@ void GameScene::drawHud() {
         int nextSlot = w.deckPos;
         for (int i = 0; i < w.capacity; ++i) {
             Rectangle r{dx + static_cast<float>(i) * (slot + 2.0f * s), wy + (icon - slot) * 0.5f, slot, slot};
-            SpellId spell = w.order.empty() ? w.slots[static_cast<size_t>(i)] : w.slots[static_cast<size_t>(i)];
+            // Slot order, not cast order: a shuffle wand gets no read-head highlight.
+            const SpellId spell = w.slots[static_cast<size_t>(i)];
             ui::spellIcon(spell, r, i == nextSlot && !w.shuffle);
         }
     }
@@ -296,15 +300,15 @@ void GameScene::drawEssences(float right, float y) const {
     }
 }
 
-void GameScene::drawFeatToast() {
+void GameScene::drawFeatToast() const {
     if (toasts_.empty()) return;
     const Toast& t = toasts_.front();
     const FeatDef& def = featDef(t.feat);
     const float sw = static_cast<float>(app_.screenWidth());
     const float s = static_cast<float>(ui::scale());
-    const int size = ui::fontSize(ui::scale()), small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const int size = ui::fontSize(ui::scale()), small = ui::smallFontSize();
     // Slides down from the top, holds, then fades.
-    const float in = std::min(1.0f, t.time / 0.25f), out = clamp((3.5f - t.time) / 0.5f, 0.0f, 1.0f);
+    const float in = std::min(1.0f, t.time / 0.25f), out = clamp((kToastSeconds - t.time) / 0.5f, 0.0f, 1.0f);
     const float a = std::min(in, out);
     const float w = static_cast<float>(std::max(ui::measure(def.name, size), ui::measure(def.description, small))) + 24.0f * s;
     const float h = static_cast<float>(small * 2 + size) + 14.0f * s;
@@ -320,9 +324,9 @@ void GameScene::drawFeatToast() {
     ui::text(def.description, sw * 0.5f, y, small, Color{205, 195, 215, al(1.0f)}, ui::Align::Center);
 }
 
-void GameScene::drawTitleCard() {
+void GameScene::drawTitleCard() const {
     if (titleTimer_ <= 0.0f) return;
-    float a = std::min(1.0f, titleTimer_ / 1.0f) * std::min(1.0f, (4.0f - titleTimer_) * 2.0f);
+    float a = std::min(1.0f, titleTimer_ / 1.0f) * std::min(1.0f, (kTitleCardSeconds - titleTimer_) * 2.0f);
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
     const int s = ui::scale();
     unsigned char alpha = static_cast<unsigned char>(255.0f * clamp(a, 0.0f, 1.0f));
@@ -334,7 +338,7 @@ void GameScene::drawTitleCard() {
                  ui::Align::Center);
 }
 
-void GameScene::drawEventNotice() {
+void GameScene::drawEventNotice() const {
     constexpr float kShow = 3.5f;
     if (eventNotice_.text.empty() || eventNoticeTime_ > kShow) return;
     const float a = clamp(std::min(eventNoticeTime_ * 3.0f, (kShow - eventNoticeTime_) / 0.8f), 0.0f, 1.0f);
@@ -344,9 +348,9 @@ void GameScene::drawEventNotice() {
     ui::text(eventNotice_.text, sw * 0.5f, sh * 0.3f, ui::fontSize(ui::scale() + 1), c, ui::Align::Center);
 }
 
-void GameScene::drawControlsHint() {
+void GameScene::drawControlsHint() const {
     const float s = static_cast<float>(ui::scale());
-    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const int small = ui::smallFontSize();
     float t = level_->time();
     float a = clamp(std::min((t - 1.0f) * 2.0f, (30.0f - t) / 2.0f), 0.0f, 1.0f);
     if (a <= 0.0f) return;
@@ -384,6 +388,11 @@ void GameScene::dropDragOnto(int wand, int slot) {
     drag_ = Drag{};
 }
 
+void GameScene::syncStickFlick() {
+    stickX_ = stickStep(GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X));
+    stickY_ = stickStep(GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y));
+}
+
 void GameScene::updateEditorPad() {
     if (!IsGamepadAvailable(0)) return;
     // The cursor walks a grid: one row per wand, then the satchel's two rows of eight.
@@ -401,8 +410,8 @@ void GameScene::updateEditorPad() {
     if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_UP)) dy = -1;
     if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN)) dy = 1;
     // A flick of the left stick moves one slot.
-    const float lx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X), ly = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y);
-    const int sx = lx < -0.6f ? -1 : (lx > 0.6f ? 1 : 0), sy = ly < -0.6f ? -1 : (ly > 0.6f ? 1 : 0);
+    const int sx = stickStep(GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X));
+    const int sy = stickStep(GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y));
     if (sx != stickX_ && sx != 0) dx = sx;
     if (sy != stickY_ && sy != 0) dy = sy;
     stickX_ = sx;
@@ -429,9 +438,9 @@ void GameScene::drawInventory() {
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
     const float s = static_cast<float>(ui::scale());
     const int size = ui::fontSize(ui::scale());
-    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const int small = ui::smallFontSize();
     const bool pad = usingGamepad_;
-    DrawRectangle(0, 0, app_.screenWidth(), app_.screenHeight(), Color{0, 0, 0, 160});
+    ui::dimScreen(160);
 
     const float slot = 16.0f * s, gap = 2.0f * s;
     // Tall enough for every wand row, the satchel and the info card.
@@ -562,7 +571,8 @@ void GameScene::drawInventory() {
         py += static_cast<float>(small) * 1.2f;
         if (py > panelR.y + panelR.height - 14.0f * s) break;
     }
-    ui::text(TextFormat("Kills %d   Gold %d   Time %s", run_.stats.kills, run_.gold, formatTime(run_.stats.time).c_str()),
+    ui::text(TextFormat("Kills %d   Gold %d   Time %s", run_.stats.kills, run_.gold,
+                        ui::formatClock(run_.stats.time).c_str()),
              panelR.x + panelR.width - 10.0f * s, panelR.y + panelR.height - static_cast<float>(small) - 6.0f * s, small,
              ui::color::kTextDim, ui::Align::Right);
 
@@ -617,12 +627,12 @@ void GameScene::drawInventory() {
 void GameScene::drawPauseMenu() {
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
     const float s = static_cast<float>(ui::scale());
-    DrawRectangle(0, 0, app_.screenWidth(), app_.screenHeight(), Color{0, 0, 0, 150});
+    ui::dimScreen(150);
     Rectangle panelR{sw * 0.5f - 80.0f * s, sh * 0.5f - 72.0f * s, 160.0f * s, 144.0f * s};
     ui::panel(panelR);
     ui::text("PAUSED", sw * 0.5f, panelR.y + 8.0f * s, ui::fontSize(ui::scale() + 1), ui::color::kGold, ui::Align::Center);
     // The run's seed (and ordeal, hover for its rules) at the foot of the panel.
-    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const int small = ui::smallFontSize();
     const std::string footer = run_.ordeal > 0 ? TextFormat("Seed %u - %s", run_.seed, ordealLabel(run_.ordeal).c_str())
                                                : TextFormat("Seed %u", run_.seed);
     const float footY = panelR.y + panelR.height - static_cast<float>(small) - 6.0f * s;
@@ -651,8 +661,8 @@ void GameScene::drawPauseMenu() {
 void GameScene::drawEndScreen(bool victory) {
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
     const float s = static_cast<float>(ui::scale());
-    float a = clamp((endTimer_ - (victory ? 0.5f : 1.6f)) * 1.5f, 0.0f, 1.0f);
-    DrawRectangle(0, 0, app_.screenWidth(), app_.screenHeight(), Color{0, 0, 0, static_cast<unsigned char>(170.0f * a)});
+    float a = clamp((endTimer_ - (victory ? 0.5f : kDeathScreenDelay)) * 1.5f, 0.0f, 1.0f);
+    ui::dimScreen(static_cast<unsigned char>(170.0f * a));
     if (a <= 0.0f) return;
     unsigned char al = static_cast<unsigned char>(255.0f * a);
     const int font = ui::fontSize(ui::scale());
@@ -696,7 +706,7 @@ void GameScene::drawEndScreen(bool victory) {
     const std::string seedNote = run_.daily ? " (Daily Rite)" : run_.ordeal > 0 ? " (" + ordealLabel(run_.ordeal) + ")" : "";
     const std::string left[] = {
         std::string("Reached: ") + (run_.inSanctum ? "Sanctum after " : "") + reached,
-        "Time: " + formatTime(st.time),
+        "Time: " + ui::formatClock(st.time),
         "Creatures slain: " + std::to_string(st.kills),
         "Gold gathered: " + std::to_string(st.goldCollected),
     };
@@ -760,7 +770,7 @@ void GameScene::drawEndScreen(bool victory) {
         app_.setScene(std::make_unique<GameScene>(app_, std::move(fresh)));
     };
     if (ui::button({bx, y, bw, bh}, victory ? "New Work" : "Try Again") || ui::confirmPressed() || input::keyPressed(KEY_R)) {
-        startRun(static_cast<uint32_t>(GetRandomValue(1, 0x7FFFFFFF)));
+        startRun(randomRunSeed());
         return;
     }
     bx += bw + gap;
@@ -775,9 +785,9 @@ void GameScene::drawEndScreen(bool victory) {
     if (ui::button({bx, y, bw, bh}, "Main Menu") || ui::backPressed()) app_.setScene(std::make_unique<MenuScene>(app_));
 }
 
-void GameScene::drawDebugOverlay() {
+void GameScene::drawDebugOverlay() const {
     const float s = static_cast<float>(ui::scale());
-    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const int small = ui::smallFontSize();
     float x = 10.0f * s, y = static_cast<float>(app_.screenHeight()) * 0.45f;
     ui::text(TextFormat("%d FPS", GetFPS()), x, y, small, GREEN);
     y += static_cast<float>(small) * 1.3f;
@@ -797,7 +807,7 @@ void GameScene::drawDebugOverlay() {
     }
 }
 
-void GameScene::drawLoading() {
+void GameScene::drawLoading() const {
     // An alchemical motto for each step of the descent: the Latin, then its meaning.
     struct Motto {
         const char* latin;

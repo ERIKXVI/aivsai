@@ -14,7 +14,7 @@ namespace {
 /// Horizontal slider; returns true while the value changes.
 bool slider(Rectangle r, const char* label, float& value) {
     const float s = static_cast<float>(ui::scale());
-    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const int small = ui::smallFontSize();
     ui::text(label, r.x, r.y - static_cast<float>(small) - 2.0f * s, small, ui::color::kTextDim);
     Rectangle track{r.x, r.y + r.height * 0.35f, r.width, r.height * 0.3f};
     ui::bar(track, value, ui::color::kAccent);
@@ -48,39 +48,30 @@ bool drawSettingsPanel(App& app) {
     changed |= slider({x, y, w, h}, "Effects volume", st.sfxVolume);
     y += 20.0f * s;
 
-    float bw = panelR.width - 32.0f * s, bh = 16.0f * s;
-    if (ui::button({x, y, bw, bh}, std::string("Screen shake: ") + (st.screenShake ? "On" : "Off"))) {
-        st.screenShake = !st.screenShake;
-        changed = true;
-    }
-    y += bh + 4.0f * s;
+    const float bw = panelR.width - 32.0f * s, bh = 16.0f * s;
+    // One full-width "Name: On/Off" row: flips `flag` on click, advances y, returns the row's rect.
+    auto toggle = [&](const char* name, bool& flag, const char* on = "On", const char* off = "Off") {
+        const Rectangle r{x, y, bw, bh};
+        if (ui::button(r, std::string(name) + ": " + (flag ? on : off))) {
+            flag = !flag;
+            changed = true;
+        }
+        y += bh + 4.0f * s;
+        return r;
+    };
+
+    toggle("Screen shake", st.screenShake);
     const bool fullscreen = IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE);
     if (ui::button({x, y, bw, bh}, std::string("Fullscreen: ") + (fullscreen ? "On" : "Off"))) {
         app.toggleFullscreen();
         changed = true;
     }
     y += bh + 4.0f * s;
-    if (ui::button({x, y, bw, bh}, std::string("Show FPS: ") + (st.showFps ? "On" : "Off"))) {
-        st.showFps = !st.showFps;
-        changed = true;
-    }
-    y += bh + 4.0f * s;
-    if (ui::button({x, y, bw, bh}, std::string("Graphics: ") + (st.highQuality ? "High" : "Low"))) {
-        st.highQuality = !st.highQuality;
-        changed = true;
-    }
-    if (ui::hovered({x, y, bw, bh})) ui::tooltip("Graphics", "Low shortens shadow rays and uses fewer lights, for weaker GPUs.");
-    y += bh + 4.0f * s;
-    if (ui::button({x, y, bw, bh}, std::string("Hints: ") + (st.hints ? "On" : "Off"))) {
-        st.hints = !st.hints;
-        changed = true;
-    }
-    y += bh + 4.0f * s;
-    if (ui::button({x, y, bw, bh}, std::string("Matter lens: ") + (st.matterLens ? "On" : "Off"))) {
-        st.matterLens = !st.matterLens;
-        changed = true;
-    }
-    if (ui::hovered({x, y, bw, bh}))
+    toggle("Show FPS", st.showFps);
+    if (ui::hovered(toggle("Graphics", st.highQuality, "High", "Low")))
+        ui::tooltip("Graphics", "Low shortens shadow rays and uses fewer lights, for weaker GPUs.");
+    toggle("Hints", st.hints);
+    if (ui::hovered(toggle("Matter lens", st.matterLens)))
         ui::tooltip("Matter lens", "Rest the cursor on a substance or creature to see what it is and what it does.");
     if (changed) app.applySettings();
 

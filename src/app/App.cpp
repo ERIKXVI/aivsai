@@ -126,11 +126,13 @@ void App::applySettings() {
     audio_->setSfxVolume(settings_.sfxVolume);
 }
 
+uint32_t randomRunSeed() { return static_cast<uint32_t>(GetRandomValue(1, 0x7FFFFFFF)); }
+
 int App::run() {
     if (options_.sandbox) {
         setScene(std::make_unique<SandboxScene>(*this));
     } else if (options_.startRun) {
-        uint32_t seed = options_.seed ? options_.seed : static_cast<uint32_t>(GetRandomValue(1, 0x7FFFFFFF));
+        uint32_t seed = options_.seed ? options_.seed : randomRunSeed();
         RunState run = newRun(seed, static_cast<Difficulty>(clamp(settings_.difficulty, 0, 2)), false,
                               static_cast<LoadoutId>(clamp(options_.startLoadout, 0, kLoadoutCount - 1)), options_.ordeal);
         run.levelIndex = clamp(options_.startLevel, 0, 4);

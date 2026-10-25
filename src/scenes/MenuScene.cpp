@@ -102,10 +102,7 @@ void MenuScene::buildWorld() {
     w.wakeAll();
 }
 
-Milestones MenuScene::milestones() const {
-    const Profile& p = app_.profile();
-    return Milestones{p.deepest, p.victories, p.chestsOpened, p.totalKills};
-}
+Milestones MenuScene::milestones() const { return milestonesOf(app_.profile()); }
 
 void MenuScene::abandonSuspendedRun() {
     if (!suspended_) return;
@@ -127,7 +124,7 @@ void MenuScene::replayRun(const RunHistoryEntry& entry) {
 void MenuScene::startRun(bool daily, LoadoutId loadout) {
     abandonSuspendedRun();
     Difficulty diff = static_cast<Difficulty>(clamp(app_.settings().difficulty, 0, 2));
-    uint32_t seed = daily ? dailySeed() : static_cast<uint32_t>(GetRandomValue(1, 0x7FFFFFFF));
+    uint32_t seed = daily ? dailySeed() : randomRunSeed();
     if (daily) {
         app_.profile().lastDailySeed = static_cast<int>(seed);
         saveProfile(app_.profile());
@@ -210,7 +207,7 @@ void MenuScene::render(float alpha) {
     switch (panel_) {
     case Panel::Main: drawMain(); break;
     case Panel::Settings:
-        DrawRectangle(0, 0, app_.screenWidth(), app_.screenHeight(), Color{0, 0, 0, 120});
+        ui::dimScreen(120);
         if (drawSettingsPanel(app_)) panel_ = Panel::Main;
         break;
     case Panel::Help: drawHelp(); break;
@@ -229,7 +226,7 @@ void MenuScene::render(float alpha) {
 void MenuScene::drawMain() {
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
     const float s = static_cast<float>(ui::scale());
-    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const int small = ui::smallFontSize();
     Vector2 sub = scene_.worldToScreen({kMenuW * 0.5f, static_cast<float>(titleBottom_) + 12.0f});
     ui::text("a falling-sand alchemy roguelite", sw * 0.5f, sub.y, ui::fontSize(ui::scale()), Color{210, 190, 240, 230},
              ui::Align::Center);
@@ -295,12 +292,12 @@ void MenuScene::drawMain() {
 
     const Profile& p = app_.profile();
     std::string stats = TextFormat("Runs %d   Great Works completed %d   Deepest stage %d", p.runs, p.victories, p.deepest);
-    if (p.bestTime > 0.0f) stats += TextFormat("   Best time %d:%02d", static_cast<int>(p.bestTime) / 60, static_cast<int>(p.bestTime) % 60);
+    if (p.bestTime > 0.0f) stats += "   Best time " + ui::formatClock(p.bestTime);
     ui::text(stats, sw * 0.5f, sh - static_cast<float>(small) - 8.0f * s, small, Color{180, 170, 190, 220}, ui::Align::Center);
     if (!p.history.empty()) {
-        const RunHistoryEntry& last = p.history.front();
-        const std::string line = last.victory ? "Last descent: the Great Work completed"
-                                              : "Last descent: " + last.fate + " - " + depthLabel(last);
+        const RunHistoryEntry& lastRun = p.history.front();
+        const std::string line = lastRun.victory ? "Last descent: the Great Work completed"
+                                                 : "Last descent: " + lastRun.fate + " - " + depthLabel(lastRun);
         ui::text(line, sw * 0.5f, sh - static_cast<float>(small) * 2.3f - 8.0f * s, small, Color{150, 135, 160, 200},
                  ui::Align::Center);
     }
@@ -312,13 +309,13 @@ void MenuScene::drawLoadouts() {
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
     const float s = static_cast<float>(ui::scale());
     const int size = ui::fontSize(ui::scale());
-    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const int small = ui::smallFontSize();
     const Milestones m = milestones();
     Settings& st = app_.settings();
     auto selected = static_cast<LoadoutId>(clamp(st.loadout, 0, kLoadoutCount - 1));
     if (!loadoutUnlocked(selected, m)) selected = LoadoutId::Apprentice;
 
-    DrawRectangle(0, 0, app_.screenWidth(), app_.screenHeight(), Color{0, 0, 0, 150});
+    ui::dimScreen(150);
     const float rowH = 36.0f * s, rowGap = 4.0f * s;
     Rectangle r{sw * 0.5f - 210.0f * s, sh * 0.5f - 143.0f * s, 420.0f * s, 286.0f * s};
     ui::panel(r);
@@ -374,8 +371,8 @@ void MenuScene::drawLoadouts() {
         y += rowH + rowGap;
     }
     // Arrow keys move the selection between unlocked paths.
-    const bool down = input::keyPressed(KEY_DOWN) || input::keyPressed(KEY_S) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN);
-    const bool up = input::keyPressed(KEY_UP) || input::keyPressed(KEY_W) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_UP);
+    const bool down = ui::navDownPressed();
+    const bool up = ui::navUpPressed();
     const int dir = (down ? 1 : 0) - (up ? 1 : 0);
     if (dir != 0) {
         for (int step = 1; step < kLoadoutCount; ++step) {
@@ -402,7 +399,7 @@ void MenuScene::drawLoadouts() {
 void MenuScene::drawOrdealRow(Rectangle row, std::string& tipTitle, std::string& tipBody) {
     const float s = static_cast<float>(ui::scale());
     const int size = ui::fontSize(ui::scale());
-    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const int small = ui::smallFontSize();
     const float cx = row.x + row.width * 0.5f;
     const int unlocked = app_.profile().ordealUnlocked;
     if (unlocked <= 0) {
@@ -414,8 +411,8 @@ void MenuScene::drawOrdealRow(Rectangle row, std::string& tipTitle, std::string&
     Settings& st = app_.settings();
     int ordeal = std::min(st.ordeal, unlocked);
     const float arrowW = 18.0f * s;
-    const bool less = input::keyPressed(KEY_LEFT) || input::keyPressed(KEY_A) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_LEFT);
-    const bool more = input::keyPressed(KEY_RIGHT) || input::keyPressed(KEY_D) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_RIGHT);
+    const bool less = ui::navLeftPressed();
+    const bool more = ui::navRightPressed();
     if (ui::button({row.x, row.y, arrowW, row.height}, "<") || less) ordeal = std::max(0, ordeal - 1);
     if (ui::button({row.x + row.width - arrowW, row.y, arrowW, row.height}, ">") || more) ordeal = std::min(unlocked, ordeal + 1);
     if (ordeal != st.ordeal) {
@@ -438,7 +435,7 @@ void MenuScene::drawHelp() {
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
     const float s = static_cast<float>(ui::scale());
     const int size = ui::fontSize(ui::scale());
-    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const int small = ui::smallFontSize();
 
     // Controls as a two-column key / action table.
     struct Binding {
@@ -484,7 +481,7 @@ void MenuScene::drawHelp() {
     }
     height = std::min(height, sh - 8.0f * s);
 
-    DrawRectangle(0, 0, app_.screenWidth(), app_.screenHeight(), Color{0, 0, 0, 150});
+    ui::dimScreen(150);
     const Rectangle r{sw * 0.5f - width * 0.5f, sh * 0.5f - height * 0.5f, width, height};
     ui::panel(r);
     ui::text("HOW TO PLAY", sw * 0.5f, r.y + 8.0f * s, ui::fontSize(ui::scale() + 1), ui::color::kGold, ui::Align::Center);
