@@ -157,7 +157,7 @@ void defineMaterials() {
         .flammable(110, 30, ToxicGas);
     Define(Spore, "Spores", Phase::Powder).density(60).colors(0x6a4aa8, 0xb090f0).glow(0x9a70ff, 30)
         .flammable(80, 10, Ash).flags(kOrganic);
-    Define(Litter, "Plant Litter", Phase::Powder).density(50).colors(0x26401c, 0x5c7034)
+    Define(Litter, "Plant Litter", Phase::Powder).density(50).colors(0x3b3020, 0x5f7032)
         .flammable(100, 15, Empty).flags(kOrganic | kDiggable);
 
     // --- Liquids --------------------------------------------------------------------

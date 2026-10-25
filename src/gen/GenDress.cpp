@@ -128,26 +128,32 @@ void Generator::placeVegetation(World& world) {
     }
 }
 
-void Generator::placeTrees(World& world) {
+void Generator::placeTrees(World& world, LevelLayout& out) {
     const float entranceX = path_.front().x;
     for (int x = 20; x < w_ - 20; x += rng_.rangeInt(26, 60)) {
         if (std::fabs(static_cast<float>(x) - entranceX) < 30.0f || std::fabs(static_cast<float>(x) - start_.x) < 14.0f) continue;
         const int ground = skyline_[static_cast<size_t>(x)];
         if (!isFloor(world, x, ground - 1)) continue;
+        TreeShape tree;
+        tree.rootX = x;
+        tree.rootY = ground - 1;
+        auto wood = [&](int wx, int wy) {
+            if (world.placeIfEmpty(wx, wy, mat::Wood)) tree.cells.push_back(static_cast<uint32_t>(idx(wx, wy)));
+        };
         const int height = rng_.rangeInt(16, 34);
         const int top = ground - height;
         // Trunk, slightly leaning, with a couple of branches.
         float lean = rng_.range(-0.15f, 0.15f);
         for (int y = ground - 1; y >= top; --y) {
             int tx = x + static_cast<int>(lean * static_cast<float>(ground - y));
-            world.placeIfEmpty(tx, y, mat::Wood);
-            if (y > top + height / 2) world.placeIfEmpty(tx + 1, y, mat::Wood);
+            wood(tx, y);
+            if (y > top + height / 2) wood(tx + 1, y);
         }
         for (int b = 0; b < 2; ++b) {
             int by = top + rng_.rangeInt(3, height / 2);
             int dir = rng_.sign();
             int bx = x + static_cast<int>(lean * static_cast<float>(ground - by));
-            for (int k = 1; k < rng_.rangeInt(4, 8); ++k) world.placeIfEmpty(bx + dir * k, by - k / 2, mat::Wood);
+            for (int k = 1; k < rng_.rangeInt(4, 8); ++k) wood(bx + dir * k, by - k / 2);
         }
         // Canopy of overlapping leaf blobs.
         const int topX = x + static_cast<int>(lean * static_cast<float>(height));
@@ -158,9 +164,18 @@ void Generator::placeTrees(World& world) {
                 for (int dx = -r; dx <= r; ++dx)
                     if (dx * dx + dy * dy * 2 <= r * r && hash2(cx + dx, cy + dy, seed_) % 7u != 0u) {
                         Cell c = makeCell(mat::Leaves, hash2(cx + dx, cy + dy, seed_ ^ 3u));
-                        if (world.inBounds(cx + dx, cy + dy) && world.at(cx + dx, cy + dy).mat == mat::Empty) world.at(cx + dx, cy + dy) = c;
+                        if (world.inBounds(cx + dx, cy + dy) && world.at(cx + dx, cy + dy).mat == mat::Empty) {
+                            world.at(cx + dx, cy + dy) = c;
+                            tree.cells.push_back(static_cast<uint32_t>(idx(cx + dx, cy + dy)));
+                        }
                     }
         }
+        std::sort(tree.cells.begin(), tree.cells.end());
+        if (tree.cells.empty() || world.at(tree.rootX, tree.rootY).mat != mat::Wood) continue;
+        // Leaf blobs that never touched the tree would float; a tree is one connected piece.
+        for (const uint32_t cell : pruneTree(world, tree))
+            world.clear(static_cast<int>(cell % static_cast<uint32_t>(w_)), static_cast<int>(cell / static_cast<uint32_t>(w_)));
+        out.trees.push_back(std::move(tree));
     }
     // Grass tufts along the surface (leaf matter: they stand rather than hang like vines).
     for (int x = 0; x < w_; ++x) {

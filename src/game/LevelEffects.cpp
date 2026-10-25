@@ -1,6 +1,7 @@
 // Level effects API: casting, explosions, digging and the other ways gameplay reshapes the
-// simulated world.
+// simulated world, plus props that come down once it is reshaped beneath them.
 
+#include <algorithm>
 #include <cmath>
 #include <queue>
 
@@ -466,6 +467,58 @@ void Level::spawnAmbience() {
             const int y = ground - fxRng_.rangeInt(4, 50);
             if (w.inBounds(x, y) && w.at(x, y).mat == mat::Empty) emit(kFireflies, {static_cast<float>(x), static_cast<float>(y)});
         }
+    }
+}
+
+void Level::updateLanterns(float dt) {
+    // A lantern whose ceiling is blasted away drops, and shatters into burning oil.
+    World& w = world();
+    for (Lantern& l : lanterns_) {
+        if (l.fallSpeed <= 0.0f) {
+            if (ticks_ % 10 != 0) continue;
+            const int ax = floorToInt(l.pos.x), ay = floorToInt(l.pos.y) - 5;
+            if (!w.inBounds(ax, ay) || phaseOf(w.at(ax, ay).mat) != Phase::Empty) continue;
+        }
+        l.fallSpeed = std::min(l.fallSpeed + kGravity * dt, 420.0f);
+        l.pos.y += l.fallSpeed * dt;
+        const int x = floorToInt(l.pos.x), y = floorToInt(l.pos.y) + 3;
+        if (!w.inBounds(x, y + 1)) {
+            l.shattered = true;
+            continue;
+        }
+        if (phaseOf(w.at(x, y).mat) == Phase::Empty) continue;
+        l.shattered = true;
+        const Vec2 at{l.pos.x, l.pos.y + 1.0f};
+        spawnBlob(at, mat::Oil, 10, {0.0f, -30.0f});
+        for (int i = 0; i < 8; ++i) w.placeIfEmpty(x + rng_.rangeInt(-3, 3), y - rng_.rangeInt(1, 4), mat::Fire);
+        particles_.burst(at, 10, 70.0f, {255, 220, 150, 255}, {255, 160, 60, 200}, 0.5f, rng_);
+        addFlash(at, 0xffb050, 1.4f, 60.0f, 0.25f);
+        audio_.playAt(Sfx::Hit, at, 0.5f, 1.7f);
+    }
+    lanterns_.erase(std::remove_if(lanterns_.begin(), lanterns_.end(), [](const Lantern& l) { return l.shattered; }),
+                    lanterns_.end());
+}
+
+void Level::updateTrees() {
+    // A tree keeps only what is still joined to its root; the rest crumbles into falling
+    // litter. Trees are recounted every 15 ticks and pruned only when they have lost cells.
+    if (layout_.trees.empty() || ticks_ % 15 != 7) return;
+    World& w = world();
+    const auto width = static_cast<uint32_t>(w.width());
+    if (treeCellCounts_.size() != layout_.trees.size()) {
+        treeCellCounts_.clear();
+        for (const TreeShape& tree : layout_.trees) treeCellCounts_.push_back(tree.cells.size());
+    }
+    for (size_t t = 0; t < layout_.trees.size(); ++t) {
+        TreeShape& tree = layout_.trees[t];
+        const auto alive = static_cast<size_t>(std::count_if(tree.cells.begin(), tree.cells.end(), [&](uint32_t cell) {
+            const MatId m = w.at(static_cast<int>(cell % width), static_cast<int>(cell / width)).mat;
+            return m == mat::Wood || m == mat::Leaves;
+        }));
+        if (alive == treeCellCounts_[t]) continue;
+        for (const uint32_t cell : pruneTree(w, tree))
+            w.place(static_cast<int>(cell % width), static_cast<int>(cell / width), mat::Litter);
+        treeCellCounts_[t] = tree.cells.size();
     }
 }
 

@@ -171,13 +171,16 @@ private:
     void updatePickups(float dt);
     void interact();
     void updateEffects(float dt);
+    /// Props cut loose by the world changing around them: lanterns drop, trees come apart.
     void updateLanterns(float dt);
+    void updateTrees();
     void updateIntensity();
     void updateTransmuters();
     /// Biome ambience: drifting dust, ice glitter, spores, embers, fireflies.
     void spawnAmbience();
 
     LevelLayout layout_;
+    std::vector<size_t> treeCellCounts_; ///< per tree: wood and leaf cells left at the last check
     RunState& run_;
     Audio& audio_;
     ThreadPool& pool_;

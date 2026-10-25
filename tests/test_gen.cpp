@@ -80,3 +80,24 @@ TEST_CASE("omens follow their rules and keep the route open") {
         CHECK(ok);
     }
 }
+
+TEST_CASE("trees stay whole until cut, then shed what is cut loose") {
+    initMaterials();
+    ThreadPool pool;
+    LevelLayout layout = generateLevel(biomeForDepth(0), 0, 777u, pool);
+    CHECK(!layout.trees.empty());
+    World& world = *layout.world;
+    for (TreeShape& tree : layout.trees) {
+        const size_t whole = tree.cells.size();
+        CHECK(pruneTree(world, tree).empty()); // grown as one connected piece
+        CHECK(tree.cells.size() == whole);
+    }
+    // Fell the first tree at the root: everything above comes loose.
+    TreeShape& tree = layout.trees.front();
+    const size_t whole = tree.cells.size();
+    world.clear(tree.rootX, tree.rootY);
+    world.clear(tree.rootX + 1, tree.rootY);
+    const std::vector<uint32_t> loose = pruneTree(world, tree);
+    CHECK(tree.cells.empty());
+    CHECK(loose.size() + 2 >= whole - 1 && loose.size() < whole);
+}

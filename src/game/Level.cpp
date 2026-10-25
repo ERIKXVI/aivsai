@@ -162,6 +162,7 @@ void Level::tick(const PlayerInput& input) {
     if (input.interactPressed && player_->alive()) interact();
     updateEffects(dt);
     updateLanterns(dt);
+    updateTrees();
 
     enemies_.erase(std::remove_if(enemies_.begin(), enemies_.end(), [](const auto& e) { return e->dead; }),
                    enemies_.end());
@@ -381,35 +382,6 @@ void Level::updateEffects(float dt) {
     shake_ = std::max(0.0f, shake_ - dt * 1.6f);
     hurtPulse_ = std::max(0.0f, hurtPulse_ - dt * 2.5f);
     if (player_->hurtFlash > 0.1f) hurtPulse_ = 1.0f;
-}
-
-void Level::updateLanterns(float dt) {
-    // A lantern whose ceiling is blasted away drops, and shatters into burning oil.
-    World& w = world();
-    for (Lantern& l : lanterns_) {
-        if (l.fallSpeed <= 0.0f) {
-            if (ticks_ % 10 != 0) continue;
-            const int ax = floorToInt(l.pos.x), ay = floorToInt(l.pos.y) - 5;
-            if (!w.inBounds(ax, ay) || phaseOf(w.at(ax, ay).mat) != Phase::Empty) continue;
-        }
-        l.fallSpeed = std::min(l.fallSpeed + kGravity * dt, 420.0f);
-        l.pos.y += l.fallSpeed * dt;
-        const int x = floorToInt(l.pos.x), y = floorToInt(l.pos.y) + 3;
-        if (!w.inBounds(x, y + 1)) {
-            l.shattered = true;
-            continue;
-        }
-        if (phaseOf(w.at(x, y).mat) == Phase::Empty) continue;
-        l.shattered = true;
-        const Vec2 at{l.pos.x, l.pos.y + 1.0f};
-        spawnBlob(at, mat::Oil, 10, {0.0f, -30.0f});
-        for (int i = 0; i < 8; ++i) w.placeIfEmpty(x + rng_.rangeInt(-3, 3), y - rng_.rangeInt(1, 4), mat::Fire);
-        particles_.burst(at, 10, 70.0f, {255, 220, 150, 255}, {255, 160, 60, 200}, 0.5f, rng_);
-        addFlash(at, 0xffb050, 1.4f, 60.0f, 0.25f);
-        audio_.playAt(Sfx::Hit, at, 0.5f, 1.7f);
-    }
-    lanterns_.erase(std::remove_if(lanterns_.begin(), lanterns_.end(), [](const Lantern& l) { return l.shattered; }),
-                    lanterns_.end());
 }
 
 void Level::updateIntensity() {

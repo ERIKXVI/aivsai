@@ -35,6 +35,13 @@ struct SpawnPoint {
     float difficulty;  ///< 0 near the entrance, 1 near the exit
 };
 
+/// A tree on the surface: the cells it was grown from and the root of its trunk, so the
+/// level can tell when part of it has been cut loose.
+struct TreeShape {
+    int rootX = 0, rootY = 0;     ///< bottom trunk cell, resting on the ground
+    std::vector<uint32_t> cells;  ///< sorted world cell indices (y * width + x) of its wood and leaves
+};
+
 struct LevelLayout {
     std::unique_ptr<World> world;
     BiomeId biome = BiomeId::Nigredo;
@@ -48,6 +55,7 @@ struct LevelLayout {
     Omen omen = Omen::None;
     int surfaceY = -1;                ///< > 0 when the level opens onto the sky
     std::vector<int> skyline;         ///< per column: first ground row (surface levels only)
+    std::vector<TreeShape> trees;
 };
 
 struct GenOptions {
@@ -58,6 +66,11 @@ struct GenOptions {
 
 LevelLayout generateLevel(BiomeId biome, int levelIndex, uint32_t seed, ThreadPool& pool,
                           const GenOptions& options = {});
+
+/// Drops from `tree` every cell that is no longer wood or leaves or no longer joined to the
+/// root (through its own cells, diagonals included), and returns the ones still standing but
+/// cut loose, which should fall.
+std::vector<uint32_t> pruneTree(const World& world, TreeShape& tree);
 
 /// Builds the hand-shaped sanctum between stages (shop, healing font, perk altar, exit).
 LevelLayout generateSanctum(int levelIndex, uint32_t seed, ThreadPool& pool);

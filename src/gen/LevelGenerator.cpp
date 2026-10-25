@@ -37,7 +37,7 @@ LevelLayout Generator::run(ThreadPool& pool) {
     World& world = *out.world;
     paintMaterials(world, pool);
     placeVegetation(world);
-    if (surface_) placeTrees(world);
+    if (surface_) placeTrees(world, out);
     placeStructures(world);
     placePools(world);
     placePowders(world);
@@ -94,6 +94,47 @@ Omen omenFor(int levelIndex, uint32_t levelSeed) {
     }
     if (hashToUnit(h) >= 0.45f) return Omen::None;
     return static_cast<Omen>(1 + pick % (static_cast<uint32_t>(Omen::Count) - 1));
+}
+
+std::vector<uint32_t> pruneTree(const World& world, TreeShape& tree) {
+    const auto width = static_cast<uint32_t>(world.width());
+    auto isPlant = [&](uint32_t cell) {
+        const MatId m = world.at(static_cast<int>(cell % width), static_cast<int>(cell / width)).mat;
+        return m == mat::Wood || m == mat::Leaves;
+    };
+    auto indexOf = [&](uint32_t cell) -> long {
+        auto it = std::lower_bound(tree.cells.begin(), tree.cells.end(), cell);
+        return it != tree.cells.end() && *it == cell ? static_cast<long>(it - tree.cells.begin()) : -1;
+    };
+    // Flood fill from the root through the tree's surviving cells.
+    std::vector<uint8_t> reached(tree.cells.size(), 0);
+    std::vector<uint32_t> frontier;
+    const auto root = static_cast<uint32_t>(tree.rootY) * width + static_cast<uint32_t>(tree.rootX);
+    if (const long r = indexOf(root); r >= 0 && isPlant(root)) {
+        reached[static_cast<size_t>(r)] = 1;
+        frontier.push_back(root);
+    }
+    while (!frontier.empty()) {
+        const uint32_t cell = frontier.back();
+        frontier.pop_back();
+        const int x = static_cast<int>(cell % width), y = static_cast<int>(cell / width);
+        for (int dy = -1; dy <= 1; ++dy)
+            for (int dx = -1; dx <= 1; ++dx) {
+                if ((dx == 0 && dy == 0) || !world.inBounds(x + dx, y + dy)) continue;
+                const auto next = static_cast<uint32_t>(y + dy) * width + static_cast<uint32_t>(x + dx);
+                const long k = indexOf(next);
+                if (k < 0 || reached[static_cast<size_t>(k)] || !isPlant(next)) continue;
+                reached[static_cast<size_t>(k)] = 1;
+                frontier.push_back(next);
+            }
+    }
+    std::vector<uint32_t> kept, severed;
+    for (size_t k = 0; k < tree.cells.size(); ++k) {
+        if (!isPlant(tree.cells[k])) continue;
+        (reached[k] ? kept : severed).push_back(tree.cells[k]);
+    }
+    tree.cells = std::move(kept);
+    return severed;
 }
 
 LevelLayout generateLevel(BiomeId biome, int levelIndex, uint32_t seed, ThreadPool& pool, const GenOptions& options) {

@@ -67,7 +67,7 @@ private:
     void paintMaterials(World& world, ThreadPool& pool);
     bool isFloor(const World& w, int x, int y) const;
     void placeVegetation(World& world);
-    void placeTrees(World& world);
+    void placeTrees(World& world, LevelLayout& out);
     void placeMushroom(World& world, int x, int y);
     void placeStructures(World& world);
     float distanceToPath(Vec2 p) const;
