@@ -36,6 +36,7 @@ const EnemyDef kEnemies[static_cast<int>(EnemyType::Count)] = {
     {"The Mine King",  SpriteId::Ghoul,      Behaviour::Walker,   650,  7.0f, 12.5f, 40, 18, DamageType::Physical, SpellId::Dynamite, 2.6f, 220, mat::Blood, 180, false, 0xffd060, {0.8f, 1.2f, 0.5f, 1, 1, 1, 1, 1.5f},  0xffd27a, 2, 3, true},
     {"The Red Colossus",SpriteId::Golem,     Behaviour::Brute,    900, 12.0f, 15.5f, 30, 26, DamageType::Physical, SpellId::Fireball, 3.4f, 220, mat::Gravel, 220, false, 0xff6020, {0.6f, 0, 0.6f, 1.4f, 1, 1.4f, 0, 1}, 0xff9a7a, 2, 1, true},
     {"Mimic",          SpriteId::Mimic,      Behaviour::Mimic,     50, 5.5f, 4.0f,  78, 12, DamageType::Physical, SpellId::None,      0.8f, 170, mat::Blood, 25, false, 0,        {1, 1.3f, 1, 1, 1, 1, 1, 1}},
+    {"Bile Slug",      SpriteId::BileSlug,   Behaviour::Walker,    34, 6.0f, 3.5f,  18,  6, DamageType::Acid,     SpellId::AcidGlob,  3.2f, 160, mat::Toxic, 10, false, 0xa0e040, {1, 1.2f, 1, 1, 1, 0, 0, 1}},
 };
 // clang-format on
 
@@ -47,9 +48,9 @@ struct SpawnEntry {
 
 // Ground and air tables per stage.
 const std::vector<SpawnEntry> kGround[5] = {
-    {{EnemyType::Slime, 40, 0}, {EnemyType::Ghoul, 30, 0}, {EnemyType::Shroom, 15, 0.2f}, {EnemyType::Beetle, 8, 0.5f}},
+    {{EnemyType::Slime, 40, 0}, {EnemyType::Ghoul, 30, 0}, {EnemyType::Shroom, 15, 0.2f}, {EnemyType::BileSlug, 12, 0.3f}, {EnemyType::Beetle, 8, 0.5f}},
     {{EnemyType::FrostSlime, 35, 0}, {EnemyType::Ghoul, 20, 0}, {EnemyType::Turret, 20, 0.2f}, {EnemyType::Golem, 8, 0.6f}},
-    {{EnemyType::Sapper, 30, 0}, {EnemyType::Beetle, 25, 0}, {EnemyType::Shroom, 20, 0}, {EnemyType::Worm, 8, 0.4f}, {EnemyType::Slime, 10, 0}},
+    {{EnemyType::Sapper, 30, 0}, {EnemyType::Beetle, 25, 0}, {EnemyType::Shroom, 20, 0}, {EnemyType::BileSlug, 15, 0}, {EnemyType::Worm, 8, 0.4f}, {EnemyType::Slime, 10, 0}},
     {{EnemyType::Beetle, 25, 0}, {EnemyType::Golem, 20, 0.2f}, {EnemyType::Worm, 15, 0.2f}, {EnemyType::Turret, 15, 0}, {EnemyType::Sapper, 15, 0}},
     {{EnemyType::Golem, 25, 0}, {EnemyType::Turret, 20, 0}, {EnemyType::Worm, 15, 0}, {EnemyType::Sapper, 15, 0}, {EnemyType::Beetle, 15, 0}},
 };

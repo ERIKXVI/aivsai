@@ -131,9 +131,10 @@ void GrimoirePanel::drawCreatures(App& app, float x, float y) {
     const SpriteBank& sprites = app.sprites();
     const float s = static_cast<float>(ui::scale());
     const int small = ui::fontSize(std::max(1, ui::scale() - 1));
-    // Six to a row keeps every creature (guardians included) on three rows.
-    constexpr int kColumns = 6;
-    const float cellW = 68.0f * s, cellH = 60.0f * s, artH = 32.0f * s;
+    // Six to a row, four rows: room for every creature (guardians included) and a few more.
+    constexpr int kColumns = 6, kRows = 4;
+    static_assert(static_cast<int>(EnemyType::Count) - 1 <= kColumns * kRows, "the bestiary holds four rows");
+    const float cellW = 68.0f * s, cellH = 50.0f * s, artH = 28.0f * s;
     int slot = 0;
     for (int i = 0; i < static_cast<int>(EnemyType::Count); ++i) {
         const auto type = static_cast<EnemyType>(i);

@@ -191,6 +191,7 @@ void Enemy::fireAt(Level& level, Vec2 target, SpellId spell, float spreadRad) {
     l.def.speed *= 0.72f; // monster spells are slower so they can be dodged
     if (l.def.lifetime < 1.2f) l.def.lifetime *= 1.5f;
     l.def.explosionDamage *= 0.5f; // monster explosives are scary, not lethal
+    l.def.spawnAmount /= 3;        // nor do their globs drown whole caves in acid
     Vec2 origin = body.pos + Vec2{0.0f, -body.halfH * 0.3f};
     Vec2 to = target - origin;
     float angle = angleOf(to);

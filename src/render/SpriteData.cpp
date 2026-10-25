@@ -580,6 +580,37 @@ const char* const kMimic[] = {
     "oooooooooooo",
 };
 
+// A bile slug: a long, sickly body, eyes on stalks and a glowing bile sac.
+const char* const kBileSlug[] = {
+    // crawling, stretched
+    ".........w.w.",
+    ".........o.o.",
+    ".........oZo.",
+    "...oooooozzzo",
+    "..ozYYzzzzzto",
+    ".oztzzzzzzzzo",
+    "oZzzzzzzzzzZo",
+    ".ooooooooooo.",
+    // crawling, bunched
+    "..........w.w",
+    "..........o.o",
+    "....ooooooZoo",
+    "...ozYYzzzzto",
+    "..oztzzzzzzzo",
+    ".oZzzzzzzzzZo",
+    ".oZZZZZZZZZZo",
+    "..oooooooooo.",
+    // spitting
+    ".........w.w.",
+    ".........o.o.",
+    ".........oZoo",
+    "...oooooozz.Y",
+    "..ozYYzzzzzoo",
+    ".oztzzzzzzzzo",
+    "oZzzzzzzzzzZo",
+    ".ooooooooooo.",
+};
+
 const char* const kPotion[] = {
     "..ooo..",
     "..oXo..",
@@ -712,6 +743,7 @@ const SpriteSource kSources[] = {
     PM_SPRITE(Portal, 14, 14, kPortal),        PM_SPRITE(Altar, 13, 10, kAltar),
     PM_SPRITE(Pedestal, 11, 7, kPedestal),     PM_SPRITE(Boss, 24, 22, kBoss),
     PM_SPRITE(BossCore, 8, 8, kBossCore),      PM_SPRITE(Mimic, 12, 12, kMimic),
+    PM_SPRITE(BileSlug, 13, 8, kBileSlug),
 };
 
 #undef PM_SPRITE

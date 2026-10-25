@@ -37,6 +37,7 @@ enum class SpriteId : uint8_t {
     Boss,
     BossCore,
     Mimic,
+    BileSlug,
     Count
 };
 

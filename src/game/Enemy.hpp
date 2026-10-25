@@ -33,6 +33,8 @@ enum class EnemyType : uint8_t {
     RedColossus,
     // Lies among the treasure as a chest until the alchemist comes close.
     Mimic,
+    // Crawls the mire and the mines, lobbing acid that eats stone.
+    BileSlug,
     Count
 };
 
