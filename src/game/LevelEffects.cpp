@@ -516,8 +516,11 @@ void Level::updateTrees() {
             return m == mat::Wood || m == mat::Leaves;
         }));
         if (alive == treeCellCounts_[t]) continue;
-        for (const uint32_t cell : pruneTree(w, tree))
-            w.place(static_cast<int>(cell % width), static_cast<int>(cell / width), mat::Litter);
+        const std::vector<uint32_t> loose = pruneTree(w, tree);
+        for (const uint32_t cell : loose) w.place(static_cast<int>(cell % width), static_cast<int>(cell / width), mat::Litter);
+        // A whole crown coming down is heard, not just seen.
+        if (loose.size() > 40)
+            audio_.playAt(Sfx::Land, {static_cast<float>(tree.rootX), static_cast<float>(tree.rootY) - 20.0f}, 0.8f, 0.55f);
         treeCellCounts_[t] = tree.cells.size();
     }
 }
