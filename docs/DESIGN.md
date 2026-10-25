@@ -27,12 +27,15 @@ The descent follows the four stages of the alchemical Great Work:
    carve and ignite it, the flask carries it, creatures bleed into it, perks are earned
    by feeding it to transmutation circles.
 2. **Readable chaos.** Strong lighting, colour coding, hit-stop, shockwaves and clear
-   HUD feedback keep the chaos legible; the death screen names what killed you.
+   HUD feedback keep the chaos legible. Ranged attacks are telegraphed by a glowing
+   wind-up, low health pulses the screen with a heartbeat, and the death screen names
+   what killed you.
 3. **Short, replayable runs.** About 20-30 minutes, procedural levels, spell synergies,
    perks, vaults, unlockable starting paths, seeds and a daily rite.
 4. **Respect the player.** Coyote time, step-up, levitation, generous invulnerability
-   after hits, three difficulties, contextual hints instead of a manual, a map, and
-   levels that are verified traversable.
+   after hits, three difficulties, contextual hints instead of a manual, a map, runs that
+   can be suspended, menus that work with mouse, keyboard or gamepad, a low graphics
+   setting for weak GPUs, and levels that are verified traversable.
 
 ## A run
 
