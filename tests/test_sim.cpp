@@ -1,4 +1,6 @@
 // Simulation invariants: movement conserves matter, reactions behave, chunks go to sleep.
+#include <vector>
+
 #include "core/ThreadPool.hpp"
 #include "sim/World.hpp"
 #include "tests/TestFramework.hpp"
@@ -103,4 +105,33 @@ TEST_CASE("idle world sleeps") {
     buildBox(w);
     for (int i = 0; i < 10; ++i) w.step(pool);
     CHECK(w.activeChunkCount() == 0);
+}
+
+TEST_CASE("burning gunpowder merges into blasts") {
+    initMaterials();
+    ThreadPool pool;
+    World w(128, 96, 5u);
+    buildBox(w);
+    // Two separate kegs of gunpowder, lit.
+    for (int y = 70; y < 80; ++y)
+        for (int x = 10; x < 18; ++x) w.place(x, y, mat::Gunpowder);
+    for (int y = 70; y < 80; ++y)
+        for (int x = 90; x < 98; ++x) w.place(x, y, mat::Gunpowder);
+    w.wakeAll();
+    w.ignite(14, 70);
+    w.ignite(94, 70);
+    std::vector<SimBlast> blasts;
+    for (int i = 0; i < 240 && blasts.empty(); ++i) {
+        w.step(pool);
+        blasts = w.takeBlasts();
+    }
+    CHECK(!blasts.empty());
+    CHECK(w.events().empty()); // taking the blasts consumes the events
+    for (const SimBlast& b : blasts) {
+        CHECK(b.grains > 0);
+        CHECK(b.radius() >= 4.0f && b.radius() <= 26.0f);
+        // Every blast sits on one of the two kegs.
+        const bool left = b.center.x > 6.0f && b.center.x < 22.0f, right = b.center.x > 86.0f && b.center.x < 102.0f;
+        CHECK(left || right);
+    }
 }
