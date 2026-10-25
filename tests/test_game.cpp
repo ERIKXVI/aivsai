@@ -439,6 +439,35 @@ TEST_CASE("elixirs lend haste and fury for a while") {
     CHECK(std::fabs(pl.damageMul() - baseDamage) < 1e-4f);
 }
 
+TEST_CASE("a mimic poses as a chest until approached, and pays out like one") {
+    initMaterials();
+    ThreadPool pool(2);
+    Audio audio;
+    RunState run = newRun(13, Difficulty::Adept, false);
+    Level level(generateSanctum(0, 13u, pool), run, audio, pool);
+    const Vec2 home = level.player().body.pos;
+    Enemy& mimic = level.spawnEnemy(EnemyType::Mimic, home + Vec2{60.0f, -2.0f});
+    for (int i = 0; i < 30; ++i) level.tick(PlayerInput{});
+    CHECK(mimic.disguised());
+    CHECK(!mimic.aggro());
+
+    level.debugTeleport(mimic.body.pos - Vec2{20.0f, 0.0f}); // inside its reach, short of "open"
+    level.tick(PlayerInput{});
+    CHECK(!mimic.disguised());
+    CHECK(mimic.aggro());
+
+    const size_t before = level.pickups().size();
+    mimic.applyDamage(level, {1.0e6f, DamageType::Physical, {}, Team::Player, false, false, "test"});
+    CHECK(level.pickups().size() >= before + 4); // the chest's coins and treasure, plus its own gold
+    const std::vector<FeatId> earned = level.takeFeats();
+    CHECK(std::find(earned.begin(), earned.end(), FeatId::Mimic) != earned.end());
+
+    // A shot wakes a sleeping one from afar.
+    Enemy& other = level.spawnEnemy(EnemyType::Mimic, home + Vec2{-70.0f, -2.0f});
+    other.applyDamage(level, {1.0f, DamageType::Physical, {}, Team::Player, false, false, "test"});
+    CHECK(!other.disguised());
+}
+
 TEST_CASE("stage lanterns hang from solid ceilings, not pooled steam") {
     initMaterials();
     ThreadPool pool(4);

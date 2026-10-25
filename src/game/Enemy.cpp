@@ -18,6 +18,9 @@ constexpr float kWormSpacing = 5.5f;
 /// Ranged attacks only begin inside this box around the player, which stays in view even when
 /// the camera looks ahead, so nothing opens fire from off screen.
 constexpr float kEngageHalfW = 190.0f, kEngageHalfH = 110.0f;
+/// A mimic wakes once the alchemist is inside this box - before they are close enough to be
+/// offered "open", which would give it away.
+constexpr float kMimicWakeX = 24.0f, kMimicWakeY = 16.0f;
 
 float sign(float v) { return v < 0.0f ? -1.0f : 1.0f; }
 
@@ -38,6 +41,7 @@ Enemy::Enemy(EnemyType type, Vec2 pos, uint32_t id_, float hpScale) : type_(type
     lastSeen_ = pos;
     wanderDir_ = (id_ & 1u) ? 1.0f : -1.0f;
     attackTimer_ = attackCooldown() * 0.5f;
+    dormant_ = def_->behaviour == Behaviour::Mimic;
     if (def_->behaviour == Behaviour::Burrower) {
         body.collides = false;
         for (int i = 0; i < kWormSegments; ++i) segments.push_back(pos + Vec2{0.0f, kWormSpacing * static_cast<float>(i)});
@@ -76,6 +80,16 @@ void Enemy::tick(Level& level) {
     if (def_->behaviour == Behaviour::Companion) {
         tickCompanion(level);
         return;
+    }
+    if (dormant_) {
+        // A mimic lies still among the treasure until the alchemist comes within reach.
+        const Vec2 d = level.player().body.pos - body.pos;
+        if (!level.player().alive() || std::fabs(d.x) > kMimicWakeX || std::fabs(d.y) > kMimicWakeY) {
+            body.vel.x = 0.0f;
+            moveBody(body, world, dt);
+            return;
+        }
+        wake(level);
     }
 
     Player& pl = level.player();
@@ -118,6 +132,7 @@ void Enemy::tick(Level& level) {
     case Behaviour::Burrower: tickBurrower(level, toPlayer, sees); break;
     case Behaviour::Brute: tickBrute(level, toPlayer, sees); break;
     case Behaviour::Boss: tickBoss(level, toPlayer, sees); break;
+    case Behaviour::Mimic: tickHopper(level, toPlayer, sees); break;
     case Behaviour::Companion: break;
     }
     if (def_->guardian) tickGuardian(level, toPlayer, sees);
@@ -156,6 +171,17 @@ void Enemy::contactPlayer(Level& level) {
     contactDamageCooldown = 0.7f;
     if (level.run().hasPerk(PerkId::Thorns))
         applyDamage(level, {15.0f * level.run().perkCount(PerkId::Thorns), DamageType::Physical, kb * -1.0f, Team::Player});
+}
+
+void Enemy::wake(Level& level) {
+    dormant_ = false;
+    aggro_ = true;
+    lastSeen_ = level.player().body.pos;
+    stateTimer_ = 0.2f; // a beat to take in the teeth, then the first lunge
+    level.audio().playAt(Sfx::ChestOpen, body.pos, 0.9f, 0.6f);
+    level.audio().playAt(Sfx::Roar, body.pos, 0.6f, 1.7f);
+    level.addFloatText(body.pos - Vec2{0.0f, 12.0f}, "Mimic!", 0xff7050, 1.2f);
+    level.addShake(0.25f);
 }
 
 void Enemy::fireAt(Level& level, Vec2 target, SpellId spell, float spreadRad) {
@@ -608,6 +634,7 @@ void Enemy::tickBoss(Level& level, Vec2 toPlayer, bool sees) {
 }
 
 void Enemy::onDamaged(Level& level, const DamageInfo& info, float dealt) {
+    if (dormant_) wake(level);
     // Provoked without seeing the player: head for the shooter, or hold position when the harm
     // came from the world (burning, lava, a stray blast).
     if (!aggro_) lastSeen_ = info.source == Team::Player ? level.player().body.pos : body.pos;
@@ -668,6 +695,7 @@ int Enemy::animFrame(float time) const {
         return std::fabs(body.vel.x) > 4.0f ? static_cast<int>(time * 7.0f) % 2 : 0;
     case Behaviour::Turret: return attackTimer_ < 0.4f && aggro_ ? 1 : 0;
     case Behaviour::Spore: return special_ > 0.0f ? 1 : 0;
+    case Behaviour::Mimic: return !body.onGround || static_cast<int>(time * 8.0f) % 2 == 0 ? 1 : 0; // chomping
     default: return static_cast<int>(time * 6.0f) % 2;
     }
 }
@@ -688,6 +716,13 @@ void Enemy::drawAlbedo(DrawContext& ctx) const {
     }
     if (type_ == EnemyType::Boss) {
         drawBoss(ctx, p, tint);
+        return;
+    }
+    if (dormant_) {
+        // Posing as a chest - but now and then it breathes, lifting a pixel: its one tell.
+        const SpriteInfo& ci = ctx.sprites.info(SpriteId::Chest);
+        const float lift = std::fmod(ctx.time + static_cast<float>(id % 7), 4.5f) < 0.35f ? 1.0f : 0.0f;
+        ctx.sprites.draw(SpriteId::Chest, 0, ctx.scene.layerPos({p.x - ci.w * 0.5f, p.y + body.halfH - static_cast<float>(ci.h) - lift}), false);
         return;
     }
     const SpriteInfo& info = ctx.sprites.info(def_->sprite);
@@ -755,6 +790,7 @@ void Enemy::drawEmission(DrawContext& ctx) const {
         ctx.sprites.drawEmissive(SpriteId::BossCore, 0, cp, false, Color{255, 255, 255, static_cast<unsigned char>(255 * pulse)});
         return;
     }
+    if (dormant_) return;
     const SpriteInfo& info = ctx.sprites.info(def_->sprite);
     const int sc = def_->scale;
     const float w = static_cast<float>(info.w * sc), h = static_cast<float>(info.h * sc);
@@ -766,6 +802,11 @@ void Enemy::drawEmission(DrawContext& ctx) const {
 
 void Enemy::addLights(DrawContext& ctx) const {
     const Vec2 p = body.interpolated(ctx.alpha);
+    if (dormant_) {
+        // The same warm glow as a real chest's.
+        ctx.scene.addLight(PointLight{p - Vec2{0.0f, 3.0f}, 0.7f, 0.55f, 0.25f, 30.0f, 3.0f, 0.5f});
+        return;
+    }
     if (elite_) ctx.scene.addLight(PointLight{p, 1.4f, 1.0f, 0.35f, 46.0f, 4.0f, 1.0f});
     if (windup_ > 0.0f) {
         const Color c = def_->glow ? hexColor(def_->glow) : Color{255, 240, 200, 255};

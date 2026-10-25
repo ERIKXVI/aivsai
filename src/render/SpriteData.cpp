@@ -550,6 +550,36 @@ const char* const kChestOpen[] = {
     "oooooooooooo",
 };
 
+// A mimic: the chest's lid thrown up on rows of teeth, eyes burning under the lid.
+const char* const kMimic[] = {
+    // jaws ajar
+    "............",
+    "............",
+    ".oooooooooo.",
+    "oXQXXXXXXQXo",
+    "oXOXXXXXXOXo",
+    "oggggggggggo",
+    "o@f@ff@ff@fo",
+    "of@ff@ff@f@o",
+    "oXOXX00XXOXo",
+    "oXXXXXXXXXXo",
+    "oXOXXXXXXOXo",
+    "oooooooooooo",
+    // jaws wide, tongue lolling
+    ".oooooooooo.",
+    "oXQXXXXXXQXo",
+    "oXOXXXXXXOXo",
+    "oggggggggggo",
+    "o@f@ff@ff@fo",
+    "offffffffffo",
+    "offss44ssffo",
+    "of@ff@ff@f@o",
+    "oXOXX00XXOXo",
+    "oXXXXXXXXXXo",
+    "oXOXXXXXXOXo",
+    "oooooooooooo",
+};
+
 const char* const kPotion[] = {
     "..ooo..",
     "..oXo..",
@@ -681,7 +711,7 @@ const SpriteSource kSources[] = {
     PM_SPRITE(Potion, 7, 9, kPotion),          PM_SPRITE(SpellCard, 7, 9, kSpellCard),
     PM_SPRITE(Portal, 14, 14, kPortal),        PM_SPRITE(Altar, 13, 10, kAltar),
     PM_SPRITE(Pedestal, 11, 7, kPedestal),     PM_SPRITE(Boss, 24, 22, kBoss),
-    PM_SPRITE(BossCore, 8, 8, kBossCore),
+    PM_SPRITE(BossCore, 8, 8, kBossCore),      PM_SPRITE(Mimic, 12, 12, kMimic),
 };
 
 #undef PM_SPRITE

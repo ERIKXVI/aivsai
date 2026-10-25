@@ -388,6 +388,11 @@ void Level::onEnemyKilled(Enemy& e) {
         case EnemyType::WhiteWraith: earnFeat(FeatId::WhiteWraith); break;
         case EnemyType::MineKing: earnFeat(FeatId::MineKing); break;
         case EnemyType::RedColossus: earnFeat(FeatId::RedColossus); break;
+        case EnemyType::Mimic:
+            // The treasure it posed as is real.
+            earnFeat(FeatId::Mimic);
+            dropLoot(e.body.pos - Vec2{0.0f, 4.0f}, std::min(4, layout_.levelIndex), true);
+            break;
         default: break;
         }
         // Three kills inside a second.

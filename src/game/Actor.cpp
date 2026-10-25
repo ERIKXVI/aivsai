@@ -117,6 +117,8 @@ const char* deathAdvice(const Actor& victim) {
         if (def.behaviour == Behaviour::Boss)
             return "The Rebis grows wilder as it weakens. Use the floating ledges and never stop moving.";
         if (def.behaviour == Behaviour::Kamikaze) return "Bomb Beetles burst when they reach you. Strike them from afar.";
+        if (def.behaviour == Behaviour::Mimic)
+            return "A mimic breathes now and then, lifting its lid a pixel. Test a doubtful chest with a spell from afar.";
         if (def.attack != SpellId::None)
             return "Ranged creatures glow just before they fire. Sidestep, or break their line of sight.";
         return "Keep your distance: back away while casting, and levitate out of reach.";

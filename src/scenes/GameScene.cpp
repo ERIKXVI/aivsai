@@ -183,7 +183,7 @@ void GameScene::updateLens(float dt) {
         eligible = true;
         for (const auto& e : level_->enemies()) {
             const Rectf b = e->bounds();
-            if (!e->alive() || at.x < b.x - 2.0f || at.x > b.x + b.w + 2.0f || at.y < b.y - 2.0f || at.y > b.y + b.h + 2.0f) continue;
+            if (!e->alive() || e->disguised() || at.x < b.x - 2.0f || at.x > b.x + b.w + 2.0f || at.y < b.y - 2.0f || at.y > b.y + b.h + 2.0f) continue;
             title = e->elite() ? std::string(affixName(e->affix())) + " " + e->def().name : std::string(e->def().name);
             body = TextFormat("%d / %d health", static_cast<int>(std::ceil(e->hp)), static_cast<int>(e->maxHp));
             color = e->team == Team::Player ? ui::color::kAccent : ui::color::kDanger;

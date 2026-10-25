@@ -31,6 +31,7 @@ enum class FeatId : uint8_t {
     DailyRite,
     Pathfinder,
     Polymath,
+    Mimic,
     Count
 };
 

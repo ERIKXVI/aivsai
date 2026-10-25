@@ -61,7 +61,16 @@ void Level::populate() {
             break;
         }
         case SpawnKind::Wand: pickups_.push_back(makeWandPickup(s.pos - Vec2{0.0f, 6.0f}, makeRandomWand(std::min(4, tier + 1), rng_))); break;
-        case SpawnKind::Chest: pickups_.push_back(makeChest(s.pos - Vec2{0.0f, 4.0f})); break;
+        case SpawnKind::Chest: {
+            // Some chests along the route are mimics, more of them deeper down; a vault's hoard
+            // is always what it seems.
+            const bool inVault = std::any_of(layout_.vaults.begin(), layout_.vaults.end(), [&](const Rectf& v) { return v.contains(s.pos); });
+            if (!isSanctum() && !inVault && rng_.chance(layout_.levelIndex == 0 ? 0.08f : 0.16f))
+                spawnEnemy(EnemyType::Mimic, {s.pos.x, s.pos.y - enemyDef(EnemyType::Mimic).halfH});
+            else
+                pickups_.push_back(makeChest(s.pos - Vec2{0.0f, 4.0f}));
+            break;
+        }
         case SpawnKind::Potion:
             pickups_.push_back(makePotion(s.pos - Vec2{0.0f, 5.0f}, randomPotionMaterial(tier, rng_), 700));
             break;

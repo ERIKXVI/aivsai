@@ -31,6 +31,8 @@ enum class EnemyType : uint8_t {
     WhiteWraith,
     MineKing,
     RedColossus,
+    // Lies among the treasure as a chest until the alchemist comes close.
+    Mimic,
     Count
 };
 
@@ -40,7 +42,7 @@ enum class EnemyType : uint8_t {
 enum class Affix : uint8_t { None, Burning, Swift, Gilded, Count };
 const char* affixName(Affix affix);
 
-enum class Behaviour : uint8_t { Hopper, Walker, Flyer, Caster, Spore, Turret, Kamikaze, Burrower, Brute, Companion, Boss };
+enum class Behaviour : uint8_t { Hopper, Walker, Flyer, Caster, Spore, Turret, Kamikaze, Burrower, Brute, Companion, Boss, Mimic };
 
 struct EnemyDef {
     const char* name;
@@ -106,6 +108,8 @@ public:
     float damageScale() const { return elite_ ? 1.35f : 1.0f; }
     const EnemyDef& def() const { return *def_; }
     bool aggro() const { return aggro_; }
+    /// A mimic still posing as a chest: drawn as one, and the matter lens does not see through it.
+    bool disguised() const { return dormant_; }
     /// Boss phase, 0-based; meaningful for the boss only.
     int bossPhase() const { return phase_; }
 
@@ -137,6 +141,8 @@ private:
     /// a short glowing wind-up starts, and this returns true on the tick it completes.
     bool readyToFire(Level& level, bool wantsToFire);
     void contactPlayer(Level& level);
+    /// A mimic throws off its disguise.
+    void wake(Level& level);
     int animFrame(float time) const;
     void drawBoss(DrawContext& ctx, Vec2 p, Color tint) const;
 
@@ -162,6 +168,7 @@ private:
     float fallSpeed_ = 0.0f;  ///< fastest descent of the current leap, for the landing quake
     float guardTimer_ = 0.0f; ///< the colossus' fire between slams
     int broods_ = 0;          ///< slime broods the toad has spawned
+    bool dormant_ = false;    ///< a mimic not yet revealed
 };
 
 } // namespace pm
