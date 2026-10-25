@@ -246,8 +246,8 @@ std::string matDescription(MatId id) {
     case Vitae: return "Heals whoever bathes in it or drinks it. Neutralises acid and sludge.";
     case Toxic: return "Poisons whatever wades through it.";
     case Midas: return "Turns the stone it touches into gold ore.";
-    case Quicksilver: return "Heavy, conductive metal. Turns gold dust into Liquid Midas.";
-    case Ichor: return "The glowing blood of fiends. Puts out flames.";
+    case Quicksilver: return "Heavy, conductive metal. Turns gold dust into Liquid Midas. Drunk, it lends haste.";
+    case Ichor: return "The glowing blood of fiends. Puts out flames. Drunk, it lends fury to your spells.";
     case Gunpowder: return "Explodes when lit, chaining into great blasts.";
     case GoldDust: return "Walk over it to collect it.";
     case GoldOre: return "Blast or dig it to free the gold dust inside.";

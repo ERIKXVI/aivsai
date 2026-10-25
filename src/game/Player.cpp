@@ -26,6 +26,11 @@ constexpr float kMaxFallSpeed = 420.0f;
 constexpr int kSprayPerTick = 7;
 constexpr int kAbsorbPerTick = 30;
 constexpr int kDrinkAmount = 100;
+// Elixirs: a full draught's duration and strength.
+constexpr float kHasteTime = 15.0f;
+constexpr float kHasteSpeed = 1.4f;
+constexpr float kFuryTime = 12.0f;
+constexpr float kFuryDamage = 1.5f;
 
 } // namespace
 
@@ -53,6 +58,8 @@ void Player::refreshFromRun() {
     if (run_.hasPerk(PerkId::Insulated)) resist[static_cast<size_t>(DamageType::Electric)] = 0.0f;
     for (float& r : resist) r *= run_.damageTakenMul();
 }
+
+float Player::damageMul() const { return run_.damageDealtMul() * (status.fury > 0.0f ? kFuryDamage : 1.0f); }
 
 Vec2 Player::wandTip() const {
     const Wand* w = run_.wands.empty() ? nullptr : &run_.wands[static_cast<size_t>(run_.activeWand)];
@@ -108,6 +115,19 @@ void Player::tick(Level& level) {
         const int fx = body.vel.x > 0.0f ? floorToInt(body.pos.x - body.halfW) - 2 : floorToInt(body.pos.x + body.halfW) + 1;
         level.world().placeIfEmpty(fx, floorToInt(body.pos.y + body.halfH - 1.0f), mat::Fire);
     }
+    // Elixirs show on the body: quicksilver streaks off a hasted alchemist, embers rise from a furious one.
+    Rng& rng = level.rng();
+    if (status.hasted > 0.0f && std::fabs(body.vel.x) > 30.0f && rng.chance(0.5f)) {
+        const float back = body.vel.x > 0.0f ? -body.halfW : body.halfW;
+        level.particles().addVisual({body.pos.x + back, body.pos.y + rng.range(-body.halfH, body.halfH)},
+                                    {-body.vel.x * 0.3f, rng.range(-6.0f, 6.0f)}, {220, 228, 240, 200}, {120, 130, 150, 120},
+                                    rng.range(0.15f, 0.3f), 0.0f);
+    }
+    if (status.fury > 0.0f && rng.chance(0.35f)) {
+        level.particles().addVisual({body.pos.x + rng.range(-body.halfW, body.halfW), body.pos.y + rng.range(-body.halfH, body.halfH)},
+                                    {rng.range(-8.0f, 8.0f), rng.range(-40.0f, -20.0f)}, {255, 170, 60, 230}, {255, 110, 30, 220},
+                                    rng.range(0.3f, 0.6f), 0.0f);
+    }
 
     run_.hp = hp;
     run_.maxHp = maxHp;
@@ -119,6 +139,7 @@ void Player::move(Level& level, const Environment& env) {
     float speedMul = run_.moveSpeedMul();
     if (env.sticky) speedMul *= 0.45f;
     if (status.chilled > 0.0f) speedMul *= 0.6f;
+    if (status.hasted > 0.0f) speedMul *= kHasteSpeed;
     if (swimming) speedMul *= run_.hasPerk(PerkId::Gills) ? 1.0f : 0.7f;
 
     // Horizontal control.
@@ -212,7 +233,7 @@ void Player::handleWands(Level& level) {
     }
     if (outcome.status != CastStatus::Cast) return;
     float angle = angleOf(aimDir_);
-    level.castShot(outcome.shot, wandTip(), angle, Team::Player, id, run_.damageDealtMul());
+    level.castShot(outcome.shot, wandTip(), angle, Team::Player, id, damageMul());
     run_.stats.spellsCast++;
     castFlash_ = 0.08f;
 
@@ -328,7 +349,16 @@ void Player::handleFlask(Level& level) {
             }
             break;
         }
-        case mat::Quicksilver: status.chilled = 0.0f; break;
+        case mat::Quicksilver:
+            status.chilled = 0.0f;
+            status.hasted = std::max(status.hasted, kHasteTime * fraction);
+            level.addFloatText(body.pos, "Haste!", 0xdce4ec);
+            break;
+        case mat::Ichor:
+            status.burning = 0.0f;
+            status.fury = std::max(status.fury, kFuryTime * fraction);
+            level.addFloatText(body.pos, "Fury!", 0xffb040);
+            break;
         default: break;
         }
     }
@@ -423,6 +453,10 @@ void Player::drawAlbedo(DrawContext& ctx) const {
         if (hurtFlash > 0.0f) ctx.sprites.drawSilhouette(sprite, frame, lp, !facingRight_, Color{255, 255, 255, 200});
         else if (status.burning > 0.0f)
             ctx.sprites.drawSilhouette(sprite, frame, lp, !facingRight_, Color{255, 120, 30, 90});
+        else if (status.fury > 0.0f) {
+            const auto pulse = static_cast<unsigned char>(45.0f + 30.0f * std::sin(animTime_ * 9.0f));
+            ctx.sprites.drawSilhouette(sprite, frame, lp, !facingRight_, Color{255, 80, 30, pulse});
+        }
     }
 
     // The wand: a line of pixels from the hand towards the cursor, gem at the tip.
@@ -459,6 +493,7 @@ void Player::drawEmission(DrawContext& ctx) const {
 void Player::addLights(DrawContext& ctx) const {
     const Vec2 p = body.interpolated(ctx.alpha);
     ctx.scene.addLight(PointLight{{p.x, p.y - 3.0f}, 2.6f, 2.2f, 1.75f, 150.0f, 3.0f, 100.0f}); // always gets a slot
+    if (status.fury > 0.0f) ctx.scene.addLight(PointLight{p, 1.6f, 0.55f, 0.15f, 28.0f, 1.0f, 40.0f});
     if (castFlash_ > 0.0f && !run_.wands.empty()) {
         const Wand& w = run_.wands[static_cast<size_t>(run_.activeWand)];
         Color g = hexColor(w.gemColor);

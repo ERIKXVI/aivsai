@@ -42,6 +42,8 @@ void Actor::updateStatus(Level& level, const Environment& env) {
     status.oiled = std::max(0.0f, status.oiled - dt);
     status.chilled = std::max(0.0f, status.chilled - dt);
     status.shocked = std::max(0.0f, status.shocked - dt);
+    status.hasted = std::max(0.0f, status.hasted - dt);
+    status.fury = std::max(0.0f, status.fury - dt);
 
     const bool fireImmune = resist[static_cast<size_t>(DamageType::Fire)] <= 0.0f;
     if (env.submerged > 0.25f && env.liquid != mat::Empty) {

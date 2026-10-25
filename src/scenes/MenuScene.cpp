@@ -419,7 +419,8 @@ void MenuScene::drawHelp() {
                    "acid eats stone. Blast gold ore and walk over the dust to collect it."},
         {"Wands", "Spells cast in order. Modifiers boost the next projectile, multicasts fire several at once and triggers "
                   "release the next spell where they land."},
-        {"Flask", "Carry any liquid or powder. Douse fires, dissolve walls, set oil traps - or drink: Vitae heals. "
+        {"Flask", "Carry any liquid or powder. Douse fires, dissolve walls, set oil traps - or drink: Vitae heals, "
+                  "quicksilver lends haste and ichor fury. "
                   "Pour what a transmutation circle craves into it to earn a perk."},
         {"The Work", "Find the portal at the bottom of each stage. Sanctums between stages heal you and sell spells. "
                      "Vaults hide treasure off the main route."},

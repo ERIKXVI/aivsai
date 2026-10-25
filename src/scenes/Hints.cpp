@@ -42,6 +42,8 @@ constexpr HintText kTexts[static_cast<int>(Hint::Count)] = {
      "Shoot a lantern down onto your foes - it shatters into burning oil"},
     {"A guardian's lair: slay its keeper for a perk and a hoard - or leave it be, the fight is optional",
      "A guardian's lair: slay its keeper for a perk and a hoard - or leave it be, the fight is optional"},
+    {"An elixir! Drink it with F: quicksilver lends haste, ichor lends your spells fury",
+     "An elixir! Drink it with X: quicksilver lends haste, ichor lends your spells fury"},
 };
 
 /// True when a satchel spell could go onto a wand right now.
@@ -133,6 +135,10 @@ void HintTracker::update(const Level& level, const RunState& run, float dt) {
                 return;
             }
         }
+    }
+    if (!seen(Hint::Elixir) && (run.flask.mat == mat::Quicksilver || run.flask.mat == mat::Ichor) && !run.flask.empty()) {
+        show(Hint::Elixir);
+        return;
     }
     if (!seen(Hint::Compass) && run.levelIndex == 0 && t > 75.0f) {
         show(Hint::Compass);

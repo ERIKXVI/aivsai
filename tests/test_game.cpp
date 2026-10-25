@@ -20,6 +20,7 @@
 #include "gen/LevelGenerator.hpp"
 #include "sim/World.hpp"
 #include "game/Loadouts.hpp"
+#include "game/Player.hpp"
 #include "game/Run.hpp"
 #include "game/Spells.hpp"
 #include "game/Wand.hpp"
@@ -408,6 +409,34 @@ TEST_CASE("feats are described and kills earn them") {
     CHECK(std::find(earned.begin(), earned.end(), FeatId::Carnage) != earned.end());
     CHECK(std::find(earned.begin(), earned.end(), FeatId::BlackToad) != earned.end());
     CHECK(level.takeFeats().empty());
+}
+
+TEST_CASE("elixirs lend haste and fury for a while") {
+    initMaterials();
+    ThreadPool pool(2);
+    Audio audio;
+    RunState run = newRun(12, Difficulty::Adept, false);
+    Level level(generateSanctum(0, 12u, pool), run, audio, pool);
+    Player& pl = level.player();
+    const float baseDamage = pl.damageMul();
+    PlayerInput drink;
+    drink.drinkPressed = true;
+
+    run.flask = {mat::Ichor, 100};
+    level.tick(drink);
+    CHECK(run.flask.empty());
+    CHECK(pl.status.fury > 11.0f);
+    CHECK(std::fabs(pl.damageMul() - baseDamage * 1.5f) < 1e-4f);
+
+    run.flask = {mat::Quicksilver, 50}; // half a draught: half as long
+    pl.status.chilled = 2.0f;
+    level.tick(drink);
+    CHECK(pl.status.chilled == 0.0f);
+    CHECK(pl.status.hasted > 7.0f && pl.status.hasted < 7.6f);
+
+    for (int i = 0; i < 60 * 13; ++i) level.tick(PlayerInput{});
+    CHECK(pl.status.fury == 0.0f && pl.status.hasted == 0.0f);
+    CHECK(std::fabs(pl.damageMul() - baseDamage) < 1e-4f);
 }
 
 TEST_CASE("stage lanterns hang from solid ceilings, not pooled steam") {

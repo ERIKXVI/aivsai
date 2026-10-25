@@ -34,6 +34,8 @@ struct StatusEffects {
     float poisoned = 0.0f;
     float chilled = 0.0f;     ///< slowed
     float shocked = 0.0f;     ///< brief stun / visual
+    float hasted = 0.0f;      ///< quickened by a draught of quicksilver
+    float fury = 0.0f;        ///< spells strike harder after a draught of ichor
 };
 
 struct DrawContext {

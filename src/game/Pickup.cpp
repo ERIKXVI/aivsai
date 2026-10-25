@@ -87,8 +87,8 @@ MatId randomPotionMaterial(int tier, Rng& rng) {
     };
     static constexpr Entry kTable[] = {
         {mat::Water, 3.0f, 0}, {mat::Vitae, 2.5f, 0}, {mat::Oil, 1.5f, 0},  {mat::Acid, 1.2f, 1},
-        {mat::Slime, 0.6f, 0}, {mat::Toxic, 0.7f, 1}, {mat::Lava, 0.8f, 2}, {mat::Quicksilver, 0.5f, 1},
-        {mat::Midas, 0.25f, 2}, {mat::Blood, 0.5f, 0},
+        {mat::Slime, 0.6f, 0}, {mat::Toxic, 0.7f, 1}, {mat::Lava, 0.8f, 2}, {mat::Quicksilver, 0.7f, 0},
+        {mat::Midas, 0.25f, 2}, {mat::Blood, 0.5f, 0}, {mat::Ichor, 0.5f, 1},
     };
     float total = 0.0f;
     for (const Entry& e : kTable)

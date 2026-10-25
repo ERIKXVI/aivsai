@@ -188,14 +188,28 @@ void GameScene::drawHud() {
         ui::bar({x, y, barW * 0.6f, 2.0f * s}, pl.breath(), Color{90, 200, 255, 255});
         y += 3.0f * s;
     }
-    // Status icons.
-    std::string statuses;
-    if (pl.status.burning > 0.0f) statuses += "BURNING  ";
-    if (pl.status.wet > 0.0f) statuses += "WET  ";
-    if (pl.status.oiled > 0.0f) statuses += "OILED  ";
-    if (pl.status.poisoned > 0.0f) statuses += "POISONED  ";
-    if (pl.status.chilled > 0.0f) statuses += "CHILLED  ";
-    if (!statuses.empty() && pl.alive()) ui::text(statuses, x, y + 2.0f * s, small, Color{255, 200, 120, 255});
+    // Status chips, each in its own colour; an elixir also counts down and blinks as it fades.
+    struct Chip {
+        const char* name;
+        float left;
+        Color color;
+        bool elixir;
+    };
+    const Chip chips[] = {
+        {"BURNING", pl.status.burning, {255, 140, 60, 255}, false},   {"WET", pl.status.wet, {120, 175, 255, 255}, false},
+        {"OILED", pl.status.oiled, {200, 160, 100, 255}, false},      {"POISONED", pl.status.poisoned, {150, 220, 90, 255}, false},
+        {"CHILLED", pl.status.chilled, {160, 225, 255, 255}, false},  {"HASTE", pl.status.hasted, {220, 228, 240, 255}, true},
+        {"FURY", pl.status.fury, {255, 165, 60, 255}, true},
+    };
+    float chipX = x;
+    for (const Chip& c : chips) {
+        if (c.left <= 0.0f || !pl.alive()) continue;
+        const std::string label = c.elixir ? TextFormat("%s %d", c.name, static_cast<int>(std::ceil(c.left))) : c.name;
+        Color color = c.color;
+        if (c.elixir && c.left < 2.0f && std::fmod(time_, 0.3f) < 0.15f) color.a = 110;
+        ui::text(label, chipX, y + 2.0f * s, small, color);
+        chipX += static_cast<float>(ui::measure(label, small)) + 8.0f * s;
+    }
 
     // Gold and stage.
     // A fresh coin pops the counter up a size and flashes it pale gold for a moment.

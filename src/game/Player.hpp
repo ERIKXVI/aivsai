@@ -25,6 +25,8 @@ public:
     float breath() const { return breath_; }
     Vec2 aimDir() const { return aimDir_; }
     Vec2 wandTip() const;
+    /// What the alchemist's spells deal relative to their base damage (perks, difficulty, fury).
+    float damageMul() const;
     bool facingRight() const { return facingRight_; }
     float castFlash() const { return castFlash_; }
     /// The camera nudge (cells) from casts since the last call, scaled by their weight.

@@ -82,6 +82,7 @@ void GameScene::finishLoading() {
     }
     if (app_.options().openUi == "inventory") mode_ = Mode::Inventory;
     else if (app_.options().openUi == "pause") mode_ = Mode::Paused;
+    else if (app_.options().openUi == "elixir") level_->player().status.hasted = level_->player().status.fury = 60.0f;
     else if (app_.options().openUi == "death" && !std::exchange(g_deathPreviewShown, true)) // the end screen, once
         level_->player().applyDamage(*level_, {1.0e6f, DamageType::Fire, {}, Team::Monster, false, true, enemyDef(EnemyType::Imp).name});
     exiting_ = false;
