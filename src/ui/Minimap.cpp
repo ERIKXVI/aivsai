@@ -184,6 +184,7 @@ void Minimap::drawFull(const Level& level, float screenW, float screenH, float t
     const float lx = dest.x + dest.width + 12.0f * s;
     float ly = dest.y + 4.0f * s;
     auto legend = [&](Color c, const char* label) {
+        c.a = 255; // solid swatches: the markers' translucency would only dim them against the panel
         DrawRectangleRec({lx, ly + static_cast<float>(small) * 0.25f, 6.0f * s, 6.0f * s}, c);
         ui::text(label, lx + 10.0f * s, ly, small, ui::color::kTextDim);
         ly += static_cast<float>(small) * 1.6f;

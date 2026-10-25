@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Configure
-        run: cmake -S . -B build -A x64
+        run: cmake -S . -B build -A x64 -DPM_WARNINGS_AS_ERRORS=ON
 
       - name: Build
         run: cmake --build build --config Release --parallel
