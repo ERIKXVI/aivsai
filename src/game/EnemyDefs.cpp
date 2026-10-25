@@ -32,7 +32,7 @@ const EnemyDef kEnemies[static_cast<int>(EnemyType::Count)] = {
     {"The Rebis",      SpriteId::Boss,       Behaviour::Boss,    2200, 20.0f, 18.0f, 45, 25, DamageType::Physical, SpellId::Fireball,  2.4f, 400, mat::Ichor, 400, true, 0xffc860, {1, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 1}},
     // Stage guardians: giants of their stage's kind, keeping a lair off the route.
     {"The Black Toad", SpriteId::Slime,      Behaviour::Hopper,   420, 10.0f, 8.5f, 64, 16, DamageType::Physical, SpellId::None,      1.0f, 210, mat::Slime, 120, false, 0,       {1, 1.2f, 0.8f, 1, 1, 0.5f, 0, 1},      0x3a3048, 2, 1, true},
-    {"The White Wraith",SpriteId::Wraith,    Behaviour::Caster,   480,  8.0f, 12.0f, 58, 12, DamageType::Ice,     SpellId::IceShard,  1.6f, 220, mat::Water, 140, true, 0xc8f0ff, {0.8f, 1.8f, 1, 0, 1, 1, 0, 1.5f},     0xf4f8ff, 2, 5, true},
+    {"The White Wraith",SpriteId::Wraith,    Behaviour::Caster,   480,  8.0f, 12.0f, 58, 12, DamageType::Ice,     SpellId::IceShard,  1.6f, 220, mat::Steam, 140, true, 0xc8f0ff, {0.8f, 1.8f, 1, 0, 1, 1, 0, 1.5f},     0xf4f8ff, 2, 5, true},
     {"The Mine King",  SpriteId::Ghoul,      Behaviour::Walker,   650,  7.0f, 12.5f, 40, 18, DamageType::Physical, SpellId::Dynamite, 2.6f, 220, mat::Blood, 180, false, 0xffd060, {0.8f, 1.2f, 0.5f, 1, 1, 1, 1, 1.5f},  0xffd27a, 2, 3, true},
     {"The Red Colossus",SpriteId::Golem,     Behaviour::Brute,    900, 12.0f, 15.5f, 30, 26, DamageType::Physical, SpellId::Fireball, 3.4f, 220, mat::Gravel, 220, false, 0xff6020, {0.6f, 0, 0.6f, 1.4f, 1, 1.4f, 0, 1}, 0xff9a7a, 2, 1, true},
 };

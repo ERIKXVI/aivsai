@@ -395,8 +395,8 @@ void Level::onEnemyKilled(Enemy& e) {
         }
         if (rng_.chance(0.06f)) pickups_.push_back(makeHeart(e.body.pos));
         if (d.guardian) {
-            // A guardian's essence passes to the alchemist as a perk.
-            grantPerk(rollPerk({}), "A guardian's essence");
+            // A guardian's essence passes to the alchemist as a perk, if they lived to claim it.
+            if (player_->alive()) grantPerk(rollPerk({}), "A guardian's essence");
             addFloatText(e.body.pos - Vec2{0.0f, e.body.halfH + 8.0f}, std::string(d.name) + " falls!", 0xffd27a, 1.4f);
             addFlash(e.body.pos, 0xffe0a0, 2.5f, 120.0f, 0.4f);
             audio_.play(Sfx::Roar, 0.9f, 0.6f);

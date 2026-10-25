@@ -81,8 +81,11 @@ void Enemy::tick(Level& level) {
     Player& pl = level.player();
     Vec2 toPlayer = pl.body.pos - body.pos;
     float dist = toPlayer.length();
+    // A giant looks from the edge of its body, so matter lodged inside it cannot blind it.
+    const float reach = std::max(body.halfW, body.halfH) + 1.0f;
+    const Vec2 eye = def_->scale > 1 && dist > reach ? body.pos + toPlayer * (reach / dist) : body.pos;
     bool sees = pl.alive() && dist < def_->sight &&
-                (def_->behaviour == Behaviour::Burrower || level.lineOfSight(body.pos, pl.body.pos));
+                (def_->behaviour == Behaviour::Burrower || level.lineOfSight(eye, pl.body.pos));
     if (sees) {
         if (!aggro_ && def_->behaviour == Behaviour::Boss) {
             level.audio().play(Sfx::Roar, 1.0f);

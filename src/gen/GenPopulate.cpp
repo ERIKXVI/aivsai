@@ -109,12 +109,23 @@ void Generator::placeVaults(World& world, LevelLayout& out) {
         }
         if (tunnelEnd < 0) continue;
 
-        buildVault(world, plan, rng_, out.spawns);
         // A paved passage with timber lintels leads in from the caves.
         const int startX = plan.doorSide > 0 ? plan.x0 + plan.w : plan.x0 - 1;
         // Overshoot into the cave so no sliver of rock is left between passage and cave.
         const int far = tunnelEnd + plan.doorSide * 8;
         const int x0 = std::max(kBorder + 2, std::min(startX, far)), x1 = std::min(w_ - kBorder - 3, std::max(startX, far));
+
+        // Keep what the stamp will cover, so a vault that cuts off its own way in (a lair may
+        // swallow the cave its door relies on) can be undone.
+        const int sx0 = std::max(0, std::min(plan.x0, x0) - 1), sx1 = std::min(w_ - 1, std::max(plan.x0 + plan.w, x1) + 1);
+        const int sy0 = std::max(0, plan.y0 - 1), sy1 = std::min(h_ - 1, plan.y0 + plan.h + 1);
+        std::vector<Cell> saved;
+        saved.reserve(static_cast<size_t>((sx1 - sx0 + 1) * (sy1 - sy0 + 1)));
+        for (int y = sy0; y <= sy1; ++y)
+            for (int x = sx0; x <= sx1; ++x) saved.push_back(world.at(x, y));
+        const size_t spawnMark = out.spawns.size();
+
+        buildVault(world, plan, rng_, out.spawns);
         for (int x = x0; x <= x1; ++x) {
             for (int y = door - kVaultDoorHeight + 1; y <= door; ++y) {
                 const Phase ph = phaseOf(world.at(x, y).mat);
@@ -125,6 +136,17 @@ void Generator::placeVaults(World& world, LevelLayout& out) {
             if (std::abs(x - startX) % 14 < 2 && phaseOf(world.at(x, door - kVaultDoorHeight).mat) == Phase::Solid)
                 world.place(x, door - kVaultDoorHeight, mat::Wood);
         }
+        const Vec2 inside{static_cast<float>(plan.x0) + plan.w * 0.5f, static_cast<float>(plan.y0 + plan.h) - 10.0f};
+        if (!pathExists(world, start_, inside)) {
+            size_t i = 0;
+            for (int y = sy0; y <= sy1; ++y)
+                for (int x = sx0; x <= sx1; ++x) world.set(x, y, saved[i++]);
+            out.spawns.resize(spawnMark);
+            continue;
+        }
+        // Later doors must meet caves that are still reachable now this vault stands.
+        nav.build(world);
+        nav.computeDistances(start_);
         placed.push_back({c.x, c.y, static_cast<float>(plan.w), static_cast<float>(plan.h)});
         out.vaults.push_back({static_cast<float>(plan.x0), static_cast<float>(plan.y0), static_cast<float>(plan.w), static_cast<float>(plan.h)});
         used |= 1u << static_cast<unsigned>(plan.kind);

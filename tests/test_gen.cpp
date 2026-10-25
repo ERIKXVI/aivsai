@@ -15,11 +15,13 @@ TEST_CASE("stages I-IV hide a guardian's lair") {
     initMaterials();
     ThreadPool pool(4);
     int lairs = 0, levels = 0;
-    for (uint32_t seed : {3u, 5u, 9u})
+    // Seed 19 once stamped a lair that cut off the cave its own door relied on.
+    for (uint32_t seed : {3u, 5u, 9u, 19u})
         for (int index = 0; index < 4; ++index) {
             const LevelLayout layout = generateLevel(biomeForDepth(index), index, seed, pool);
             ++levels;
             for (const SpawnPoint& s : layout.spawns) lairs += s.kind == SpawnKind::LairGuardian ? 1 : 0;
+            for (const Rectf& v : layout.vaults) CHECK(pathExists(*layout.world, layout.playerStart, {v.x + v.w * 0.5f, v.y + v.h - 10.0f}));
         }
     std::printf("    lairs placed: %d of %d stages\n", lairs, levels);
     CHECK(lairs >= levels * 3 / 4);

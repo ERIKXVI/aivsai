@@ -153,7 +153,10 @@ void HintTracker::update(const Level& level, const RunState& run, float dt) {
         return;
     }
     if (!seen(Hint::Lair)) {
-        if (const Enemy* g = level.nearestGuardian(player.center(), 110.0f); g && !g->aggro()) {
+        // Introduce the lair as its keeper notices the alchemist (it sees far down the
+        // passage), or when they come close to it unseen.
+        const Enemy* g = level.nearestGuardian(player.center(), 240.0f);
+        if (g && (g->aggro() || (g->body.pos - player.center()).lengthSq() < 110.0f * 110.0f)) {
             show(Hint::Lair);
             return;
         }
