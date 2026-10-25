@@ -40,6 +40,8 @@ int measure(const std::string& text, int size);
 void text(const std::string& text, float x, float y, int size, Color c, Align align = Align::Left, bool shadow = true);
 /// Draws text wrapped to `width`; returns the height used.
 float textWrapped(const std::string& text, float x, float y, float width, int size, Color c);
+/// Height textWrapped would use for the same text, without drawing it.
+float wrappedHeight(const std::string& text, float width, int size);
 
 void panel(Rectangle r, Color fill = color::kPanel, Color border = color::kPanelBorder);
 void bar(Rectangle r, float fraction, Color fill, Color back = Color{30, 24, 36, 230});

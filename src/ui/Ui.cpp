@@ -61,26 +61,37 @@ void text(const std::string& s, float x, float y, int size, Color c, Align align
     DrawText(s.c_str(), ix, iy, size, c);
 }
 
-float textWrapped(const std::string& s, float x, float y, float width, int size, Color c) {
+namespace {
+/// Greedy word wrap: calls emit(line, offsetY) per line and returns the total height.
+template <typename Emit> float wrapLines(const std::string& s, float width, int size, Emit&& emit) {
     std::istringstream words(s);
     std::string word, line;
-    float cy = y;
+    float dy = 0.0f;
     const float lineH = static_cast<float>(size) * 1.25f;
     while (words >> word) {
         std::string candidate = line.empty() ? word : line + " " + word;
         if (measure(candidate, size) > width && !line.empty()) {
-            text(line, x, cy, size, c);
-            cy += lineH;
+            emit(line, dy);
+            dy += lineH;
             line = word;
         } else {
             line = candidate;
         }
     }
     if (!line.empty()) {
-        text(line, x, cy, size, c);
-        cy += lineH;
+        emit(line, dy);
+        dy += lineH;
     }
-    return cy - y;
+    return dy;
+}
+} // namespace
+
+float textWrapped(const std::string& s, float x, float y, float width, int size, Color c) {
+    return wrapLines(s, width, size, [&](const std::string& line, float dy) { text(line, x, y + dy, size, c); });
+}
+
+float wrappedHeight(const std::string& s, float width, int size) {
+    return wrapLines(s, width, size, [](const std::string&, float) {});
 }
 
 void panel(Rectangle r, Color fill, Color border) {
