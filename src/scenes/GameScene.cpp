@@ -148,6 +148,43 @@ void GameScene::noteInputDevice() {
     }
 }
 
+void GameScene::updateLens(float dt) {
+    const Vector2 m = GetMousePosition();
+    const float dx = m.x - lens_.mouse.x, dy = m.y - lens_.mouse.y;
+    lens_.rest = dx * dx + dy * dy > 9.0f ? 0.0f : lens_.rest + dt;
+    lens_.mouse = m;
+    std::string title, body;
+    Color color = WHITE;
+    // The cursor must rest a moment (or the flask be drawing), and never while casting.
+    const bool looking = lens_.rest >= 0.4f || IsKeyDown(KEY_Q);
+    if (mode_ == Mode::Playing && app_.settings().matterLens && !usingGamepad_ && looking && !IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+        const Vec2 at = scene_.screenToWorld(m);
+        if ((at - level_->player().body.pos).lengthSq() < 120.0f * 120.0f) {
+            for (const auto& e : level_->enemies()) {
+                const Rectf b = e->bounds();
+                if (!e->alive() || at.x < b.x - 2.0f || at.x > b.x + b.w + 2.0f || at.y < b.y - 2.0f || at.y > b.y + b.h + 2.0f) continue;
+                title = std::string(e->elite() ? "Elite " : "") + e->def().name;
+                body = TextFormat("%d / %d health", static_cast<int>(std::ceil(e->hp)), static_cast<int>(e->maxHp));
+                color = e->team == Team::Player ? ui::color::kAccent : ui::color::kDanger;
+                break;
+            }
+            if (title.empty()) {
+                const MatId mt = level_->world().matAt(floorToInt(at.x), floorToInt(at.y));
+                body = matDescription(mt);
+                if (!body.empty()) {
+                    title = matDef(mt).name;
+                    const Rgba c = materialColor(mt);
+                    color = ColorBrightness(Color{c.r, c.g, c.b, 255}, 0.35f);
+                }
+            }
+        }
+    }
+    lens_.same = title == lens_.title ? lens_.same + dt : 0.0f;
+    lens_.title = std::move(title);
+    lens_.body = std::move(body);
+    lens_.color = color;
+}
+
 PlayerInput GameScene::gatherInput() {
     PlayerInput in;
     float move = 0.0f;
@@ -343,6 +380,7 @@ void GameScene::frame(float dt) {
     Vec2 aim = scene_.screenToWorld(GetMousePosition());
     if (mode_ != Mode::Playing) aim = pl.body.pos;
     camera_.kick(level_->player().takeRecoil());
+    updateLens(dt);
     camera_.update(pl.body.pos, aim, dt, {static_cast<float>(level_->world().width()), static_cast<float>(level_->world().height())},
                    viewSize);
     const BiomeDef& b = biomeDef(level_->biome());
@@ -365,6 +403,8 @@ void GameScene::render(float alpha) {
         if (mode_ != Mode::Dead && mode_ != Mode::Victory) drawWorldOverlays(a);
         if (mode_ == Mode::Playing) drawCompass(a);
         if (mode_ != Mode::Victory) drawHud();
+        // The lens names a thing for a few seconds, then lets it be.
+        if (mode_ == Mode::Playing && !lens_.title.empty() && lens_.same < 4.0f) ui::tooltip(lens_.title, lens_.body, lens_.color);
         if (mode_ == Mode::Playing && app_.settings().hints) hints_.draw(static_cast<float>(app_.screenWidth()), static_cast<float>(app_.screenHeight()), usingGamepad_);
         drawTitleCard();
         if (mode_ != Mode::Dead && app_.settings().hints && !run_.inSanctum && run_.levelIndex == 0 && level_->time() < 30.0f)

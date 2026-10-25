@@ -5,6 +5,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 
 #include "sim/Cell.hpp"
 
@@ -120,5 +121,10 @@ inline Rgba materialColor(MatId id) { return materials().palette[id][128]; }
 
 /// Builds a fresh cell of the given material with randomized variation and lifetime.
 Cell makeCell(MatId id, uint32_t randomBits);
+
+/// One line on what a material does, for the in-game matter lens: hand-written for the
+/// alchemically interesting ones, otherwise read off its flags. Empty for everyday matter
+/// (air, rock, soil, sand, plants...) so the lens only speaks up when there is news.
+std::string matDescription(MatId id);
 
 } // namespace pm

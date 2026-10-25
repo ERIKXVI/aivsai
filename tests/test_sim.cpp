@@ -31,6 +31,18 @@ void buildBox(World& w) {
 
 } // namespace
 
+TEST_CASE("the matter lens speaks only of notable matter") {
+    initMaterials();
+    CHECK(!matDescription(mat::Water).empty());
+    CHECK(!matDescription(mat::Gunpowder).empty());
+    CHECK(!matDescription(mat::ToxicGas).empty()); // harmful: read off its contact damage
+    CHECK(matDescription(mat::Bedrock) == "Unbreakable.");
+    CHECK(matDescription(mat::Empty).empty());
+    CHECK(matDescription(mat::Rock).empty());
+    CHECK(matDescription(mat::Leaves).empty());
+    CHECK(matDescription(mat::Sand).empty());
+}
+
 TEST_CASE("sand falls and is conserved") {
     initMaterials();
     ThreadPool pool(3);

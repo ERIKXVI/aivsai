@@ -21,6 +21,7 @@ struct Settings {
     int difficulty = 1; ///< 0 Apprentice, 1 Adept, 2 Archmage
     int loadout = 0;    ///< last chosen starting loadout
     bool hints = true;  ///< contextual hints for new players
+    bool matterLens = true; ///< name the matter or creature under the resting cursor
     bool highQuality = true; ///< graphics quality (false trims lighting for weak GPUs)
 };
 

@@ -35,7 +35,7 @@ bool drawSettingsPanel(App& app) {
     Settings& st = app.settings();
     const float sw = static_cast<float>(app.screenWidth()), sh = static_cast<float>(app.screenHeight());
     const float s = static_cast<float>(ui::scale());
-    Rectangle panelR{sw * 0.5f - 110.0f * s, sh * 0.5f - 125.0f * s, 220.0f * s, 250.0f * s};
+    Rectangle panelR{sw * 0.5f - 110.0f * s, sh * 0.5f - 135.0f * s, 220.0f * s, 270.0f * s};
     ui::panel(panelR);
     ui::text("SETTINGS", sw * 0.5f, panelR.y + 8.0f * s, ui::fontSize(ui::scale() + 1), ui::color::kGold, ui::Align::Center);
 
@@ -75,6 +75,13 @@ bool drawSettingsPanel(App& app) {
         st.hints = !st.hints;
         changed = true;
     }
+    y += bh + 4.0f * s;
+    if (ui::button({x, y, bw, bh}, std::string("Matter lens: ") + (st.matterLens ? "On" : "Off"))) {
+        st.matterLens = !st.matterLens;
+        changed = true;
+    }
+    if (ui::hovered({x, y, bw, bh}))
+        ui::tooltip("Matter lens", "Rest the cursor on a substance or creature to see what it is and what it does.");
     if (changed) app.applySettings();
 
     bool back = ui::button({x, panelR.y + panelR.height - bh - 8.0f * s, bw, bh}, "Back");

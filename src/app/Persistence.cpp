@@ -161,6 +161,7 @@ Settings loadSettings() {
     read(kv, "difficulty", s.difficulty);
     read(kv, "loadout", s.loadout);
     read(kv, "hints", s.hints);
+    read(kv, "matter_lens", s.matterLens);
     read(kv, "high_quality", s.highQuality);
     return s;
 }
@@ -175,6 +176,7 @@ void saveSettings(const Settings& s) {
                                         {"difficulty", str(s.difficulty)},
                                         {"loadout", str(s.loadout)},
                                         {"hints", str(s.hints)},
+                                        {"matter_lens", str(s.matterLens)},
                                         {"high_quality", str(s.highQuality)}});
 }
 

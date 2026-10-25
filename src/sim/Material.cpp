@@ -233,6 +233,60 @@ void initMaterials() {
 
 const MaterialTables& materials() { return g_tables; }
 
+std::string matDescription(MatId id) {
+    using namespace mat;
+    switch (id) {
+    case Water: return "Douses flames and cools lava into obsidian. Conducts electricity.";
+    case Brine: return "Salt water: douses flames, cools lava and conducts electricity.";
+    case Oil: return "Floats on water and burns fiercely.";
+    case Lava: return "Burns whatever it touches. Water cools it into obsidian.";
+    case Acid: return "Eats through stone and flesh. Vitae neutralises it.";
+    case Blood: return "Puts out flames.";
+    case Slime: return "Sticky: slows anything wading through it.";
+    case Vitae: return "Heals whoever bathes in it or drinks it. Neutralises acid and sludge.";
+    case Toxic: return "Poisons whatever wades through it.";
+    case Midas: return "Turns the stone it touches into gold ore.";
+    case Quicksilver: return "Heavy, conductive metal. Turns gold dust into Liquid Midas.";
+    case Ichor: return "The glowing blood of fiends. Puts out flames.";
+    case Gunpowder: return "Explodes when lit, chaining into great blasts.";
+    case GoldDust: return "Walk over it to collect it.";
+    case GoldOre: return "Blast or dig it to free the gold dust inside.";
+    case Sulphur: return "Burns readily into toxic gas.";
+    case Salt: return "Turns water into brine and melts ice.";
+    case Spore: return "Glowing spores; water sprouts them into glowcaps.";
+    case Methane: return "Ignites in a flash.";
+    case Steam: return "Hot vapour that condenses back into water.";
+    case Fire: return "Spreads to anything that burns.";
+    case Empty:
+    case Rock:
+    case Soil: return {};
+    default: break;
+    }
+    const MaterialDef& d = g_tables.defs[id];
+    constexpr uint32_t kNotable = matflag::kExplosive | matflag::kIgniter | matflag::kCorrosive | matflag::kHealing |
+                                  matflag::kExtinguisher | matflag::kSticky | matflag::kTransmuter | matflag::kCollectible;
+    const bool unbreakable = d.phase == Phase::Solid && d.hardness == 255;
+    if (!(d.flags & kNotable) && d.contactDamage <= 0.0f && !unbreakable) return {};
+    std::string out;
+    auto add = [&](const char* s) {
+        if (!out.empty()) out += ' ';
+        out += s;
+    };
+    if (unbreakable) add("Unbreakable.");
+    if (d.flags & matflag::kExplosive) add("Explosive.");
+    if (d.flags & matflag::kIgniter) add("Sets things alight.");
+    if (d.contactDamage > 0.0f) add("Harmful to touch.");
+    if (d.flags & matflag::kCorrosive) add("Corrosive.");
+    if (d.flags & matflag::kHealing) add("Heals.");
+    if (d.flags & matflag::kExtinguisher) add("Puts out flames.");
+    if (d.flags & matflag::kSticky) add("Sticky.");
+    if (d.flammability > 0) add(d.flammability > 150 ? "Highly flammable." : "Burns.");
+    if (d.flags & matflag::kMeltable) add("Melts near heat.");
+    if (d.flags & matflag::kConductive) add("Conducts electricity.");
+    if (d.glow.a > 0 && d.phase == Phase::Solid) add("Glows.");
+    return out;
+}
+
 Cell makeCell(MatId id, uint32_t randomBits) {
     Cell c;
     c.mat = id;

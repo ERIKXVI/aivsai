@@ -43,6 +43,7 @@ private:
     PlayerInput gatherInput();
     void latchInput();
     void noteInputDevice();
+    void updateLens(float dt);
     void updateEditorPad();
     /// Drops the dragged spell onto a wand slot (wand >= 0) or satchel slot (wand -1), swapping.
     void dropDragOnto(int wand, int slot);
@@ -88,6 +89,14 @@ private:
     bool debugOverlay_ = false;
     bool usingGamepad_ = false;  ///< last input came from a gamepad (for button prompts)
     float heartbeat_ = 0.0f;     ///< seconds until the next low-health heartbeat
+    // Matter lens: names what the resting cursor points at.
+    struct Lens {
+        std::string title, body;
+        Color color = WHITE;
+        float rest = 0.0f; ///< seconds the cursor has rested
+        float same = 0.0f; ///< seconds the same thing has been named
+        Vector2 mouse{};
+    } lens_;
     int shownGold_ = -1;         ///< gold total the HUD last saw
     float goldPop_ = 0.0f;       ///< seconds left on the HUD gold counter's pop
 
