@@ -161,7 +161,7 @@ struct MusicSynth::State {
             ++chordIndex;
             setChord();
         }
-        const int chordDegree = kProgressions[mode][chordIndex % 4];
+        const int chordDegree = kProgressions[mode][((chordIndex % 4) + 4) % 4];
         if (step % 8 == 0 || (intensity > 0.55f && step % 8 == 6)) {
             bassFreq = midiToHz(static_cast<float>(scaleNote(root - 12, mode, chordDegree)));
             bassEnv = 0.9f;
@@ -179,6 +179,7 @@ struct MusicSynth::State {
         }
         if (intensity > 0.3f && (step % 8 == 0 || (intensity > 0.7f && (step == 6 || step == 22)))) {
             kickEnv = 1.0f;
+            kickPhase = 0.0f;
             kickFreq = 130.0f;
         }
         if (intensity > 0.5f && step % 4 == 2) hatEnv = 0.6f;
@@ -242,7 +243,9 @@ void MusicSynth::render(float* out, unsigned int frames) {
             if ((s.step + 1) % 16 == 0 && (wantRoot != s.root || wantMode != s.mode)) {
                 s.root = wantRoot;
                 s.mode = wantMode;
+                // Restart the phrase so the next step is a downbeat that sets the new chord.
                 s.chordIndex = -1;
+                s.step = -1;
             }
             s.onStep();
             s.stepCounter = s.samplesPerStep;
@@ -293,6 +296,7 @@ void MusicSynth::render(float* out, unsigned int frames) {
         if (s.kickEnv > 0.001f) {
             s.kickFreq = 45.0f + (s.kickFreq - 45.0f) * 0.9993f;
             s.kickPhase += s.kickFreq / kRate;
+            s.kickPhase -= std::floor(s.kickPhase);
             drums += std::sin(s.kickPhase * kTau) * s.kickEnv * 0.32f;
             s.kickEnv *= 0.99975f;
         }

@@ -157,7 +157,7 @@ void SandboxScene::tick() {
 }
 
 void SandboxScene::frame(float dt) {
-    (void)dt;
+    app_.audio().update(dt);
     float wheel = GetMouseWheelMove();
     if (wheel != 0.0f) brushRadius_ = clamp(brushRadius_ + (wheel > 0 ? 1 : -1), 1, kMaxBrush);
     if (input::keyPressed(KEY_LEFT_BRACKET)) brushRadius_ = std::max(1, brushRadius_ - 1);
