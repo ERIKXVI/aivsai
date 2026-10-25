@@ -21,13 +21,19 @@ constexpr float kEngageHalfW = 190.0f, kEngageHalfH = 110.0f;
 /// A mimic wakes once the alchemist is inside this box - before they are close enough to be
 /// offered "open", which would give it away.
 constexpr float kMimicWakeX = 24.0f, kMimicWakeY = 16.0f;
+/// Length (s) of the glowing telegraph before a ranged attack; the brightening in drawAlbedo
+/// and the light in addLights ramp over the same span.
+constexpr float kWindup = 0.4f;
+
+/// Colour of a creature's wind-up sparks, brightening and light: its own glow, or warm white.
+Color windupColor(const EnemyDef& def) { return def.glow ? hexColor(def.glow) : Color{255, 240, 200, 255}; }
 
 float sign(float v) { return v < 0.0f ? -1.0f : 1.0f; }
 
 } // namespace
 
-Enemy::Enemy(EnemyType type, Vec2 pos, uint32_t id_, float hpScale) : type_(type), def_(&enemyDef(type)) {
-    id = id_;
+Enemy::Enemy(EnemyType type, Vec2 pos, uint32_t actorId, float hpScale) : type_(type), def_(&enemyDef(type)) {
+    id = actorId;
     body.pos = body.prevPos = pos;
     body.halfW = def_->halfW;
     body.halfH = def_->halfH;
@@ -39,7 +45,7 @@ Enemy::Enemy(EnemyType type, Vec2 pos, uint32_t id_, float hpScale) : type_(type
     team = Team::Monster;
     home_ = pos;
     lastSeen_ = pos;
-    wanderDir_ = (id_ & 1u) ? 1.0f : -1.0f;
+    wanderDir_ = (actorId & 1u) ? 1.0f : -1.0f;
     attackTimer_ = attackCooldown() * 0.5f;
     dormant_ = def_->behaviour == Behaviour::Mimic;
     if (def_->behaviour == Behaviour::Burrower) {
@@ -273,14 +279,13 @@ void Enemy::tickGuardian(Level& level, Vec2 toPlayer, bool sees) {
 }
 
 bool Enemy::readyToFire(Level& level, bool wantsToFire) {
-    constexpr float kWindup = 0.4f;
     if (windup_ > 0.0f) {
         windup_ -= kTickDt;
         // Sparks gather at the caster while it charges.
         Rng& rng = level.rng();
         const Vec2 core = body.pos + Vec2{0.0f, -body.halfH * 0.3f};
         const Vec2 from = core + fromAngle(rng.range(0.0f, kTau), rng.range(8.0f, 14.0f));
-        const Color c = def_->glow ? hexColor(def_->glow) : Color{255, 240, 200, 255};
+        const Color c = windupColor(*def_);
         level.particles().addVisual(from, (core - from) * 4.0f, {c.r, c.g, c.b, 230}, {c.r, c.g, c.b, 0}, 0.22f, 0.0f,
                                     partflag::kFade | partflag::kNoGravity);
         if (windup_ <= 0.0f) {
@@ -301,7 +306,7 @@ void Enemy::tickHopper(Level& level, Vec2 toPlayer, bool sees) {
         if (stateTimer_ <= 0.0f) {
             float dir = aggro_ ? sign(toPlayer.x) : (rng.chance(0.5f) ? -1.0f : 1.0f);
             float power = aggro_ ? rng.range(0.9f, 1.25f) : rng.range(0.4f, 0.7f);
-            body.vel = {dir * moveSpeed() * power * (status.chilled > 0 ? 0.5f : 1.0f), -165.0f * power};
+            body.vel = {dir * chilledSpeed() * power, -165.0f * power};
             stateTimer_ = attackCooldown() * rng.range(0.7f, 1.3f) * (aggro_ ? 0.8f : 2.0f);
             special_ = 0.25f; // squash timer
             if (sees) level.audio().playAt(Sfx::Squish, body.pos, 0.35f, rng.range(0.9f, 1.2f));
@@ -313,7 +318,7 @@ void Enemy::tickHopper(Level& level, Vec2 toPlayer, bool sees) {
 void Enemy::tickWalker(Level& level, Vec2 toPlayer, bool sees) {
     const float dt = kTickDt;
     World& world = level.world();
-    float speed = moveSpeed() * (status.chilled > 0.0f ? 0.5f : 1.0f);
+    float speed = chilledSpeed();
     float dist = toPlayer.length();
     float dir = wanderDir_;
     float targetSpeed = speed * 0.4f;
@@ -356,9 +361,9 @@ void Enemy::tickWalker(Level& level, Vec2 toPlayer, bool sees) {
     special_ = std::max(0.0f, special_ - dt);
 }
 
-void Enemy::tickFlyer(Level& level, Vec2 toPlayer, bool sees) {
+void Enemy::tickFlyer(Level& level, Vec2 /*toPlayer*/, bool sees) {
     const float dt = kTickDt;
-    float speed = moveSpeed() * (status.chilled > 0.0f ? 0.5f : 1.0f);
+    float speed = chilledSpeed();
     Vec2 desired;
     if (aggro_) {
         Vec2 target = sees ? level.player().body.pos : lastSeen_;
@@ -377,12 +382,11 @@ void Enemy::tickFlyer(Level& level, Vec2 toPlayer, bool sees) {
     body.vel = damp(body.vel, desired, 3.0f, dt);
     if (body.hitWall) body.vel.x = -body.vel.x * 0.5f;
     if (body.hitCeiling || body.onGround) body.vel.y = -body.vel.y * 0.5f;
-    (void)toPlayer;
 }
 
 void Enemy::tickCaster(Level& level, Vec2 toPlayer, bool sees) {
     const float dt = kTickDt;
-    float speed = moveSpeed() * (status.chilled > 0.0f ? 0.5f : 1.0f);
+    float speed = chilledSpeed();
     float dist = toPlayer.length();
     Vec2 desired;
     if (aggro_) {
@@ -409,7 +413,7 @@ void Enemy::tickCaster(Level& level, Vec2 toPlayer, bool sees) {
     special_ = std::max(0.0f, special_ - dt);
 }
 
-void Enemy::tickSpore(Level& level, Vec2 toPlayer, bool) {
+void Enemy::tickSpore(Level& level, Vec2 toPlayer, bool /*sees*/) {
     body.vel.x = 0.0f;
     if (toPlayer.length() < 75.0f && attackTimer_ <= 0.0f) {
         Rng& rng = level.rng();
@@ -427,7 +431,7 @@ void Enemy::tickSpore(Level& level, Vec2 toPlayer, bool) {
     special_ = std::max(0.0f, special_ - kTickDt);
 }
 
-void Enemy::tickTurret(Level& level, Vec2 toPlayer, bool sees) {
+void Enemy::tickTurret(Level& level, Vec2 /*toPlayer*/, bool sees) {
     body.vel.x = 0.0f;
     if (sees && aggro_) {
         // Three-shot burst after a wind-up, then a long recharge.
@@ -445,10 +449,9 @@ void Enemy::tickTurret(Level& level, Vec2 toPlayer, bool sees) {
     } else {
         windup_ = 0.0f; // lost sight mid wind-up: start a fresh telegraph next time
     }
-    (void)toPlayer;
 }
 
-void Enemy::tickKamikaze(Level& level, Vec2 toPlayer, bool sees) {
+void Enemy::tickKamikaze(Level& level, Vec2 toPlayer, bool /*sees*/) {
     float dist = toPlayer.length();
     float dir = aggro_ ? sign(toPlayer.x) : wanderDir_;
     float speed = aggro_ ? moveSpeed() : moveSpeed() * 0.3f;
@@ -464,12 +467,11 @@ void Enemy::tickKamikaze(Level& level, Vec2 toPlayer, bool sees) {
         dead = true;
         onKilled(level, {});
     }
-    (void)sees;
 }
 
-void Enemy::tickBurrower(Level& level, Vec2 toPlayer, bool) {
+void Enemy::tickBurrower(Level& level, Vec2 /*toPlayer*/, bool /*sees*/) {
     const float dt = kTickDt;
-    float speed = moveSpeed() * (status.chilled > 0.0f ? 0.5f : 1.0f);
+    float speed = chilledSpeed();
     Vec2 target = aggro_ ? level.player().body.pos
                          : home_ + Vec2{std::cos(animTime_ * 0.4f) * 60.0f, std::sin(animTime_ * 0.5f) * 40.0f};
     Vec2 to = target - body.pos;
@@ -492,11 +494,9 @@ void Enemy::tickBurrower(Level& level, Vec2 toPlayer, bool) {
         prev = s;
     }
     if (aggro_ && level.rng().chance(0.02f)) level.addShake(0.05f);
-    (void)toPlayer;
 }
 
 void Enemy::tickBrute(Level& level, Vec2 toPlayer, bool sees) {
-    const float dt = kTickDt;
     float dist = toPlayer.length();
     if (phase_ == 1) {
         // Mid-air during a slam: wait for landing.
@@ -522,7 +522,6 @@ void Enemy::tickBrute(Level& level, Vec2 toPlayer, bool sees) {
         attackTimer_ = attackCooldown();
         level.audio().playAt(Sfx::Roar, body.pos, 0.35f, 1.6f);
     }
-    (void)dt;
 }
 
 void Enemy::tickCompanion(Level& level) {
@@ -551,7 +550,7 @@ void Enemy::tickCompanion(Level& level) {
     moveBody(body, level.world(), dt);
 }
 
-void Enemy::tickBoss(Level& level, Vec2 toPlayer, bool sees) {
+void Enemy::tickBoss(Level& level, Vec2 toPlayer, bool /*sees*/) {
     const float dt = kTickDt;
     Rng& rng = level.rng();
     Player& pl = level.player();
@@ -631,7 +630,6 @@ void Enemy::tickBoss(Level& level, Vec2 toPlayer, bool sees) {
         break;
     }
     }
-    (void)sees;
 }
 
 void Enemy::onDamaged(Level& level, const DamageInfo& info, float dealt) {
@@ -754,8 +752,8 @@ void Enemy::drawAlbedo(DrawContext& ctx) const {
     }
     if (windup_ > 0.0f) {
         // Telegraph: the creature brightens as its attack charges.
-        const Color c = def_->glow ? hexColor(def_->glow) : Color{255, 240, 200, 255};
-        const float charge = 1.0f - windup_ / 0.4f;
+        const Color c = windupColor(*def_);
+        const float charge = 1.0f - windup_ / kWindup;
         draw(Color{c.r, c.g, c.b, static_cast<unsigned char>(60.0f + 150.0f * charge)}, true);
     }
     if (hurtFlash > 0.0f) draw(Color{255, 255, 255, 210}, true);
@@ -810,8 +808,8 @@ void Enemy::addLights(DrawContext& ctx) const {
     }
     if (elite_) ctx.scene.addLight(PointLight{p, 1.4f, 1.0f, 0.35f, 46.0f, 4.0f, 1.0f});
     if (windup_ > 0.0f) {
-        const Color c = def_->glow ? hexColor(def_->glow) : Color{255, 240, 200, 255};
-        const float k = 0.4f + 1.4f * (1.0f - windup_ / 0.4f);
+        const Color c = windupColor(*def_);
+        const float k = 0.4f + 1.4f * (1.0f - windup_ / kWindup);
         ctx.scene.addLight(PointLight{p, c.r / 255.0f * k, c.g / 255.0f * k, c.b / 255.0f * k, 34.0f, 2.0f, 1.0f});
     }
     if (def_->glow == 0) return;

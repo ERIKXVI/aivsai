@@ -1,6 +1,6 @@
 #include "game/Ordeals.hpp"
 
-#include <array>
+#include <iterator>
 
 #include "core/Math.hpp"
 
@@ -8,7 +8,7 @@ namespace pm {
 
 namespace {
 
-constexpr std::array<OrdealDef, kMaxOrdeal> kOrdeals = {{
+constexpr OrdealDef kOrdeals[] = {
     {"Hardened Foes", "Creatures have a quarter more health."},
     {"Gathering Elites", "Elites are twice as common."},
     {"Lean Sanctums", "Sanctums restore only half the health you have lost."},
@@ -17,7 +17,8 @@ constexpr std::array<OrdealDef, kMaxOrdeal> kOrdeals = {{
     {"Restless Mountain", "The mountain stirs twice as often."},
     {"Frail Flesh", "You set out with a quarter less health."},
     {"Wrathful Keepers", "Guardians and the Rebis have 40% more health."},
-}};
+};
+static_assert(std::size(kOrdeals) == kMaxOrdeal, "an OrdealDef for every ordeal");
 
 constexpr const char* kNumerals[] = {"", "I", "II", "III", "IV", "V", "VI", "VII", "VIII"};
 static_assert(std::size(kNumerals) == kMaxOrdeal + 1, "a numeral for every ordeal");

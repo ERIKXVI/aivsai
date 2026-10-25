@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <bit>
 #include <cmath>
-#include <queue>
 
 #include "core/Timing.hpp"
 #include "game/Level.hpp"
@@ -38,7 +37,7 @@ void Level::launch(const ProjectileLaunch& l, Vec2 origin, float angle, Team tea
     p.bouncesLeft = l.def.bounces;
     p.payload = l.payload;
     p.damageMul = damageMul;
-    if (l.spell == SpellId::ArcBolt) p.chainsLeft = 3;
+    p.chainsLeft = l.def.chains;
 
     if (p.def.flags & projflag::kFromSky) {
         // Find the ceiling above a point ahead of the caster and drop from there.
@@ -178,38 +177,33 @@ void Level::spawnBlob(Vec2 pos, MatId m, int amount, Vec2 vel) {
 
 void Level::electrify(Vec2 pos, float damage, Team team) {
     World& w = world();
-    std::queue<Vec2i> open;
-    std::vector<Vec2i> visited;
+    // Breadth-first flood over connected conductive matter. `charged` doubles as the queue
+    // (charged[head..] is the frontier) and, once done, the list of every cell charged.
+    std::vector<Vec2i> charged;
     const int cx = floorToInt(pos.x), cy = floorToInt(pos.y);
     for (int dy = -3; dy <= 3; ++dy)
         for (int dx = -3; dx <= 3; ++dx) {
             int x = cx + dx, y = cy + dy;
             if (w.inBounds(x, y) && hasFlag(w.at(x, y).mat, matflag::kConductive) && !(w.at(x, y).flags & cellflag::kElectric)) {
                 w.at(x, y).flags |= cellflag::kElectric;
-                open.push({x, y});
+                charged.push_back({x, y});
             }
         }
-    constexpr int kMaxCells = 3500;
+    constexpr size_t kMaxSpread = 3500; // cells spread from; the frontier left over stays charged
     constexpr int kDx[4] = {1, -1, 0, 0}, kDy[4] = {0, 0, 1, -1};
-    while (!open.empty() && static_cast<int>(visited.size()) < kMaxCells) {
-        Vec2i c = open.front();
-        open.pop();
-        visited.push_back(c);
+    for (size_t head = 0; head < charged.size() && head < kMaxSpread; ++head) {
+        const Vec2i c = charged[head]; // a copy: push_back below may reallocate
         for (int k = 0; k < 4; ++k) {
             int x = c.x + kDx[k], y = c.y + kDy[k];
             if (!w.inBounds(x, y)) continue;
             Cell& cell = w.at(x, y);
             if ((cell.flags & cellflag::kElectric) || !hasFlag(cell.mat, matflag::kConductive)) continue;
             cell.flags |= cellflag::kElectric;
-            open.push({x, y});
+            charged.push_back({x, y});
         }
     }
-    while (!open.empty()) {
-        visited.push_back(open.front());
-        open.pop();
-    }
     // The charge decays on its own inside the cellular automaton (see ChunkUpdater).
-    for (const Vec2i& c : visited) w.wake(c.x, c.y);
+    for (const Vec2i& c : charged) w.wake(c.x, c.y);
 
     // Creatures touching charged matter are shocked.
     auto shock = [&](Actor& a) {
@@ -224,11 +218,11 @@ void Level::electrify(Vec2 pos, float damage, Team team) {
         a.status.shocked = 0.5f;
         a.applyDamage(*this, {dmg, DamageType::Electric, {0.0f, -60.0f}, team, false, false, "electricity"});
     };
-    if (!visited.empty()) {
+    if (!charged.empty()) {
         if (player_->alive()) shock(*player_);
         for (size_t i = 0; i < enemies_.size(); ++i) shock(*enemies_[i]);
         for (int i = 0; i < 40; ++i) {
-            const Vec2i& c = visited[rng_.next() % visited.size()];
+            const Vec2i& c = charged[rng_.next() % charged.size()];
             particles_.addVisual({static_cast<float>(c.x), static_cast<float>(c.y)},
                                  {rng_.range(-40.0f, 40.0f), rng_.range(-60.0f, 10.0f)}, {220, 235, 255, 255},
                                  {160, 200, 255, 255}, 0.25f, 0.0f);
@@ -321,10 +315,10 @@ void Level::bleed(Vec2 pos, MatId blood, int amount, Vec2 dir) {
     }
 }
 
-Actor* Level::nearestHostile(Vec2 pos, Team team, float range, uint32_t excludeId) {
-    Actor* best = nullptr;
+const Actor* Level::nearestHostile(Vec2 pos, Team team, float range, uint32_t excludeId) const {
+    const Actor* best = nullptr;
     float bestD2 = range * range;
-    auto consider = [&](Actor& a) {
+    auto consider = [&](const Actor& a) {
         if (!a.alive() || a.team == team || a.id == excludeId) return;
         float d2 = (a.body.pos - pos).lengthSq();
         if (d2 < bestD2) {
@@ -335,7 +329,7 @@ Actor* Level::nearestHostile(Vec2 pos, Team team, float range, uint32_t excludeI
     consider(*player_);
     // A mimic still posing as a chest is no target: homing shots, arcs and the homunculus would
     // give it away (a stray hit still wakes it).
-    for (auto& e : enemies_)
+    for (const auto& e : enemies_)
         if (!e->disguised()) consider(*e);
     return best;
 }
@@ -419,7 +413,8 @@ void Level::onEnemyKilled(Enemy& e) {
                 if (const int stage = guardianStage(e.type()); stage >= 0) run_.essences |= static_cast<uint8_t>(1u << stage);
                 const int held = std::popcount(static_cast<unsigned>(run_.essences));
                 addFloatText(e.body.pos - Vec2{0.0f, e.body.halfH + 18.0f},
-                             held == 4 ? std::string("The Quintessence is yours!") : "Essence " + std::to_string(held) + " of 4", 0xfff0c0,
+                             run_.quintessence() ? std::string("The Quintessence is yours!")
+                                                     : "Essence " + std::to_string(held) + " of " + std::to_string(kGuardianCount), 0xfff0c0,
                              1.2f);
             }
             addFloatText(e.body.pos - Vec2{0.0f, e.body.halfH + 8.0f}, std::string(d.name) + " falls!", 0xffd27a, 1.4f);
@@ -432,7 +427,7 @@ void Level::onEnemyKilled(Enemy& e) {
             const int tier = std::min(4, layout_.levelIndex + 1);
             static constexpr SpellId kFireSpells[] = {SpellId::FireBolt, SpellId::Fireball, SpellId::Incendiary, SpellId::FireTrail};
             Pickup loot = e.affix() == Affix::Burning
-                              ? makeSpellPickup(e.body.pos, kFireSpells[rng_.rangeInt(0, static_cast<int>(std::size(kFireSpells)) - 1)])
+                              ? makeSpellPickup(e.body.pos, rng_.pick(kFireSpells))
                           : rng_.chance(0.6f) ? makeSpellPickup(e.body.pos, randomSpell(tier, rng_))
                                               : makePotion(e.body.pos, randomPotionMaterial(tier, rng_), 700);
             loot.body.vel = {rng_.range(-50.0f, 50.0f), -150.0f};

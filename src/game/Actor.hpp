@@ -66,7 +66,7 @@ public:
     float maxHp = 10.0f;
     Team team = Team::Monster;
     StatusEffects status;
-    std::array<float, static_cast<int>(DamageType::Count)> resist{1, 1, 1, 1, 1, 1, 1, 1};
+    Resistances resist = kNeutralResist;
     float hurtFlash = 0.0f;
     float invulnerable = 0.0f;
     float contactDamageCooldown = 0.0f;

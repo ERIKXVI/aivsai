@@ -3,6 +3,7 @@
 #include "game/Enemy.hpp"
 
 #include <cstring>
+#include <iterator>
 
 #include "game/Run.hpp"
 
@@ -10,12 +11,13 @@ namespace pm {
 
 namespace {
 
-using R = std::array<float, static_cast<int>(DamageType::Count)>;
-// Resistance order: Physical, Fire, Explosion, Ice, Electric, Acid, Toxic, Holy.
-constexpr R kNormal{1, 1, 1, 1, 1, 1, 1, 1};
+// Resistance order: Physical, Fire, Explosion, Ice, Electric, Acid, Toxic, Holy. Rows list every
+// type: a missing column would be zero-filled, and 0 means immune.
+static_assert(static_cast<std::size_t>(DamageType::Count) == 8, "a DamageType was added: give every creature row a column for it");
+constexpr Resistances kNormal = kNeutralResist;
 
 // clang-format off
-const EnemyDef kEnemies[static_cast<int>(EnemyType::Count)] = {
+const EnemyDef kEnemies[] = {
     {"Slime",          SpriteId::Slime,      Behaviour::Hopper,    22, 5.0f, 3.5f,  55,  8, DamageType::Physical, SpellId::None,      1.3f, 150, mat::Slime,  6, false, 0,        {1, 1.2f, 1, 1, 1, 0.5f, 0, 1}},
     {"Frost Slime",    SpriteId::Slime,      Behaviour::Hopper,    32, 5.0f, 3.5f,  60, 10, DamageType::Ice,      SpellId::None,      1.1f, 160, mat::Brine,  9, false, 0x80d0ff, {1, 2.0f, 1, 0, 1, 0.7f, 0.5f, 1}, 0x96d2ff},
     {"Cave Bat",       SpriteId::Bat,        Behaviour::Flyer,     12, 5.0f, 3.0f, 100,  6, DamageType::Physical, SpellId::None,      0.0f, 190, mat::Blood,  4, true,  0,        kNormal},
@@ -39,6 +41,7 @@ const EnemyDef kEnemies[static_cast<int>(EnemyType::Count)] = {
     {"Bile Slug",      SpriteId::BileSlug,   Behaviour::Walker,    34, 6.0f, 3.5f,  18,  6, DamageType::Acid,     SpellId::AcidGlob,  3.2f, 160, mat::Toxic, 10, false, 0xa0e040, {1, 1.2f, 1, 1, 1, 0, 0, 1}},
 };
 // clang-format on
+static_assert(std::size(kEnemies) == static_cast<size_t>(EnemyType::Count), "an EnemyDef for every EnemyType");
 
 struct SpawnEntry {
     EnemyType type;
@@ -74,18 +77,20 @@ Color enemyTint(EnemyType type) {
 EnemyType guardianFor(int levelIndex) {
     static constexpr EnemyType kGuardians[] = {EnemyType::BlackToad, EnemyType::WhiteWraith, EnemyType::MineKing,
                                                EnemyType::RedColossus};
-    return kGuardians[clamp(levelIndex, 0, 3)];
+    static_assert(std::size(kGuardians) == kGuardianCount);
+    return kGuardians[clamp(levelIndex, 0, kGuardianCount - 1)];
 }
 
 int guardianStage(EnemyType type) {
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < kGuardianCount; ++i)
         if (guardianFor(i) == type) return i;
     return -1;
 }
 
 uint32_t essenceColor(int stage) {
     static constexpr uint32_t kColors[] = {0x7ad070, 0xc8f0ff, 0xffd060, 0xff6a48};
-    return kColors[clamp(stage, 0, 3)];
+    static_assert(std::size(kColors) == kGuardianCount);
+    return kColors[clamp(stage, 0, kGuardianCount - 1)];
 }
 
 const char* guardianEpithet(EnemyType type) {
@@ -99,6 +104,7 @@ const char* guardianEpithet(EnemyType type) {
 }
 
 static_assert(static_cast<size_t>(EnemyType::Count) <= kMaxCreatureTypes, "raise kMaxCreatureTypes");
+static_assert(RunState::kAllEssences == (1u << kGuardianCount) - 1, "one essence bit per guardian");
 
 std::optional<EnemyType> enemyNamed(const char* name) {
     if (name == nullptr) return std::nullopt;
@@ -109,16 +115,8 @@ std::optional<EnemyType> enemyNamed(const char* name) {
 
 EnemyType pickEnemy(int levelIndex, bool air, float difficulty, Rng& rng) {
     const auto& table = (air ? kAir : kGround)[clamp(levelIndex, 0, 4)];
-    float total = 0.0f;
-    for (const SpawnEntry& e : table)
-        if (difficulty >= e.minDifficulty) total += e.weight;
-    float r = rng.uniform() * total;
-    for (const SpawnEntry& e : table) {
-        if (difficulty < e.minDifficulty) continue;
-        if (r < e.weight) return e.type;
-        r -= e.weight;
-    }
-    return table.front().type;
+    const int i = weightedIndex(rng, table, [&](const SpawnEntry& e) { return difficulty >= e.minDifficulty ? e.weight : 0.0f; });
+    return i < 0 ? table.front().type : table[static_cast<size_t>(i)].type;
 }
 
 } // namespace pm

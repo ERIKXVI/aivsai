@@ -144,7 +144,7 @@ void MenuScene::tick() {
     if (nextEvent_ <= 0.0f) {
         nextEvent_ = rng_.range(1.5f, 3.5f);
         static constexpr MatId kPours[] = {mat::Sand, mat::Water, mat::Lava, mat::Oil, mat::Acid, mat::Snow, mat::Gunpowder, mat::Vitae};
-        MatId m = kPours[rng_.rangeInt(0, 7)];
+        MatId m = rng_.pick(kPours);
         int x = rng_.rangeInt(40, kMenuW - 40);
         int amount = rng_.rangeInt(150, 400);
         for (int i = 0; i < amount; ++i) {

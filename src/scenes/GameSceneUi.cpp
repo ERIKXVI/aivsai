@@ -172,8 +172,8 @@ void GameScene::drawHud() {
     ui::text(TextFormat("%d / %d", static_cast<int>(std::ceil(pl.hp)), static_cast<int>(pl.maxHp)), x + 3.0f * s,
              y + 3.5f * s - static_cast<float>(small) * 0.5f, small, WHITE);
     y += 9.0f * s;
-    if (!run_.wands.empty()) {
-        const Wand& w = run_.wands[static_cast<size_t>(run_.activeWand)];
+    if (const Wand* wand = run_.currentWand()) {
+        const Wand& w = *wand;
         ui::bar({x, y, barW, 4.0f * s}, w.mana / w.manaMax, ui::color::kMana);
         y += 5.0f * s;
         float reload = w.cooldownTotal > 0.0f ? 1.0f - w.cooldown / w.cooldownTotal : 1.0f;
@@ -240,8 +240,8 @@ void GameScene::drawHud() {
         ui::text(std::to_string(i + 1), r.x + 1.0f * s, r.y, small, ui::color::kTextDim);
         wx += icon + 3.0f * s;
     }
-    if (!run_.wands.empty()) {
-        const Wand& w = run_.wands[static_cast<size_t>(run_.activeWand)];
+    if (const Wand* wand = run_.currentWand()) {
+        const Wand& w = *wand;
         float dx = wx + 8.0f * s;
         ui::text(w.name, dx, wy - static_cast<float>(small) - 2.0f * s, small, ui::color::kText);
         const float slot = 11.0f * s;
@@ -286,9 +286,9 @@ void GameScene::drawEssences(float right, float y) const {
     // all four (the Quintessence) shimmer.
     const float s = static_cast<float>(ui::scale());
     const float r = 3.0f * s, gap = 9.0f * s;
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < kGuardianCount; ++i) {
         const bool held = (run_.essences >> i) & 1u;
-        const Vector2 c{right - r - static_cast<float>(3 - i) * gap, y};
+        const Vector2 c{right - r - static_cast<float>(kGuardianCount - 1 - i) * gap, y};
         Color color = held ? hexColor(essenceColor(i)) : Color{46, 40, 56, 255};
         if (held && run_.quintessence()) color = ColorBrightness(color, 0.25f * std::sin(time_ * 4.0f + static_cast<float>(i)));
         DrawPoly(c, 4, r + s, 0.0f, Color{12, 8, 18, 220});

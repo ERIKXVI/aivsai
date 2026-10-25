@@ -62,7 +62,7 @@ struct EnemyDef {
     int gold;               ///< gold dropped on death
     bool flying;
     uint32_t glow;          ///< light colour (0 = none)
-    std::array<float, static_cast<int>(DamageType::Count)> resist;
+    Resistances resist;
     // Optional extras for recoloured kin and giants:
     uint32_t tint = 0xffffff; ///< colour multiplied over the (often shared) sprite
     int scale = 1;            ///< sprite drawn at this integer scale
@@ -74,11 +74,13 @@ const EnemyDef& enemyDef(EnemyType type);
 /// Colour a creature's shared sprite is tinted with (Frost Slimes and Sappers reuse the
 /// Slime and Ghoul art), for the world and for portraits.
 Color enemyTint(EnemyType type);
+/// Stages with a guardian's lair (one guardian each); all their essences make the Quintessence.
+constexpr int kGuardianCount = 4;
 /// The guardian whose lair lies on this stage.
 EnemyType guardianFor(int levelIndex);
-/// The stage (0-3) whose lair `type` keeps, or -1 for any other creature.
+/// The stage (0 to kGuardianCount - 1) whose lair `type` keeps, or -1 for any other creature.
 int guardianStage(EnemyType type);
-/// The colour of the essence the guardian of stage `stage` (0-3) yields: mire, frost, gold, fire.
+/// The colour of the essence the guardian of stage `stage` yields: mire, frost, gold, fire.
 uint32_t essenceColor(int stage);
 /// A guardian's title for its introduction ("Keeper of the Mire"); empty for other creatures.
 const char* guardianEpithet(EnemyType type);
@@ -105,6 +107,8 @@ public:
     /// Movement speed (cells / s) and attack cooldown (s), after a Swift elite's haste or an
     /// enraged guardian's fury.
     float moveSpeed() const { return def_->speed * (affix_ == Affix::Swift ? 1.5f : 1.0f) * (enraged_ ? 1.3f : 1.0f); }
+    /// moveSpeed(), halved while chilled.
+    float chilledSpeed() const { return moveSpeed() * (status.chilled > 0.0f ? 0.5f : 1.0f); }
     float attackCooldown() const {
         return def_->attackCooldown * (affix_ == Affix::Swift ? 0.67f : 1.0f) * (enraged_ ? 0.7f : 1.0f);
     }

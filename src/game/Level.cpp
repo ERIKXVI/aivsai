@@ -124,7 +124,7 @@ void Level::populate() {
             const int stage = clamp(layout_.levelIndex, 0, 4);
             Transmuter t;
             t.pos = s.pos;
-            t.wants = stage == 0 ? static_cast<MatId>(mat::Water) : kWants[stage][rng_.rangeInt(0, 2)];
+            t.wants = stage == 0 ? static_cast<MatId>(mat::Water) : rng_.pick(kWants[stage]);
             transmuters_.push_back(t);
             break;
         }
@@ -382,7 +382,7 @@ void Level::interact() {
         audio_.play(Sfx::Pickup, 0.7f);
         addFloatText(p.body.pos - Vec2{0.0f, 10.0f}, spellDef(p.spell).name, 0xc0e0ff);
         if (slotted) {
-            addFloatText(p.body.pos - Vec2{0.0f, 4.0f}, "into " + run_.wands[static_cast<size_t>(run_.activeWand)].name, 0x9fb4d0, 0.6f);
+            addFloatText(p.body.pos - Vec2{0.0f, 4.0f}, "into " + run_.currentWand()->name, 0x9fb4d0, 0.6f);
             earnFeat(FeatId::Spellwright);
         } else {
             addFloatText(p.body.pos - Vec2{0.0f, 4.0f}, "to the satchel", 0x9fb4d0, 0.6f);
@@ -399,12 +399,12 @@ void Level::interact() {
             run_.wands.push_back(std::move(w));
             run_.activeWand = static_cast<int>(run_.wands.size()) - 1;
         } else {
-            Wand old = std::move(run_.wands[static_cast<size_t>(run_.activeWand)]);
-            run_.wands[static_cast<size_t>(run_.activeWand)] = std::move(w);
+            Wand old = std::move(*run_.currentWand());
+            *run_.currentWand() = std::move(w);
             pickups_.push_back(makeWandPickup(pl.body.pos, std::move(old)));
         }
         audio_.play(Sfx::Pickup, 0.8f, 0.8f);
-        addFloatText(at - Vec2{0.0f, 8.0f}, run_.wands[static_cast<size_t>(run_.activeWand)].name, 0xffe0a0);
+        addFloatText(at - Vec2{0.0f, 8.0f}, run_.currentWand()->name, 0xffe0a0);
         break;
     }
     case PickupType::Potion: {

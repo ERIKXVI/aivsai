@@ -3,6 +3,8 @@
 // alter every projectile of the cast, multicasts draw extra cards, and trigger spells carry
 // the next card as a payload released on impact. All tuning lives in Spells.cpp.
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 
@@ -14,6 +16,14 @@ namespace pm {
 enum class SpellType : uint8_t { Projectile, Modifier, Multicast };
 
 enum class DamageType : uint8_t { Physical, Fire, Explosion, Ice, Electric, Acid, Toxic, Holy, Count };
+
+/// Damage multiplier per DamageType: 1 = normal, 0 = immune, above 1 = weak.
+using Resistances = std::array<float, static_cast<std::size_t>(DamageType::Count)>;
+inline constexpr Resistances kNeutralResist = [] {
+    Resistances r{};
+    r.fill(1.0f);
+    return r;
+}();
 
 enum class ProjVisual : uint8_t { Spark, Bolt, Orb, BigOrb, Bomb, Shard, Saw, Beam, Glob, Star };
 
@@ -73,6 +83,7 @@ struct ProjectileDef {
     float lightRadius = 30.0f;
     uint32_t color = 0xffffff;
     uint32_t flags = 0;
+    int chains = 0;              ///< further foes it leaps to after a hit (arc spark)
 };
 
 /// Changes applied by a modifier spell to every projectile in the cast.

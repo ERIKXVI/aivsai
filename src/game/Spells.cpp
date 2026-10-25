@@ -358,6 +358,7 @@ struct SpellTable {
             p.color = 0xf0f0ff;
             p.lightRadius = 30;
             p.flags = kElectric;
+            p.chains = 3;
             proj(SpellId::ArcBolt, "Arc Spark", "An electric spark that leaps between foes.", 20, 0.12f, 2, 200, p);
         }
 
@@ -495,6 +496,7 @@ std::string spellDetails(SpellId id) {
 
 const char* damageTypeName(DamageType t) {
     static constexpr const char* kNames[] = {"Physical", "Fire", "Explosion", "Ice", "Electric", "Acid", "Toxic", "Holy"};
+    static_assert(std::size(kNames) == static_cast<size_t>(DamageType::Count), "a name for every DamageType");
     return kNames[static_cast<int>(t)];
 }
 

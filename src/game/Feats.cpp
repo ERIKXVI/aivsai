@@ -1,13 +1,13 @@
 #include "game/Feats.hpp"
 
-#include <array>
+#include <iterator>
 #include <cstddef>
 
 namespace pm {
 
 namespace {
 
-constexpr std::array<FeatDef, kFeatCount> kFeats = {{
+constexpr FeatDef kFeats[] = {
     {"First Blood", "Slay your first creature."},
     {"Spellwright", "Slot a new spell into a wand."},
     {"Brimming", "Fill your flask to the brim."},
@@ -33,7 +33,8 @@ constexpr std::array<FeatDef, kFeatCount> kFeats = {{
     {"Polymath", "Discover 25 spells."},
     {"Not a Chest", "Slay a mimic."},
     {"Quintessence", "Complete the Great Work holding all four guardians' essences."},
-}};
+};
+static_assert(std::size(kFeats) == kFeatCount, "a FeatDef for every FeatId");
 
 } // namespace
 

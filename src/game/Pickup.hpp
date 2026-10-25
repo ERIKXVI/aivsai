@@ -5,7 +5,8 @@
 #include <optional>
 #include <string>
 
-#include "game/Actor.hpp"
+#include "core/Rng.hpp"
+#include "game/Body.hpp"
 #include "game/Perks.hpp"
 #include "game/Wand.hpp"
 

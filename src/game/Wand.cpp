@@ -207,23 +207,16 @@ Wand makeStarterWand(int index) {
 
 SpellId randomSpell(int tier, Rng& rng) {
     // Weighted towards spells near the current tier; deeper spells are rarer.
-    float total = 0.0f;
-    float weights[kSpellCount] = {};
+    float weights[kSpellCount] = {}; // SpellId::None (index 0) stays at zero
     for (int i = 1; i < kSpellCount; ++i) {
         const SpellDef& d = spellDef(static_cast<SpellId>(i));
         if (d.tier > tier) continue;
         float w = 1.0f + 0.4f * static_cast<float>(d.tier);
         if (d.type == SpellType::Projectile) w *= 1.3f;
         weights[i] = w;
-        total += w;
     }
-    float r = rng.uniform() * total;
-    for (int i = 1; i < kSpellCount; ++i) {
-        if (weights[i] <= 0.0f) continue;
-        if (r < weights[i]) return static_cast<SpellId>(i);
-        r -= weights[i];
-    }
-    return SpellId::SparkBolt;
+    const int i = weightedIndex(rng, weights, [](float w) { return w; });
+    return i <= 0 ? SpellId::SparkBolt : static_cast<SpellId>(i);
 }
 
 Wand makeRandomWand(int tier, Rng& rng) {
@@ -248,7 +241,9 @@ Wand makeRandomWand(int tier, Rng& rng) {
         w.rechargeTime *= 0.7f;
     }
     w.mana = w.manaMax;
-    w.name = std::string(kPrefixes[rng.rangeInt(0, 6)]) + " " + kSuffixes[rng.rangeInt(0, 9)];
+    // Drawn in two statements: the operands of one + have no evaluation order to rely on.
+    const char* prefix = rng.pick(kPrefixes);
+    w.name = std::string(prefix) + " " + rng.pick(kSuffixes);
     w.slots.assign(static_cast<size_t>(w.capacity), SpellId::None);
     // Always at least one projectile so the wand works out of the box.
     int fill = std::min(w.capacity, 1 + rng.rangeInt(0, 2));
@@ -262,8 +257,8 @@ Wand makeRandomWand(int tier, Rng& rng) {
     }
     static constexpr uint32_t kHandles[] = {0x7a5232, 0x4a4a52, 0x8a7a5a, 0x5a3a5a, 0x3a5a4a, 0x9a8a7a};
     static constexpr uint32_t kGems[] = {0x8ad8ff, 0xffb040, 0xff5a8a, 0x8aff7a, 0xc080ff, 0xfff080};
-    w.handleColor = kHandles[rng.rangeInt(0, 5)];
-    w.gemColor = kGems[rng.rangeInt(0, 5)];
+    w.handleColor = rng.pick(kHandles);
+    w.gemColor = rng.pick(kGems);
     w.length = 7 + std::min(5, w.capacity / 2);
     w.resetDeck();
     return w;

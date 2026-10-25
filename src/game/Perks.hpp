@@ -3,8 +3,6 @@
 
 #include <cstdint>
 
-#include "core/Rng.hpp"
-
 namespace pm {
 
 enum class PerkId : uint8_t {

@@ -1,7 +1,7 @@
 #include "game/Loadouts.hpp"
 
 #include <algorithm>
-#include <array>
+#include <iterator>
 #include <cstdio>
 
 #include "core/Rng.hpp"
@@ -11,13 +11,14 @@ namespace pm {
 
 namespace {
 
-constexpr std::array<LoadoutDef, kLoadoutCount> kDefs = {{
+constexpr LoadoutDef kDefs[] = {
     {"Apprentice", "A spark rod, a digging wand and a flask of water. Humble, dependable.", 0, false},
     {"Pyromancer", "An ember staff, a flask of oil and skin that shrugs off flame.", 0, false},
     {"Geomancer", "Picks, dynamite, a flask of acid and a stout frame. The mountain is a door.", 1, false},
     {"Stormcaller", "Leaping arcs, a bottled storm and a flask of water to carry it.", 0, false},
     {"Hermeticist", "A wand of power rolled anew each run, homing sigils and a gift.", 0, true},
-}};
+};
+static_assert(std::size(kDefs) == kLoadoutCount, "a LoadoutDef for every LoadoutId");
 
 struct Requirement {
     const char* text;
@@ -25,13 +26,14 @@ struct Requirement {
     int target;
 };
 
-constexpr std::array<Requirement, kLoadoutCount> kRequirements = {{
+constexpr Requirement kRequirements[] = {
     {"", nullptr, 0},
     {"Reach the third stage", &Milestones::deepest, 3},
     {"Open chests", &Milestones::chestsOpened, 12},
     {"Slay creatures", &Milestones::totalKills, 250},
     {"Complete the Great Work", &Milestones::victories, 1},
-}};
+};
+static_assert(std::size(kRequirements) == kLoadoutCount, "a Requirement for every LoadoutId");
 
 Wand makeWand(const char* name, int capacity, float delay, float recharge, float mana, float charge, float spread,
               std::initializer_list<SpellId> spells, uint32_t handle, uint32_t gem, int length) {
@@ -121,7 +123,7 @@ void equipLoadout(RunState& run, LoadoutId id) {
         run.addSpell(randomSpell(2, rng));
         static constexpr PerkId kGifts[] = {PerkId::Vitality, PerkId::ArcaneFlow, PerkId::CriticalMind, PerkId::Swiftness,
                                             PerkId::LuckyDay, PerkId::Expansion};
-        run.applyPerk(kGifts[rng.rangeInt(0, static_cast<int>(std::size(kGifts)) - 1)]);
+        run.applyPerk(rng.pick(kGifts));
         run.gold += 120;
         break;
     }

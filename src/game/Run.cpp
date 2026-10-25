@@ -32,13 +32,13 @@ bool RunState::trySlotIntoActiveWand(SpellId s) {
     case SpellId::SporeBomb: return false;
     default: break;
     }
-    if (activeWand < 0 || activeWand >= static_cast<int>(wands.size())) return false;
-    Wand& w = wands[static_cast<size_t>(activeWand)];
-    for (SpellId& slot : w.slots) {
+    Wand* w = currentWand();
+    if (!w) return false;
+    for (SpellId& slot : w->slots) {
         if (slot == SpellId::None) {
             slot = s;
             noteSpell(s);
-            w.resetDeck();
+            w->resetDeck();
             return true;
         }
     }

@@ -163,9 +163,9 @@ StageEventKind StageEvents::pickKind(const Level& level, Rng& rng) const {
         {2.0f, 1.5f, 3.0f, 1.5f, 2.0f}, // Citrinitas: the mines leak gas and hide gold
         {2.0f, 2.5f, 1.0f, 1.5f, 1.5f}, // Rubedo: the walls hold back lava
     };
+    const auto& stageWeights = kWeights[clamp(static_cast<int>(level.biome()), 0, 3)];
     float w[static_cast<int>(StageEventKind::Count)];
-    std::copy(std::begin(kWeights[clamp(static_cast<int>(level.biome()), 0, 3)]),
-              std::end(kWeights[clamp(static_cast<int>(level.biome()), 0, 3)]), w);
+    std::copy(std::begin(stageWeights), std::end(stageWeights), w);
     auto boost = [&](StageEventKind k) { w[static_cast<int>(k)] *= 2.0f; };
     switch (level.layout().omen) {
     case Omen::Flooded: boost(StageEventKind::Breach); break;
@@ -174,14 +174,8 @@ StageEventKind StageEvents::pickKind(const Level& level, Rng& rng) const {
     case Omen::Teeming: boost(StageEventKind::Swarm); break;
     default: break;
     }
-    float total = 0.0f;
-    for (float v : w) total += v;
-    float r = rng.uniform() * total;
-    for (int i = 0; i < static_cast<int>(StageEventKind::Count); ++i) {
-        if (r < w[i]) return static_cast<StageEventKind>(i);
-        r -= w[i];
-    }
-    return StageEventKind::CaveIn;
+    const int i = weightedIndex(rng, w, [](float v) { return v; });
+    return i < 0 ? StageEventKind::CaveIn : static_cast<StageEventKind>(i);
 }
 
 void StageEvents::tick(Level& level) {

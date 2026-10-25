@@ -7,7 +7,6 @@
 #include "render/ColorUtil.hpp"
 #include "render/SceneRenderer.hpp"
 #include "render/Sprites.hpp"
-#include "rlgl.h"
 
 namespace pm {
 
@@ -31,6 +30,25 @@ constexpr float kHasteTime = 15.0f;
 constexpr float kHasteSpeed = 1.4f;
 constexpr float kFuryTime = 12.0f;
 constexpr float kFuryDamage = 1.5f;
+constexpr float kCastFlashTime = 0.08f; ///< the gem flashes white and lights up this long after a cast
+constexpr Vec2 kHandOffset{1.5f, 0.5f}; ///< the wand's grip relative to the body centre, facing right
+
+Vec2 handPos(Vec2 bodyPos, bool facingRight) {
+    return {bodyPos.x + (facingRight ? kHandOffset.x : -kHandOffset.x), bodyPos.y + kHandOffset.y};
+}
+
+struct Pose {
+    SpriteId sprite;
+    int frame;
+};
+
+/// The alchemist's sprite and frame; shared by the albedo and emission passes so the glowing
+/// eyes always sit on the frame drawn.
+Pose currentPose(const Body& body, bool jumpHeld, float animTime) {
+    if (!body.onGround) return {SpriteId::PlayerAir, (jumpHeld && body.vel.y > -40.0f) ? static_cast<int>(animTime * 12.0f) % 2 : 0};
+    if (std::fabs(body.vel.x) > 8.0f) return {SpriteId::PlayerRun, static_cast<int>(animTime * 11.0f) % 4};
+    return {SpriteId::PlayerIdle, static_cast<int>(animTime / 0.6f) % 2};
+}
 
 } // namespace
 
@@ -62,10 +80,9 @@ void Player::refreshFromRun() {
 float Player::damageMul() const { return run_.damageDealtMul() * (status.fury > 0.0f ? kFuryDamage : 1.0f); }
 
 Vec2 Player::wandTip() const {
-    const Wand* w = run_.wands.empty() ? nullptr : &run_.wands[static_cast<size_t>(run_.activeWand)];
-    float len = w ? static_cast<float>(w->length) : 8.0f;
-    Vec2 hand{body.pos.x + (facingRight_ ? 1.5f : -1.5f), body.pos.y + 0.5f};
-    return hand + aimDir_ * len;
+    const Wand* w = run_.currentWand();
+    const float len = w ? static_cast<float>(w->length) : 8.0f;
+    return handPos(body.pos, facingRight_) + aimDir_ * len;
 }
 
 void Player::tick(Level& level) {
@@ -217,7 +234,7 @@ void Player::handleWands(Level& level) {
         if (regen > 1.0f) w.mana = std::min(w.manaMax, w.mana + w.manaCharge * (regen - 1.0f) * kTickDt);
     }
 
-    Wand& wand = run_.wands[static_cast<size_t>(run_.activeWand)];
+    Wand& wand = *run_.currentWand(); // there is a wand: the count was checked and the index clamped above
     if (!input_.castHeld) return;
     const bool wasReady = wand.cooldown <= 0.0f;
     CastOutcome outcome = wand.tryCast(level.rng());
@@ -235,7 +252,7 @@ void Player::handleWands(Level& level) {
     float angle = angleOf(aimDir_);
     level.castShot(outcome.shot, wandTip(), angle, Team::Player, id, damageMul());
     run_.stats.spellsCast++;
-    castFlash_ = 0.08f;
+    castFlash_ = kCastFlashTime;
 
     // Sound keyed to the strongest projectile in the cast.
     Sfx sfx = Sfx::CastSpark;
@@ -436,15 +453,7 @@ void Player::onKilled(Level& level, const DamageInfo&) {
 
 void Player::drawAlbedo(DrawContext& ctx) const {
     const Vec2 p = body.interpolated(ctx.alpha);
-    SpriteId sprite = SpriteId::PlayerIdle;
-    int frame = static_cast<int>(animTime_ / 0.6f) % 2;
-    if (!body.onGround) {
-        sprite = SpriteId::PlayerAir;
-        frame = (input_.jumpHeld && body.vel.y > -40.0f) ? static_cast<int>(animTime_ * 12.0f) % 2 : 0;
-    } else if (std::fabs(body.vel.x) > 8.0f) {
-        sprite = SpriteId::PlayerRun;
-        frame = static_cast<int>(animTime_ * 11.0f) % 4;
-    }
+    const auto [sprite, frame] = currentPose(body, input_.jumpHeld, animTime_);
     const SpriteInfo& info = ctx.sprites.info(sprite);
     Vector2 lp = ctx.scene.layerPos({p.x - info.w * 0.5f, p.y + body.halfH - static_cast<float>(info.h)});
     const bool blink = invulnerable > 0.0f && static_cast<int>(invulnerable * 20.0f) % 2 == 0;
@@ -462,9 +471,9 @@ void Player::drawAlbedo(DrawContext& ctx) const {
     drawEssences(ctx, p);
 
     // The wand: a line of pixels from the hand towards the cursor, gem at the tip.
-    if (!run_.wands.empty()) {
-        const Wand& w = run_.wands[static_cast<size_t>(run_.activeWand)];
-        Vec2 hand{p.x + (facingRight_ ? 1.5f : -1.5f), p.y + 0.5f};
+    if (const Wand* wand = run_.currentWand()) {
+        const Wand& w = *wand;
+        const Vec2 hand = handPos(p, facingRight_);
         for (int i = 0; i <= w.length; ++i) {
             Vec2 q = hand + aimDir_ * static_cast<float>(i);
             Vector2 lq = ctx.scene.layerPos(q);
@@ -477,9 +486,9 @@ void Player::drawAlbedo(DrawContext& ctx) const {
 void Player::drawEssences(DrawContext& ctx, Vec2 p) const {
     // Each guardian's essence gathered this run circles the alchemist (in both layers, so
     // the mote is seen and also glows).
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < kGuardianCount; ++i) {
         if (!((run_.essences >> i) & 1u)) continue;
-        const float a = animTime_ * 1.6f + static_cast<float>(i) * kTau * 0.25f;
+        const float a = animTime_ * 1.6f + static_cast<float>(i) * kTau / static_cast<float>(kGuardianCount);
         const Vector2 m = ctx.scene.layerPos(p + Vec2{std::cos(a) * 11.0f, std::sin(a) * 5.0f - 2.0f});
         const int x = static_cast<int>(std::floor(m.x)), y = static_cast<int>(std::floor(m.y));
         const Color c = hexColor(essenceColor(i));
@@ -494,16 +503,14 @@ void Player::drawEssences(DrawContext& ctx, Vec2 p) const {
 
 void Player::drawEmission(DrawContext& ctx) const {
     const Vec2 p = body.interpolated(ctx.alpha);
-    SpriteId sprite = body.onGround ? (std::fabs(body.vel.x) > 8.0f ? SpriteId::PlayerRun : SpriteId::PlayerIdle)
-                                    : SpriteId::PlayerAir;
+    const auto [sprite, frame] = currentPose(body, input_.jumpHeld, animTime_);
     const SpriteInfo& info = ctx.sprites.info(sprite);
     Vector2 lp = ctx.scene.layerPos({p.x - info.w * 0.5f, p.y + body.halfH - static_cast<float>(info.h)});
-    int frame = sprite == SpriteId::PlayerRun ? static_cast<int>(animTime_ * 11.0f) % 4 : 0;
     ctx.sprites.drawEmissive(sprite, frame, lp, !facingRight_);
     drawEssences(ctx, p);
-    if (!run_.wands.empty()) {
-        const Wand& w = run_.wands[static_cast<size_t>(run_.activeWand)];
-        Vec2 tip = Vec2{p.x + (facingRight_ ? 1.5f : -1.5f), p.y + 0.5f} + aimDir_ * static_cast<float>(w.length);
+    if (const Wand* wand = run_.currentWand()) {
+        const Wand& w = *wand;
+        Vec2 tip = handPos(p, facingRight_) + aimDir_ * static_cast<float>(w.length);
         Vector2 lt = ctx.scene.layerPos(tip);
         Color g = hexColor(w.gemColor);
         if (castFlash_ > 0.0f) g = WHITE;
@@ -515,10 +522,9 @@ void Player::addLights(DrawContext& ctx) const {
     const Vec2 p = body.interpolated(ctx.alpha);
     ctx.scene.addLight(PointLight{{p.x, p.y - 3.0f}, 2.6f, 2.2f, 1.75f, 150.0f, 3.0f, 100.0f}); // always gets a slot
     if (status.fury > 0.0f) ctx.scene.addLight(PointLight{p, 1.6f, 0.55f, 0.15f, 28.0f, 1.0f, 40.0f});
-    if (castFlash_ > 0.0f && !run_.wands.empty()) {
-        const Wand& w = run_.wands[static_cast<size_t>(run_.activeWand)];
-        Color g = hexColor(w.gemColor);
-        float k = castFlash_ / 0.08f * 2.5f;
+    if (const Wand* w = run_.currentWand(); castFlash_ > 0.0f && w) {
+        Color g = hexColor(w->gemColor);
+        float k = castFlash_ / kCastFlashTime * 2.5f;
         ctx.scene.addLight(PointLight{wandTip(), g.r / 255.0f * k, g.g / 255.0f * k, g.b / 255.0f * k, 45.0f, 1.0f, 2.0f});
     }
 }

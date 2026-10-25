@@ -1,11 +1,13 @@
 #include "game/Perks.hpp"
 
+#include <iterator>
+
 namespace pm {
 
 namespace {
 
 // clang-format off
-const PerkDef kPerks[kPerkCount] = {
+constexpr PerkDef kPerks[] = {
     {"Vitality",          "+40 max health, fully healed.",                        0xff5a6a, true},
     {"Salamander Skin",   "Immune to fire and burning.",                          0xff8a30, false},
     {"Blast Shield",      "Immune to explosions, including your own.",            0xffd060, false},
@@ -30,6 +32,7 @@ const PerkDef kPerks[kPerkCount] = {
     {"Iron Stomach",      "Drinking any liquid heals you a little.",              0xd0a070, false},
 };
 // clang-format on
+static_assert(std::size(kPerks) == kPerkCount, "a PerkDef for every PerkId");
 
 } // namespace
 

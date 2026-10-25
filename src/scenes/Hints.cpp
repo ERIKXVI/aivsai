@@ -1,6 +1,7 @@
 #include "scenes/Hints.hpp"
 
 #include <algorithm>
+#include <iterator>
 
 #include "game/Level.hpp"
 #include "game/Run.hpp"
@@ -17,7 +18,7 @@ struct HintText {
     const char* gamepad;
 };
 
-constexpr HintText kTexts[static_cast<int>(Hint::Count)] = {
+constexpr HintText kTexts[] = {
     {"Hold Q to draw a liquid or powder into your flask (one kind at a time) - right-click pours it out",
      "Hold Y to draw a liquid or powder into your flask (one kind at a time) - LT pours it out"},
     {"That spell went to your satchel - press Tab and drag it onto a wand",
@@ -45,6 +46,7 @@ constexpr HintText kTexts[static_cast<int>(Hint::Count)] = {
     {"An elixir! Drink it with F: quicksilver lends haste, ichor lends your spells fury",
      "An elixir! Drink it with X: quicksilver lends haste, ichor lends your spells fury"},
 };
+static_assert(std::size(kTexts) == static_cast<size_t>(Hint::Count), "a text for every Hint");
 
 /// True when a satchel spell could go onto a wand right now.
 bool roomForSatchelSpell(const RunState& run) {

@@ -49,7 +49,7 @@ PlayerInput Bot::think(const Level& level) {
 
     in.aim = pos + Vec2{to.x >= 0.0f ? 40.0f : -40.0f, 0.0f};
     in.selectWand = 0;
-    if (const Actor* foe = const_cast<Level&>(level).nearestHostile(pos, Team::Player, 150.0f)) {
+    if (const Actor* foe = level.nearestHostile(pos, Team::Player, 150.0f)) {
         // Keep a little distance from explosions of our own making.
         if ((foe->body.pos - pos).length() > 18.0f && level.lineOfSight(pos, foe->body.pos)) {
             in.aim = foe->body.pos;

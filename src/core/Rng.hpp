@@ -93,6 +93,24 @@ private:
     uint64_t inc_ = 0;
 };
 
+/// Index of an element of `items` chosen with probability proportional to weight(item), or -1
+/// when every weight is zero. Weights must be >= 0 (0 = ineligible). Always draws exactly one
+/// uniform(), so a caller's random stream does not depend on what was eligible.
+template <class Range, class WeightFn>
+int weightedIndex(Rng& rng, const Range& items, WeightFn weight) {
+    float total = 0.0f;
+    for (const auto& item : items) total += weight(item);
+    float r = rng.uniform() * total;
+    int index = 0;
+    for (const auto& item : items) {
+        const float w = weight(item);
+        if (r < w) return index;
+        r -= w;
+        ++index;
+    }
+    return -1;
+}
+
 /// Tiny xorshift generator for the hot cellular-automaton loop (one per worker / chunk).
 struct FastRng {
     uint32_t s;

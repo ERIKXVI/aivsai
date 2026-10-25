@@ -90,16 +90,8 @@ MatId randomPotionMaterial(int tier, Rng& rng) {
         {mat::Slime, 0.6f, 0}, {mat::Toxic, 0.7f, 1}, {mat::Lava, 0.8f, 2}, {mat::Quicksilver, 0.7f, 0},
         {mat::Midas, 0.25f, 2}, {mat::Blood, 0.5f, 0}, {mat::Ichor, 0.5f, 1},
     };
-    float total = 0.0f;
-    for (const Entry& e : kTable)
-        if (e.minTier <= tier) total += e.weight;
-    float r = rng.uniform() * total;
-    for (const Entry& e : kTable) {
-        if (e.minTier > tier) continue;
-        if (r < e.weight) return e.mat;
-        r -= e.weight;
-    }
-    return mat::Water;
+    const int i = weightedIndex(rng, kTable, [&](const Entry& e) { return e.minTier <= tier ? e.weight : 0.0f; });
+    return i < 0 ? static_cast<MatId>(mat::Water) : kTable[i].mat;
 }
 
 } // namespace pm

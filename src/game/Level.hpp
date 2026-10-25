@@ -167,7 +167,12 @@ public:
     /// Name of the creature with this id (for death causes), or nullptr.
     const char* actorName(uint32_t id) const;
     void bleed(Vec2 pos, MatId blood, int amount, Vec2 dir);
-    Actor* nearestHostile(Vec2 pos, Team team, float range, uint32_t excludeId = 0);
+    /// Nearest living, undisguised actor not on `team` within `range` of `pos` (skipping
+    /// `excludeId`), or nullptr.
+    const Actor* nearestHostile(Vec2 pos, Team team, float range, uint32_t excludeId = 0) const;
+    Actor* nearestHostile(Vec2 pos, Team team, float range, uint32_t excludeId = 0) {
+        return const_cast<Actor*>(std::as_const(*this).nearestHostile(pos, team, range, excludeId));
+    }
     bool lineOfSight(Vec2 a, Vec2 b) const;
     /// Hanging lanterns within `radius` of the segment a-b are knocked loose: they drop and
     /// shatter into burning oil where they land.

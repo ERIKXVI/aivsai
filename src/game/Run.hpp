@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 #include "game/Loadouts.hpp"
@@ -74,6 +75,11 @@ struct RunState {
             if (s != SpellId::None) noteSpell(s);
     }
 
+    /// The wand in hand, or nullptr if there is none.
+    const Wand* currentWand() const {
+        return activeWand >= 0 && activeWand < static_cast<int>(wands.size()) ? &wands[static_cast<size_t>(activeWand)] : nullptr;
+    }
+    Wand* currentWand() { return const_cast<Wand*>(std::as_const(*this).currentWand()); }
     /// True when the run is bound by `o` (an ordeal level includes every one beneath it).
     bool under(Ordeal o) const { return ordeal >= static_cast<int>(o); }
     bool hasPerk(PerkId p) const { return perks[static_cast<size_t>(p)] > 0; }
