@@ -1,4 +1,5 @@
-// Simulation invariants: movement conserves matter, reactions behave, chunks go to sleep.
+// Simulation invariants: movement conserves matter, reactions behave, chunks go to sleep,
+// and vines cut loose from the ceiling fall.
 #include <vector>
 
 #include "core/ThreadPool.hpp"
@@ -134,4 +135,27 @@ TEST_CASE("burning gunpowder merges into blasts") {
         const bool left = b.center.x > 6.0f && b.center.x < 22.0f, right = b.center.x > 86.0f && b.center.x < 102.0f;
         CHECK(left || right);
     }
+}
+
+TEST_CASE("vines hang from rock and crumble when cut loose") {
+    initMaterials();
+    ThreadPool pool(3);
+    World w(128, 128, 5);
+    buildBox(w);
+    for (int x = 30; x < 50; ++x) w.place(x, 20, mat::Rock);
+    for (int y = 21; y < 41; ++y) {
+        w.place(35, y, mat::Vine);
+        w.place(44, y, mat::GlowVine);
+    }
+    for (int i = 0; i < 60; ++i) w.step(pool);
+    CHECK(countMat(w, mat::Vine) == 20);
+    CHECK(countMat(w, mat::GlowVine) == 20);
+
+    // Blast the ceiling away: both strands crumble into falling litter and spores.
+    for (int x = 30; x < 50; ++x) w.clear(x, 20);
+    for (int i = 0; i < 200; ++i) w.step(pool);
+    CHECK(countMat(w, mat::Vine) == 0);
+    CHECK(countMat(w, mat::GlowVine) == 0);
+    CHECK(countMat(w, mat::Litter) == 20);
+    CHECK(countMat(w, mat::Spore) == 20);
 }

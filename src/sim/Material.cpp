@@ -137,11 +137,11 @@ void defineMaterials() {
     Define(Rune, "Runestone", Phase::Solid).hardness(255).colors(0x2c2448, 0x4a3c78)
         .glow(0x7a5cff, 40).flags(kAcidProof);
     Define(Vine, "Vine", Phase::Solid).hardness(5).colors(0x1f4a1c, 0x3f7a2c).opacity(60)
-        .flammable(90, 30, Empty).flags(kOrganic | kDiggable | kNoCollide);
+        .flammable(90, 30, Empty).flags(kOrganic | kDiggable | kNoCollide | kHangs);
     Define(Leaves, "Leaves", Phase::Solid).hardness(5).colors(0x1c3a22, 0x4a7a3a).opacity(110)
         .flammable(120, 25, Empty).flags(kOrganic | kDiggable | kNoCollide);
     Define(GlowVine, "Glowvine", Phase::Solid).hardness(5).colors(0x4a2a8a, 0x9a70f0).opacity(40)
-        .glow(0x8a60ff, 50).flammable(70, 30, Empty).flags(kOrganic | kDiggable | kNoCollide);
+        .glow(0x8a60ff, 50).flammable(70, 30, Empty).flags(kOrganic | kDiggable | kNoCollide | kHangs);
 
     // --- Powders --------------------------------------------------------------------
     Define(Sand, "Sand", Phase::Powder).density(200).colors(0xb08f4f, 0xe2c27e).flags(kDiggable);
@@ -157,6 +157,8 @@ void defineMaterials() {
         .flammable(110, 30, ToxicGas);
     Define(Spore, "Spores", Phase::Powder).density(60).colors(0x6a4aa8, 0xb090f0).glow(0x9a70ff, 30)
         .flammable(80, 10, Ash).flags(kOrganic);
+    Define(Litter, "Plant Litter", Phase::Powder).density(50).colors(0x26401c, 0x5c7034)
+        .flammable(100, 15, Empty).flags(kOrganic | kDiggable);
 
     // --- Liquids --------------------------------------------------------------------
     Define(Water, "Water", Phase::Liquid).density(100).dispersion(6).colors(0x1f4e9a, 0x3570c4, 200)

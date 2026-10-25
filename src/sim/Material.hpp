@@ -20,7 +20,7 @@ enum : MatId {
     Bedrock, Rock, Soil, Wood, Brick, Metal, Ice, Obsidian, Basalt, Coal, GoldOre, Crystal,
     Glass, Moss, Fungus, SaltRock, Bone, Flesh, Sulphite, Rune, Vine, GlowVine, Leaves,
     // Powders
-    Sand, Gravel, Ash, Snow, Gunpowder, GoldDust, Salt, Sulphur, Spore,
+    Sand, Gravel, Ash, Snow, Gunpowder, GoldDust, Salt, Sulphur, Spore, Litter,
     // Liquids
     Water, Oil, Lava, Acid, Blood, Slime, Vitae, Toxic, Midas, Quicksilver, Brine, Ichor,
     // Gases
@@ -52,6 +52,7 @@ constexpr uint32_t kSticky = 1u << 12;      ///< slows creatures moving through 
 constexpr uint32_t kHot = 1u << 13;         ///< heat source (melts ice, boils water)
 constexpr uint32_t kDiggable = 1u << 14;    ///< carved by the digging spells quickly
 constexpr uint32_t kNoCollide = 1u << 15;   ///< static but creatures and projectiles pass through (vines)
+constexpr uint32_t kHangs = 1u << 16;       ///< hangs from static matter above; cut loose, it crumbles
 } // namespace matflag
 
 struct Rgba {

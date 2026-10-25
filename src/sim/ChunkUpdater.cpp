@@ -47,7 +47,11 @@ void ChunkUpdater::run() {
             wake(x, y);
             return;
         }
-        if (defs_[c.mat].phase == Phase::Solid && !(c.flags & (kBurning | kElectric))) return;
+        const MaterialDef& d = defs_[c.mat];
+        if (d.phase == Phase::Solid && !(c.flags & (kBurning | kElectric))) {
+            if (d.flags & kHangs) updateHanging(x, y);
+            return;
+        }
         updateCell(x, y);
     };
 
@@ -91,6 +95,12 @@ void ChunkUpdater::replace(int x, int y, MatId m) {
     Cell& c = at(x, y);
     c = (m == mat::Empty) ? Cell{} : makeCell(m, rng_.next());
     wake(x, y);
+}
+
+void ChunkUpdater::updateHanging(int x, int y) {
+    if (def(matAt(x, y - 1)).phase == Phase::Solid) return;
+    // The strand crumbles from its loose end down, a cell per tick, into falling litter.
+    replace(x, y, at(x, y).mat == mat::GlowVine ? mat::Spore : mat::Litter);
 }
 
 void ChunkUpdater::igniteCell(int x, int y) {

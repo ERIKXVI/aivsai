@@ -39,6 +39,8 @@ private:
     void updateLiquid(int x, int y);
     void updateGas(int x, int y);
     void updateFire(int x, int y);
+    /// Vines hang from the static matter above them; cut loose, they crumble and fall.
+    void updateHanging(int x, int y);
 
     /// Can a falling cell with density `density` move into a cell holding `target`?
     bool canSink(uint16_t density, MatId target) const;
