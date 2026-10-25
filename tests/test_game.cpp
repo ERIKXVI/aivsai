@@ -259,3 +259,23 @@ TEST_CASE("a body frozen into solid ice is freed") {
     CHECK(unbury(b, w));
     CHECK(!boxBlocked(w, b.pos, b.halfW, b.halfH));
 }
+
+TEST_CASE("key=value files survive an interrupted replace") {
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / "pm_test_kv";
+    std::error_code ec;
+    fs::create_directories(dir, ec);
+    const fs::path file = dir / "profile.dat";
+    writeKeyValues(file, {{"runs", "7"}, {"fate", "a=b"}});
+    KeyValues kv = readKeyValues(file);
+    CHECK(kv["runs"] == "7");
+    CHECK(kv["fate"] == "a=b"); // values may contain '='
+
+    // Only the temporary file is left (old file removed, rename failed): it is still read.
+    fs::path tmp = file;
+    tmp += ".tmp";
+    fs::rename(file, tmp, ec);
+    CHECK(!fs::exists(file));
+    CHECK(readKeyValues(file)["runs"] == "7");
+    fs::remove_all(dir, ec);
+}

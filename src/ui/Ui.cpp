@@ -100,12 +100,15 @@ void bar(Rectangle r, float fraction, Color fill, Color back) {
 bool hovered(Rectangle r) { return CheckCollisionPointRec(GetMousePosition(), r); }
 
 bool button(Rectangle r, const std::string& label, bool enabled, bool focused) {
-    const bool hover = enabled && (hovered(r) || focused);
-    if (hover && !sameRect(g_hoverRect, r)) {
+    // The hover sound follows the mouse only; keyboard focus just changes the highlight (and
+    // NavList plays its own sound), so the two never fight over g_hoverRect.
+    const bool mouseOver = enabled && hovered(r);
+    const bool hover = mouseOver || (enabled && focused);
+    if (mouseOver && !sameRect(g_hoverRect, r)) {
         g_hoverRect = r;
-        if (g_audio && hovered(r)) g_audio->play(Sfx::UiHover, 0.5f);
+        if (g_audio) g_audio->play(Sfx::UiHover, 0.5f);
     }
-    if (!hovered(r) && sameRect(g_hoverRect, r)) g_hoverRect = Rectangle{};
+    if (!mouseOver && sameRect(g_hoverRect, r)) g_hoverRect = Rectangle{};
     Color fill = hover ? Color{58, 42, 86, 240} : Color{28, 22, 38, 230};
     Color border = hover ? color::kAccent : color::kPanelBorder;
     if (!enabled) {

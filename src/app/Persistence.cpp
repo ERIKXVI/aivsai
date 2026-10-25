@@ -13,7 +13,16 @@ namespace fs = std::filesystem;
 
 KeyValues readKeyValues(const fs::path& path) {
     KeyValues kv;
-    std::ifstream in(path);
+    // A write interrupted between removing the old file and renaming the new one leaves only
+    // the temporary file; it is complete, so read that.
+    fs::path source = path;
+    std::error_code ec;
+    if (!fs::exists(path, ec)) {
+        fs::path tmp = path;
+        tmp += ".tmp";
+        if (fs::exists(tmp, ec)) source = tmp;
+    }
+    std::ifstream in(source);
     std::string line;
     while (std::getline(in, line)) {
         auto eq = line.find('=');
@@ -27,14 +36,22 @@ void writeKeyValues(const fs::path& path, const KeyValues& kv) {
     // Write to a temporary file first so a crash never leaves a truncated profile.
     fs::path tmp = path;
     tmp += ".tmp";
+    std::error_code ec;
     {
         std::ofstream out(tmp, std::ios::trunc);
         if (!out) return;
         for (const auto& [k, v] : kv) out << k << '=' << v << '\n';
+        out.flush();
+        out.close();
+        if (out.fail()) { // disk full or write error: keep the previous file untouched
+            fs::remove(tmp, ec);
+            return;
+        }
     }
-    std::error_code ec;
     fs::rename(tmp, path, ec);
     if (ec) {
+        // Some runtimes cannot rename over an existing file; readKeyValues falls back to the
+        // temporary file if the second rename fails too.
         fs::remove(path, ec);
         fs::rename(tmp, path, ec);
     }

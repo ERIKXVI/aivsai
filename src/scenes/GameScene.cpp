@@ -154,7 +154,9 @@ PlayerInput GameScene::gatherInput() {
                   (pad && IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN));
     in.downHeld = IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN);
     in.aim = scene_.screenToWorld(GetMousePosition());
-    in.castHeld = IsMouseButtonDown(MOUSE_BUTTON_LEFT) || latchCast_;
+    // A click that closed a menu (Resume, Tab mid-drag) must not keep casting once play resumes.
+    if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) castBlocked_ = false;
+    in.castHeld = (!castBlocked_ && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) || latchCast_;
     in.sprayHeld = IsMouseButtonDown(MOUSE_BUTTON_RIGHT);
     in.absorbHeld = IsKeyDown(KEY_Q);
     if (pad) {
@@ -283,6 +285,7 @@ void GameScene::frame(float dt) {
     } else {
         heartbeat_ = 0.0f;
     }
+    if (mode_ != Mode::Playing) castBlocked_ = true;
     // Alt-tabbing away pauses the run.
     if (mode_ == Mode::Playing && !IsWindowFocused() && !app_.options().automated()) mode_ = Mode::Paused;
     if (mode_ == Mode::Playing) {
@@ -305,8 +308,6 @@ void GameScene::frame(float dt) {
         }
     } else if (mode_ == Mode::Paused) {
         if (ui::backPressed() || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT)) mode_ = Mode::Playing;
-    } else if (mode_ == Mode::Settings) {
-        if (ui::backPressed()) mode_ = Mode::Paused;
     } else if (mode_ == Mode::Dead) {
         endTimer_ += dt;
     }
