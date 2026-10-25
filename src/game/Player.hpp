@@ -47,6 +47,7 @@ private:
     bool jumpedThisPress_ = false;
     float breath_ = 1.0f;
     float drownTimer_ = 0.0f;
+    uint32_t nextFlaskNotice_ = 0; ///< tick before which the "flask holds..." notice stays quiet
     float animTime_ = 0.0f;
     float castFlash_ = 0.0f;
     float sprayAccum_ = 0.0f;

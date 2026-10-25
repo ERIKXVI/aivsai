@@ -18,8 +18,8 @@ struct HintText {
 };
 
 constexpr HintText kTexts[static_cast<int>(Hint::Count)] = {
-    {"Hold Q to draw liquids and powders into your flask - right-click pours them out",
-     "Hold Y to draw liquids and powders into your flask - LT pours them out"},
+    {"Hold Q to draw a liquid or powder into your flask (one kind at a time) - right-click pours it out",
+     "Hold Y to draw a liquid or powder into your flask (one kind at a time) - LT pours it out"},
     {"A new spell is in your satchel - press Tab and drag it onto a wand",
      "A new spell is in your satchel - press Back and drag it onto a wand"},
     {"Wounded? Pink Vitae heals - absorb it with Q, then drink with F",

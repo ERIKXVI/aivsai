@@ -224,6 +224,7 @@ void Player::handleFlask(Level& level) {
         Vec2 c = input_.aim;
         if ((c - body.pos).length() > 70.0f) c = body.pos + (c - body.pos).normalized() * 70.0f;
         int taken = 0;
+        bool otherMatter = false; // something absorbable, but not what the flask holds
         const int r = 6;
         for (int dy = -r; dy <= r && taken < kAbsorbPerTick; ++dy) {
             for (int dx = -r; dx <= r && taken < kAbsorbPerTick; ++dx) {
@@ -233,7 +234,10 @@ void Player::handleFlask(Level& level) {
                 MatId m = world.at(x, y).mat;
                 Phase ph = phaseOf(m);
                 if (ph != Phase::Liquid && ph != Phase::Powder) continue;
-                if (!flask.empty() && flask.mat != m) continue;
+                if (!flask.empty() && flask.mat != m) {
+                    otherMatter = true;
+                    continue;
+                }
                 flask.mat = m;
                 ++flask.amount;
                 ++taken;
@@ -247,6 +251,12 @@ void Player::handleFlask(Level& level) {
             }
         }
         if (taken > 0 && level.ticks() % 6 == 0) level.audio().play(Sfx::Potion, 0.25f, 1.4f);
+        // The flask holds one kind of matter at a time: say so instead of silently refusing.
+        if (taken == 0 && otherMatter && level.ticks() >= nextFlaskNotice_) {
+            nextFlaskNotice_ = level.ticks() + 90;
+            level.addFloatText(c - Vec2{0.0f, 8.0f}, std::string("Flask holds ") + matDef(flask.mat).name + " - pour it out first", 0xd0c8ff);
+            level.audio().play(Sfx::UiDeny, 0.5f);
+        }
     } else if (input_.sprayHeld && !flask.empty()) {
         for (int i = 0; i < kSprayPerTick && flask.amount > 0; ++i) {
             float a = angleOf(aimDir_) + rng.range(-0.12f, 0.12f);
