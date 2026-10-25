@@ -12,7 +12,10 @@ public:
     static constexpr int kSize = 256;
     static constexpr float kParallax = 0.55f;
 
+    Background() = default;
     ~Background();
+    Background(const Background&) = delete; // owns a GPU texture
+    Background& operator=(const Background&) = delete;
     /// Regenerates the texture if the biome changed.
     void setBiome(BiomeId biome, uint32_t seed);
     /// Draws the tiled wall into the current render target for a layer whose top-left

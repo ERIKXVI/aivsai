@@ -66,7 +66,7 @@ public:
     }
 
     /// Uniform float in [0, 1).
-    constexpr float uniform() { return static_cast<float>(next() >> 8) * (1.0f / 16777216.0f); }
+    constexpr float uniform() { return hashToUnit(next()); }
     constexpr float range(float lo, float hi) { return lo + (hi - lo) * uniform(); }
     /// Uniform integer in [lo, hi] (inclusive).
     constexpr int rangeInt(int lo, int hi) {

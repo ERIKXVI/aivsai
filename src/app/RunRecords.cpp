@@ -10,6 +10,8 @@
 namespace pm {
 
 static_assert(std::tuple_size_v<decltype(Profile::creatureKills)> == kMaxCreatureTypes, "profile and run kill counts must match");
+static_assert(kSpellCount <= 63, "spellsSeen round-trips through run.sav via strtoll, so bit 63 must stay unused");
+static_assert(kPerkCount <= 32, "Profile::perksSeen is a 32-bit mask (bit i = PerkId i)");
 
 namespace {
 

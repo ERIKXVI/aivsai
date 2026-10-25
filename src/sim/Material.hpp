@@ -46,7 +46,6 @@ constexpr uint32_t kExplosive = 1u << 5;    ///< detonates when it finishes burn
 constexpr uint32_t kCollectible = 1u << 6;  ///< picked up by the player on touch (gold)
 constexpr uint32_t kTransmuter = 1u << 7;   ///< turns neighbouring solids into gold ore
 constexpr uint32_t kMeltable = 1u << 8;     ///< melts near heat (ice, snow)
-constexpr uint32_t kGrows = 1u << 9;        ///< slowly spreads over damp surfaces (moss, fungus)
 constexpr uint32_t kHealing = 1u << 10;     ///< heals creatures standing in it
 constexpr uint32_t kOrganic = 1u << 11;     ///< dissolves extra fast in acid, burns
 constexpr uint32_t kSticky = 1u << 12;      ///< slows creatures moving through it
@@ -59,6 +58,11 @@ constexpr uint32_t kHangs = 1u << 16;       ///< hangs from static matter above;
 struct Rgba {
     uint8_t r = 0, g = 0, b = 0, a = 0;
 };
+
+/// 0xRRGGBB to Rgba (the simulation-side twin of render/ColorUtil.hpp's hexColor).
+constexpr Rgba hexRgba(uint32_t hex, uint8_t a = 255) {
+    return {static_cast<uint8_t>((hex >> 16) & 0xFF), static_cast<uint8_t>((hex >> 8) & 0xFF), static_cast<uint8_t>(hex & 0xFF), a};
+}
 
 struct MaterialDef {
     const char* name = "?";
@@ -99,7 +103,14 @@ struct MaterialTables {
 /// Builds the material tables and palettes. Must be called once before any simulation.
 void initMaterials();
 
-const MaterialTables& materials();
+namespace detail {
+/// The one table instance: written only by initMaterials(), read through materials().
+extern MaterialTables g_materialTables;
+} // namespace detail
+
+/// Read-only view of the material tables. Inline so the per-cell helpers below compile to a
+/// plain indexed load rather than a call into another translation unit (the hot sim path).
+inline const MaterialTables& materials() { return detail::g_materialTables; }
 
 inline const MaterialDef& matDef(MatId id) { return materials().defs[id]; }
 inline Phase phaseOf(MatId id) { return materials().defs[id].phase; }
@@ -111,9 +122,15 @@ inline bool isSolidForCollision(MatId id) {
     return (d.phase == Phase::Solid || d.phase == Phase::Powder) && !(d.flags & matflag::kNoCollide);
 }
 
-inline bool isFluid(MatId id) {
-    Phase p = phaseOf(id);
-    return p == Phase::Liquid;
+// Only mat::Empty (air) has Phase::Empty, so testing the id first skips the table lookup.
+/// Air or gas: new matter may be written here.
+inline bool isVacant(MatId id) { return id == mat::Empty || phaseOf(id) == Phase::Gas; }
+
+/// Air, gas or fire: falling matter and particles pass straight through.
+inline bool isPassable(MatId id) {
+    if (id == mat::Empty) return true;
+    const Phase p = phaseOf(id);
+    return p == Phase::Gas || p == Phase::Fire;
 }
 
 /// Representative (mid-palette) colour of a material, for UI and effects.
@@ -121,6 +138,13 @@ inline Rgba materialColor(MatId id) { return materials().palette[id][128]; }
 
 /// Builds a fresh cell of the given material with randomized variation and lifetime.
 Cell makeCell(MatId id, uint32_t randomBits);
+
+/// Ticks a freshly ignited cell of material `d` burns: its burnTime shortened by a random
+/// 0..burnTime/4, never below one.
+inline uint8_t burnLife(const MaterialDef& d, uint32_t randomBits) {
+    const int life = d.burnTime - static_cast<int>(randomBits % (d.burnTime / 4u + 1u));
+    return static_cast<uint8_t>(life < 1 ? 1 : life);
+}
 
 /// One line on what a material does, for the in-game matter lens: hand-written for the
 /// alchemically interesting ones, otherwise read off its flags. Empty for everyday matter

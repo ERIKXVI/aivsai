@@ -47,6 +47,9 @@ struct SpriteInfo {
 
 class SpriteBank {
 public:
+    SpriteBank() = default;
+    SpriteBank(const SpriteBank&) = delete; // owns GPU textures
+    SpriteBank& operator=(const SpriteBank&) = delete;
     /// Bakes every sprite. Requires an active window / GL context.
     void load();
     void unload();

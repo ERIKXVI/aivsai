@@ -27,11 +27,7 @@ bool insideVault(const Level& level, Vec2 p, float margin) {
     return false;
 }
 
-bool isOpen(const World& w, int x, int y) {
-    if (!w.inBounds(x, y)) return false;
-    const Phase p = matDef(w.at(x, y).mat).phase;
-    return p == Phase::Empty || p == Phase::Gas;
-}
+bool isOpen(const World& w, int x, int y) { return w.inBounds(x, y) && isVacant(w.at(x, y).mat); }
 
 /// What natural stone crumbles into when the mountain lets go of it; Empty for anything that
 /// holds (worked brick, metal, runestone, wood, crystal) or is not stone at all.

@@ -9,9 +9,11 @@
 
 namespace pm {
 
+static_assert(World::roundUpToChunks(65) == 128 && World::roundUpToChunks(64) == 64);
+
 World::World(int width, int height, uint32_t seed)
-    : w_(((width + kChunkSize - 1) >> kChunkShift) << kChunkShift),
-      h_(((height + kChunkSize - 1) >> kChunkShift) << kChunkShift),
+    : w_(roundUpToChunks(width)),
+      h_(roundUpToChunks(height)),
       cw_(w_ >> kChunkShift),
       ch_(h_ >> kChunkShift),
       seed_(seed),
@@ -29,8 +31,7 @@ void World::place(int x, int y, MatId m) { set(x, y, makeCell(m, rng_.next())); 
 
 bool World::placeIfEmpty(int x, int y, MatId m) {
     if (!inBounds(x, y)) return false;
-    Phase p = phaseOf(at(x, y).mat);
-    if (p != Phase::Empty && p != Phase::Gas) return false;
+    if (!isVacant(at(x, y).mat)) return false;
     place(x, y, m);
     return true;
 }
@@ -41,7 +42,7 @@ void World::ignite(int x, int y) {
     const MaterialDef& d = matDef(c.mat);
     if (d.flammability == 0 || c.burning()) return;
     c.flags |= cellflag::kBurning;
-    c.life = static_cast<uint8_t>(std::max(1, d.burnTime - static_cast<int>(rng_.next() % (d.burnTime / 4 + 1))));
+    c.life = burnLife(d, rng_.next());
     wake(x, y);
 }
 

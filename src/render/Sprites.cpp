@@ -3,6 +3,8 @@
 #include <cmath>
 #include <vector>
 
+#include "core/Math.hpp"
+
 namespace pm {
 
 void SpriteBank::load() {
@@ -66,15 +68,18 @@ void SpriteBank::unload() {
 
 namespace {
 
+/// Source rect of `frame` (wrapped into the sheet) in a horizontal sprite sheet; a negative
+/// width tells raylib to mirror it. Requires info.frames > 0.
+Rectangle frameRect(const SpriteInfo& info, int frame, bool flipX) {
+    frame = positiveMod(frame, info.frames);
+    return {static_cast<float>(frame * info.w), 0.0f, static_cast<float>(flipX ? -info.w : info.w), static_cast<float>(info.h)};
+}
+
 void drawFrame(const Texture2D& tex, const SpriteInfo& info, int frame, Vector2 pos, bool flipX, Color tint) {
     if (tex.id == 0 || info.frames == 0) return;
-    frame = ((frame % info.frames) + info.frames) % info.frames;
-    Rectangle src{static_cast<float>(frame * info.w), 0.0f, static_cast<float>(flipX ? -info.w : info.w),
-                  static_cast<float>(info.h)};
     // Snap to whole layer pixels so sprites stay aligned with the cell grid.
-    Vector2 p{static_cast<float>(static_cast<int>(pos.x + (pos.x < 0 ? -0.5f : 0.5f))),
-              static_cast<float>(static_cast<int>(pos.y + (pos.y < 0 ? -0.5f : 0.5f)))};
-    DrawTextureRec(tex, src, p, tint);
+    const Vector2 p{static_cast<float>(roundToInt(pos.x)), static_cast<float>(roundToInt(pos.y))};
+    DrawTextureRec(tex, frameRect(info, frame, flipX), p, tint);
 }
 
 } // namespace
@@ -100,20 +105,16 @@ void SpriteBank::drawScaled(SpriteId id, int frame, Vector2 pos, int scale, bool
     const SpriteInfo& in = info_[i];
     const Texture2D& tex = silhouette ? silhouette_[i] : (emissive ? emissive_[i] : color_[i]);
     if (tex.id == 0 || in.frames == 0) return;
-    frame = ((frame % in.frames) + in.frames) % in.frames;
-    Rectangle src{static_cast<float>(frame * in.w), 0.0f, static_cast<float>(flipX ? -in.w : in.w), static_cast<float>(in.h)};
-    Rectangle dst{std::floor(pos.x), std::floor(pos.y), static_cast<float>(in.w * scale), static_cast<float>(in.h * scale)};
-    DrawTexturePro(tex, src, dst, Vector2{0.0f, 0.0f}, 0.0f, tint);
+    const Rectangle dst{std::floor(pos.x), std::floor(pos.y), static_cast<float>(in.w * scale), static_cast<float>(in.h * scale)};
+    DrawTexturePro(tex, frameRect(in, frame, flipX), dst, Vector2{0.0f, 0.0f}, 0.0f, tint);
 }
 
 void SpriteBank::drawRotated(SpriteId id, int frame, Vector2 center, float degrees, Color tint) const {
     int i = static_cast<int>(id);
     const SpriteInfo& in = info_[i];
     if (color_[i].id == 0 || in.frames == 0) return;
-    frame = ((frame % in.frames) + in.frames) % in.frames;
-    Rectangle src{static_cast<float>(frame * in.w), 0.0f, static_cast<float>(in.w), static_cast<float>(in.h)};
-    Rectangle dst{center.x, center.y, static_cast<float>(in.w), static_cast<float>(in.h)};
-    DrawTexturePro(color_[i], src, dst, Vector2{in.w * 0.5f, in.h * 0.5f}, degrees, tint);
+    const Rectangle dst{center.x, center.y, static_cast<float>(in.w), static_cast<float>(in.h)};
+    DrawTexturePro(color_[i], frameRect(in, frame, false), dst, Vector2{in.w * 0.5f, in.h * 0.5f}, degrees, tint);
 }
 
 } // namespace pm

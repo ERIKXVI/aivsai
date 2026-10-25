@@ -53,8 +53,7 @@ void ParticleSystem::deposit(World& world, const Particle& p) {
     for (const auto& o : kOffsets) {
         int tx = x + o[0], ty = y + o[1];
         if (!world.inBounds(tx, ty)) continue;
-        MatId m = world.at(tx, ty).mat;
-        if (m == mat::Empty || phaseOf(m) == Phase::Gas) {
+        if (isVacant(world.at(tx, ty).mat)) {
             world.set(tx, ty, p.cell);
             return;
         }
@@ -78,9 +77,9 @@ void ParticleSystem::update(World& world, float dt) {
                 Vec2 next = p.pos + step;
                 int nx = floorToInt(next.x), ny = floorToInt(next.y);
                 MatId m = world.matAt(nx, ny);
-                bool blocked = m != mat::Empty && phaseOf(m) != Phase::Gas && phaseOf(m) != Phase::Fire;
+                const bool blocked = !isPassable(m);
                 if (p.flags & partflag::kMatter) {
-                    // Matter lands on anything that is not air/gas (liquids absorb it).
+                    // Matter lands on anything that is not air, gas or fire (liquids absorb it).
                     if (blocked) {
                         deposit(world, p);
                         dead = true;

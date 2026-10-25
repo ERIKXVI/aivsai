@@ -7,15 +7,15 @@
 
 namespace pm {
 
+namespace detail {
+// Constant-initialised (every member has a constant default), so there is no static-init-order hazard.
+MaterialTables g_materialTables;
+} // namespace detail
+
 namespace {
 
-MaterialTables g_tables;
+MaterialTables& g_tables = detail::g_materialTables; // short name for the builders below
 bool g_initialized = false;
-
-constexpr Rgba rgb(uint32_t hex, uint8_t a = 255) {
-    return {static_cast<uint8_t>((hex >> 16) & 0xFF), static_cast<uint8_t>((hex >> 8) & 0xFF),
-            static_cast<uint8_t>(hex & 0xFF), a};
-}
 
 /// Fluent helper that keeps the material table below readable.
 class Define {
@@ -52,15 +52,15 @@ public:
     Define& damage(float dps) { d_.contactDamage = dps; return *this; }
     Define& flags(uint32_t f) { d_.flags |= f; return *this; }
     Define& colors(uint32_t a, uint32_t b, uint8_t alpha = 255) {
-        d_.colorA = rgb(a, alpha);
-        d_.colorB = rgb(b, alpha);
+        d_.colorA = hexRgba(a, alpha);
+        d_.colorB = hexRgba(b, alpha);
         return *this;
     }
-    Define& glow(uint32_t c, uint8_t intensity) { d_.glow = rgb(c, intensity); return *this; }
+    Define& glow(uint32_t c, uint8_t intensity) { d_.glow = hexRgba(c, intensity); return *this; }
     Define& opacity(int v) { d_.opacity = static_cast<uint8_t>(v); return *this; }
     /// Replaces the top `fraction` of the palette with a contrasting speck colour.
     Define& speckle(uint32_t c, float fraction) {
-        speck_ = rgb(c, d_.colorA.a);
+        speck_ = hexRgba(c, d_.colorA.a);
         speckFraction_ = fraction;
         return *this;
     }
@@ -230,8 +230,6 @@ void initMaterials() {
     defineMaterials();
     g_initialized = true;
 }
-
-const MaterialTables& materials() { return g_tables; }
 
 std::string matDescription(MatId id) {
     using namespace mat;

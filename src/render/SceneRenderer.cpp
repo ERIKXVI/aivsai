@@ -10,6 +10,12 @@ namespace pm {
 
 namespace {
 
+constexpr float kSqrtWeightPerLight = 140.0f; ///< emissive weight to light intensity, in the sqrt domain
+constexpr float kMaxSoloBlockLight = 2.2f;    ///< brightest one emissive block may be as a light
+
+/// Brightness of one emissive block of summed intensity `weight`, as a light of its own.
+float soloBlockLight(float weight) { return std::min(std::sqrt(weight) / kSqrtWeightPerLight, kMaxSoloBlockLight); }
+
 /// Fade key of an emissive cluster: its world super-block coordinates.
 uint32_t emissiveKey(int superX, int superY) {
     return lightKey(LightKind::Emissive, (static_cast<uint32_t>(superX) & 0x3FFFu) | ((static_cast<uint32_t>(superY) & 0x3FFFu) << 14));
@@ -134,7 +140,7 @@ void SceneRenderer::addEmissiveLights(int maxLights) {
         s.g += e.g;
         s.b += e.b;
         s.weight += e.weight;
-        s.blockLight += std::min(std::sqrt(e.weight) / 140.0f, 2.2f); // as a light of its own
+        s.blockLight += soloBlockLight(e.weight);
         s.peak = std::max(s.peak, e.weight);
     }
 
@@ -162,8 +168,8 @@ void SceneRenderer::addEmissiveLights(int maxLights) {
         // One broad light stands in for several blocks: take the geometric mean of the merged
         // brightness and the blocks' summed brightness, so a pool keeps its glow, but never more
         // than a few times its brightest block, so a dense pool has no blown-out centre.
-        const float peakLight = std::min(std::sqrt(s.peak) / 140.0f, 2.2f);
-        const float intensity = clamp(std::sqrt(std::sqrt(s.weight) / 140.0f * s.blockLight), 0.2f, 6.0f * peakLight);
+        const float peakLight = soloBlockLight(s.peak);
+        const float intensity = clamp(std::sqrt(std::sqrt(s.weight) / kSqrtWeightPerLight * s.blockLight), 0.2f, 6.0f * peakLight);
         const float k = intensity * 3.0f / total;
         const float radius = std::min(35.0f + std::sqrt(s.weight) * 0.22f, 120.0f);
         addLight(PointLight{{s.x / s.weight, s.y / s.weight}, s.r * k, s.g * k, s.b * k, radius, 2.5f, 3.0f, s.key});

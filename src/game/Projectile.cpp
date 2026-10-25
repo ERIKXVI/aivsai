@@ -18,11 +18,6 @@ const char* projectileCause(const Level& level, const Projectile& p) {
     return p.spell == SpellId::None ? nullptr : spellDef(p.spell).name;
 }
 
-Rgba hexRgba(uint32_t hex, uint8_t a = 255) {
-    return {static_cast<uint8_t>((hex >> 16) & 0xFF), static_cast<uint8_t>((hex >> 8) & 0xFF),
-            static_cast<uint8_t>(hex & 0xFF), a};
-}
-
 Rgba scaled(Rgba c, float k) {
     return {static_cast<uint8_t>(std::min(255.0f, c.r * k)), static_cast<uint8_t>(std::min(255.0f, c.g * k)),
             static_cast<uint8_t>(std::min(255.0f, c.b * k)), c.a};

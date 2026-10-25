@@ -18,6 +18,10 @@ namespace gen_detail {
 
 inline constexpr int kBorder = 4;
 inline constexpr int kSkyRows = 200; ///< open sky added above the first stage
+/// Route-clearing passes after presimulation (run() -> clearPath()): radii 7, 10, 13. Only the
+/// final, widest pass re-carves rock outside the planned open space.
+inline constexpr int kClearRadiusMin = 7, kClearRadiusStep = 3, kClearRadiusMax = 13;
+static_assert((kClearRadiusMax - kClearRadiusMin) % kClearRadiusStep == 0, "the passes must reach kClearRadiusMax");
 
 /// Picks from a small weighted table; entries with zero weight are skipped.
 template <size_t N>

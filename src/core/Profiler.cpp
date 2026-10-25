@@ -1,6 +1,7 @@
 #include "core/Profiler.hpp"
 
 #include <algorithm>
+#include <iterator>
 
 namespace pm {
 
@@ -17,6 +18,7 @@ void Profiler::add(ProfileSection s, double ms) {
 
 const char* Profiler::name(ProfileSection s) {
     static constexpr const char* kNames[] = {"tick", "  cells", "  entities", "  particles", "world layer", "upload", "render"};
+    static_assert(std::size(kNames) == static_cast<size_t>(ProfileSection::Count), "a name for every ProfileSection");
     return kNames[static_cast<size_t>(s)];
 }
 

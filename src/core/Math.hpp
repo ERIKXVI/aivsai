@@ -73,7 +73,8 @@ constexpr float smoothstep(float e0, float e1, float x) {
     return t * t * (3.0f - 2.0f * t);
 }
 
-/// Frame-rate independent exponential approach: `rate` is the fraction remaining after 1 second.
+/// Frame-rate independent exponential approach towards `target`: the remaining gap shrinks by a
+/// factor of exp(-sharpness) per second (exp(-sharpness * dt) per call). Higher is snappier.
 inline float damp(float current, float target, float sharpness, float dt) {
     return lerp(target, current, std::exp(-sharpness * dt));
 }

@@ -34,10 +34,9 @@ struct DirtyRect {
 
 /// Something the simulation wants the game layer to handle after the tick.
 struct SimEvent {
-    enum class Type : uint8_t { Explosion, Fizz };
+    enum class Type : uint8_t { Explosion };
     Type type = Type::Explosion;
     int x = 0, y = 0;
-    float power = 0.0f;
 };
 
 /// A blast merged from the per-grain explosion events of burning gunpowder.
@@ -52,7 +51,10 @@ public:
     static constexpr int kChunkShift = 6;
     static constexpr int kChunkSize = 1 << kChunkShift;
 
-    /// Width and height are rounded up to whole chunks.
+    /// Rounds a size in cells up to a whole number of chunks (as the constructor does).
+    static constexpr int roundUpToChunks(int cells) { return ((cells + kChunkSize - 1) >> kChunkShift) << kChunkShift; }
+
+    /// Width and height are rounded up with roundUpToChunks().
     World(int width, int height, uint32_t seed);
 
     World(const World&) = delete;

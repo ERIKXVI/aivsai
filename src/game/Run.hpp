@@ -37,6 +37,8 @@ struct RunStats {
     float damageTaken = 0.0f;
 };
 
+static_assert(kSpellCount <= 64, "RunState::spellsSeen is a 64-bit mask (bit i = SpellId i)");
+
 struct RunState {
     static constexpr int kMaxWands = 4;
     static constexpr int kInventorySize = 16;

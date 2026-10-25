@@ -10,7 +10,8 @@ namespace pm {
 
 class ChunkUpdater {
 public:
-    /// Maximum distance a single update may reach outside its chunk.
+    /// Maximum distance (in cells) a single update may read or write outside its chunk.
+    /// Checked at compile time against the fall speed and by a test against liquid dispersion.
     static constexpr int kMaxReach = 12;
 
     ChunkUpdater(World& world, int cx, int cy);
@@ -31,6 +32,11 @@ private:
     void swap(int x0, int y0, int x1, int y1);
     void replace(int x, int y, MatId m);
     void igniteCell(int x, int y);
+    /// Ends a gas or fire cell's life: it becomes `d.decaysInto` with chance decayChance/256,
+    /// otherwise it vanishes.
+    void expire(int x, int y, const MaterialDef& d);
+    /// Index into the 4-neighbour offsets of the first neighbour that puts out flames, or -1.
+    int extinguisherDir(int x, int y) const;
 
     void updateCell(int x, int y);
     bool updateBurning(int x, int y);
@@ -50,14 +56,14 @@ private:
     bool fall(int x, int y);
 
     World& world_;
+    World::Chunk& chunk_; ///< the chunk this updater simulates
     Cell* cells_;
     const MaterialDef* defs_;
     int w_, h_;
     int x0_, y0_, x1_, y1_; ///< chunk bounds, inclusive
     DirtyRect local_;       ///< wakes landing inside this chunk (merged atomically at the end)
     FastRng rng_;
-    uint8_t clock_;
-    uint32_t tick_;
+    bool leftToRight_; ///< row scan direction this tick (alternates to cancel directional bias)
 };
 
 } // namespace pm

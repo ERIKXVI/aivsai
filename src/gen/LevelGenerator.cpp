@@ -21,8 +21,8 @@ Generator::Generator(BiomeId biome, int levelIndex, uint32_t seed, const GenOpti
     if (surface_) h_ += kSkyRows;
     // The World rounds its size up to whole chunks; generate exactly that area so the bottom
     // rows are painted (and sealed) too.
-    w_ = (w_ + World::kChunkSize - 1) / World::kChunkSize * World::kChunkSize;
-    h_ = (h_ + World::kChunkSize - 1) / World::kChunkSize * World::kChunkSize;
+    w_ = World::roundUpToChunks(w_);
+    h_ = World::roundUpToChunks(h_);
 }
 
 LevelLayout Generator::run(ThreadPool& pool) {
@@ -49,7 +49,7 @@ LevelLayout Generator::run(ThreadPool& pool) {
     placeArenaPlatforms(world);
     presimulate(world, pool);
     // Guarantee the route: progressively wider clearing until a player-sized body fits.
-    for (int radius = 7; radius <= 13; radius += 3) {
+    for (int radius = kClearRadiusMin; radius <= kClearRadiusMax; radius += kClearRadiusStep) {
         clearPath(world, radius);
         if (pathExists(world, start_, exit_)) break;
     }
@@ -167,7 +167,6 @@ LevelLayout generateSanctum(int levelIndex, uint32_t seed, ThreadPool& pool) {
     out.levelIndex = levelIndex;
     out.seed = seed;
     World& w = *out.world;
-    Rng rng(seed);
 
     const int floorY = 190, ceilY = 60, left = 30, right = kW - 30;
     for (int y = 0; y < kH; ++y) {
@@ -211,7 +210,6 @@ LevelLayout generateSanctum(int levelIndex, uint32_t seed, ThreadPool& pool) {
     out.spawns.push_back({SpawnKind::Lantern, {static_cast<float>(left + 90), static_cast<float>(ceilY + 22)}, 0.0f});
     out.spawns.push_back({SpawnKind::Lantern, {static_cast<float>(right - 90), static_cast<float>(ceilY + 22)}, 0.0f});
     out.spawns.push_back({SpawnKind::Lantern, {static_cast<float>(fontX), static_cast<float>(ceilY + 2)}, 0.0f});
-    (void)rng;
     return out;
 }
 

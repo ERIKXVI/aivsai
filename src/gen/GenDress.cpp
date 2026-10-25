@@ -354,10 +354,11 @@ void Generator::presimulate(World& world, ThreadPool& pool) {
 
 void Generator::clearPath(World& world, int radius) {
     // Loose material that settled into the main corridor is removed so the route stays
-    // open; harmless liquids are left in place. Wider passes also re-carve rock.
+    // open; harmless liquids are left in place. The final (widest) pass also re-carves rock.
     for (size_t i = 0; i + 1 < path_.size(); ++i) {
         Vec2 a = path_[i], b = path_[i + 1];
         float len = (b - a).length();
+        if (len < 1.0f) continue; // coincident points: t / len would be NaN
         for (float t = 0; t <= len; t += 3.0f) {
             Vec2 p = lerp(a, b, t / len);
             for (int dy = -radius; dy <= radius; ++dy)
@@ -367,7 +368,7 @@ void Generator::clearPath(World& world, int radius) {
                     if (!world.inBounds(x, y) || x < kBorder + 3 || y < kBorder + 3 || x >= w_ - kBorder - 3 ||
                         y >= h_ - kBorder - 3)
                         continue;
-                    if (!isOpen(x, y) && radius < 13) continue;
+                    if (!isOpen(x, y) && radius < kClearRadiusMax) continue;
                     MatId m = world.at(x, y).mat;
                     Phase ph = phaseOf(m);
                     if (ph == Phase::Powder || m == mat::Lava || m == mat::Acid || ph == Phase::Solid)

@@ -16,6 +16,11 @@ constexpr int kGravity = 3;   // 1/8 cells per tick^2
 constexpr int kMaxFallVy = 64; // 8 cells per tick
 constexpr int kRestless = 90;  // sideways moves before a lone liquid pixel dries up
 
+// The checkerboard schedule in World::step() is race-free only while no update touches a cell
+// more than kMaxReach outside its chunk.
+static_assert((kMaxFallVy >> 3) <= ChunkUpdater::kMaxReach, "a full-speed fall must stay within kMaxReach");
+static_assert(2 * ChunkUpdater::kMaxReach <= World::kChunkSize, "same-phase chunks are a chunk apart; their reaches must not meet");
+
 using namespace cellflag;
 using namespace matflag;
 
@@ -23,6 +28,7 @@ using namespace matflag;
 
 ChunkUpdater::ChunkUpdater(World& world, int cx, int cy)
     : world_(world),
+      chunk_(world.chunk(cx, cy)),
       cells_(world.cells_.data()),
       defs_(materials().defs.data()),
       w_(world.w_),
@@ -32,12 +38,10 @@ ChunkUpdater::ChunkUpdater(World& world, int cx, int cy)
       x1_(x0_ + World::kChunkSize - 1),
       y1_(y0_ + World::kChunkSize - 1),
       rng_(hash3(cx, cy, static_cast<int>(world.tick_), world.seed_)),
-      clock_(static_cast<uint8_t>(world.tick_ & 1u)),
-      tick_(world.tick_) {}
+      leftToRight_((world.tick_ & 1u) != 0) {}
 
 void ChunkUpdater::run() {
-    const DirtyRect r = world_.chunk(x0_ >> World::kChunkShift, y0_ >> World::kChunkShift).current;
-    const bool leftToRight = (tick_ & 1u) != 0;
+    const DirtyRect r = chunk_.current;
 
     auto visit = [this](int x, int y, Cell& c) {
         if (c.mat == mat::Empty) return;
@@ -57,17 +61,14 @@ void ChunkUpdater::run() {
 
     for (int y = r.maxY; y >= r.minY; --y) {
         Cell* row = cells_ + static_cast<size_t>(y) * w_;
-        if (leftToRight) {
+        if (leftToRight_) {
             for (int x = r.minX; x <= r.maxX; ++x) visit(x, y, row[x]);
         } else {
             for (int x = r.maxX; x >= r.minX; --x) visit(x, y, row[x]);
         }
     }
 
-    if (!local_.empty()) {
-        World::Chunk& self = world_.chunk(x0_ >> World::kChunkShift, y0_ >> World::kChunkShift);
-        world_.expandNext(self, local_.minX, local_.minY, local_.maxX, local_.maxY);
-    }
+    if (!local_.empty()) world_.expandNext(chunk_, local_.minX, local_.minY, local_.maxX, local_.maxY);
 }
 
 void ChunkUpdater::wake(int x, int y) {
@@ -83,8 +84,7 @@ void ChunkUpdater::swap(int x0, int y0, int x1, int y1) {
     Cell& a = at(x0, y0);
     Cell& b = at(x1, y1);
     std::swap(a, b);
-    const bool leftToRight = (tick_ & 1u) != 0;
-    const bool ahead = y1 < y0 || (y1 == y0 && (leftToRight ? x1 > x0 : x1 < x0));
+    const bool ahead = y1 < y0 || (y1 == y0 && (leftToRight_ ? x1 > x0 : x1 < x0));
     if (ahead) b.flags |= kMoved;
     a.flags &= static_cast<uint8_t>(~kMoved);
     wake(x0, y0);
@@ -109,8 +109,20 @@ void ChunkUpdater::igniteCell(int x, int y) {
     if (od.flammability == 0 || (o.flags & kBurning)) return;
     if (!rng_.chance256(od.flammability)) return;
     o.flags |= kBurning;
-    o.life = static_cast<uint8_t>(std::max(1, od.burnTime - static_cast<int>(rng_.next() % (od.burnTime / 4u + 1u))));
+    o.life = burnLife(od, rng_.next());
     wake(x, y);
+}
+
+void ChunkUpdater::expire(int x, int y, const MaterialDef& d) {
+    const bool decays = d.decayChance > 0 && rng_.chance256(d.decayChance);
+    replace(x, y, decays ? d.decaysInto : static_cast<MatId>(mat::Empty));
+}
+
+int ChunkUpdater::extinguisherDir(int x, int y) const {
+    // Out of bounds reads as bedrock, which never puts anything out.
+    for (int i = 0; i < 4; ++i)
+        if (def(matAt(x + kDx4[i], y + kDy4[i])).flags & kExtinguisher) return i;
+    return -1;
 }
 
 bool ChunkUpdater::canSink(uint16_t density, MatId target) const {
@@ -158,19 +170,15 @@ bool ChunkUpdater::updateBurning(int x, int y) {
     Cell& c = at(x, y);
     const MaterialDef& d = def(c.mat);
 
-    for (int i = 0; i < 4; ++i) {
-        int nx = x + kDx4[i], ny = y + kDy4[i];
-        if (!inBounds(nx, ny)) continue;
-        if (def(at(nx, ny).mat).flags & kExtinguisher) {
-            c.flags &= static_cast<uint8_t>(~kBurning);
-            if (rng_.chance256(60)) replace(nx, ny, mat::Steam);
-            wake(x, y);
-            return false;
-        }
+    if (const int i = extinguisherDir(x, y); i >= 0) {
+        c.flags &= static_cast<uint8_t>(~kBurning);
+        if (rng_.chance256(60)) replace(x + kDx4[i], y + kDy4[i], mat::Steam);
+        wake(x, y);
+        return false;
     }
 
     if (c.life == 0) {
-        if (d.flags & kExplosive) world_.pushEvent({SimEvent::Type::Explosion, x, y, 1.0f});
+        if (d.flags & kExplosive) world_.pushEvent({SimEvent::Type::Explosion, x, y});
         MatId into = d.burnsInto;
         if (into == mat::Ash && rng_.chance256(150)) into = mat::Empty;
         replace(x, y, into);
@@ -382,8 +390,7 @@ void ChunkUpdater::updateGas(int x, int y) {
     Cell& c = at(x, y);
     const MaterialDef& d = def(c.mat);
     if (c.life == 0) {
-        if (d.decayChance > 0 && rng_.chance256(d.decayChance)) replace(x, y, d.decaysInto);
-        else replace(x, y, mat::Empty);
+        expire(x, y, d);
         return;
     }
     if (rng_.chance256(170)) --c.life;
@@ -410,21 +417,16 @@ void ChunkUpdater::updateFire(int x, int y) {
     Cell& c = at(x, y);
     const MaterialDef& d = def(c.mat);
     if (c.life == 0) {
-        if (d.decayChance > 0 && rng_.chance256(d.decayChance)) replace(x, y, d.decaysInto);
-        else replace(x, y, mat::Empty);
+        expire(x, y, d);
         return;
     }
     --c.life;
     wake(x, y);
 
-    for (int i = 0; i < 4; ++i) {
-        int nx = x + kDx4[i], ny = y + kDy4[i];
-        if (!inBounds(nx, ny)) continue;
-        if (def(at(nx, ny).mat).flags & kExtinguisher) {
-            if (rng_.chance256(50)) replace(nx, ny, mat::Steam);
-            replace(x, y, mat::Empty);
-            return;
-        }
+    if (const int i = extinguisherDir(x, y); i >= 0) {
+        if (rng_.chance256(50)) replace(x + kDx4[i], y + kDy4[i], mat::Steam);
+        replace(x, y, mat::Empty);
+        return;
     }
 
     uint32_t r = rng_.next();

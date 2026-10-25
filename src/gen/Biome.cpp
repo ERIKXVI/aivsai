@@ -1,6 +1,7 @@
 #include "gen/Biome.hpp"
 
 #include <algorithm>
+#include <iterator>
 
 namespace pm {
 
@@ -9,7 +10,7 @@ namespace {
 using namespace mat;
 
 // clang-format off
-const BiomeDef kBiomes[static_cast<int>(BiomeId::Count)] = {
+const BiomeDef kBiomes[] = {
     // I. Nigredo — the blackening: charcoal caverns, moss, black water and oil.
     {
         "Nigredo", "The Blackened Caverns",
@@ -84,22 +85,20 @@ const BiomeDef kBiomes[static_cast<int>(BiomeId::Count)] = {
     },
 };
 // clang-format on
+static_assert(std::size(kBiomes) == static_cast<size_t>(BiomeId::Count), "a BiomeDef for every BiomeId");
+
+/// The stages of the Great Work in order of descent.
+constexpr BiomeId kStageOrder[] = {BiomeId::Nigredo, BiomeId::Albedo, BiomeId::Citrinitas, BiomeId::Rubedo, BiomeId::Athanor};
+constexpr const char* kNumerals[] = {"I", "II", "III", "IV", "V"};
+static_assert(std::size(kNumerals) == std::size(kStageOrder), "a numeral for every stage");
+constexpr int kLastStage = static_cast<int>(std::size(kStageOrder)) - 1;
 
 } // namespace
 
 const BiomeDef& biomeDef(BiomeId id) { return kBiomes[static_cast<int>(id)]; }
 
-BiomeId biomeForDepth(int levelIndex) {
-    static constexpr BiomeId kOrder[] = {BiomeId::Nigredo, BiomeId::Albedo, BiomeId::Citrinitas, BiomeId::Rubedo,
-                                         BiomeId::Athanor};
-    if (levelIndex < 0) levelIndex = 0;
-    if (levelIndex > 4) levelIndex = 4;
-    return kOrder[levelIndex];
-}
+BiomeId biomeForDepth(int levelIndex) { return kStageOrder[std::clamp(levelIndex, 0, kLastStage)]; }
 
-const char* stageNumeral(int levelIndex) {
-    static constexpr const char* kNumerals[] = {"I", "II", "III", "IV", "V"};
-    return kNumerals[std::clamp(levelIndex, 0, 4)];
-}
+const char* stageNumeral(int levelIndex) { return kNumerals[std::clamp(levelIndex, 0, kLastStage)]; }
 
 } // namespace pm
