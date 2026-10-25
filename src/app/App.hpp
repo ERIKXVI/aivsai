@@ -8,7 +8,6 @@
 #include "app/Persistence.hpp"
 #include "app/Scene.hpp"
 #include "core/ThreadPool.hpp"
-#include "core/Timing.hpp"
 
 namespace pm {
 

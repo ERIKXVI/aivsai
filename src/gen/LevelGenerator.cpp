@@ -89,7 +89,7 @@ const OmenDef& omenDef(Omen omen) {
 }
 
 Omen omenFor(int levelIndex, uint32_t levelSeed) {
-    if (levelIndex >= 4) return Omen::None;
+    if (levelIndex >= kFinalStage) return Omen::None;
     const uint32_t h = hash32(levelSeed ^ 0x0E1Eu), pick = hashCombine(h, 1u);
     if (levelIndex <= 0) {
         // The first stage is a first impression: only gentle omens, and only sometimes.

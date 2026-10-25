@@ -43,13 +43,18 @@ private:
 
     void requestLevel();
     void stepLevel();
-    static void logAutoplay(const char* message);
     void finishLoading();
+    /// Command-line testing hooks (--at, --ui): teleport, open a screen, force the death preview.
+    void applyLaunchOptions();
     void advanceStage();
     PlayerInput gatherInput();
     void latchInput();
     void noteInputDevice();
     void updateLens(float dt);
+    /// Low-health heartbeat cue; it quickens as hp falls below a quarter of max.
+    void updateHeartbeat(float dt);
+    /// Pause on focus loss, per-mode key/pad transitions (pause, inventory, map) and mode timers.
+    void updateModeInput(float dt);
     /// Records a feat in the profile the first time it is earned, and queues its toast.
     void earnFeat(FeatId feat);
     void updateFeats(float dt);

@@ -92,9 +92,9 @@ TEST_CASE("wand decks cast modifiers, multicasts and triggers") {
 }
 
 TEST_CASE("every loadout builds a consistent kit") {
-    for (int d = 0; d < 3; ++d) {
+    for (int d = 0; d < kDifficultyCount; ++d) {
         for (int l = 0; l < kLoadoutCount; ++l) {
-            RunState run = newRun(1234u + static_cast<uint32_t>(l), static_cast<Difficulty>(d), false, static_cast<LoadoutId>(l));
+            RunState run = newRun(1234u + static_cast<uint32_t>(l), difficultyFromIndex(d), false, static_cast<LoadoutId>(l));
             CHECK(run.loadout == static_cast<LoadoutId>(l));
             CHECK(run.wands.size() == 2);
             for (const Wand& w : run.wands) {
@@ -207,6 +207,7 @@ TEST_CASE("suspended runs survive a save and load") {
     }
     CHECK(!readRunSave(path).has_value());
     std::filesystem::remove(path);
+    CHECK(!readRunSave(path).has_value()); // no save at all
 }
 
 TEST_CASE("the death screen names the killer and offers advice") {
@@ -363,7 +364,7 @@ TEST_CASE("guardians rage, the toad sheds its brood and the slayer earns a perk"
     Audio audio;
     RunState run = newRun(11, Difficulty::Adept, false);
     Level level(generateSanctum(0, 11u, pool), run, audio, pool);
-    for (int t = 0; t < 4; ++t) CHECK(enemyDef(guardianFor(t)).guardian);
+    for (int t = 0; t < kGuardianCount; ++t) CHECK(enemyDef(guardianFor(t)).guardian);
     Enemy& toad = level.spawnEnemy(EnemyType::BlackToad, level.player().body.pos + Vec2{40.0f, -10.0f});
     const uint32_t toadId = toad.id;
     auto find = [&]() -> Enemy* {
@@ -549,7 +550,7 @@ TEST_CASE("ordeals stack their rules and open one at a time") {
     // Completing the Work opens the next ordeal, but only from the highest one open.
     Profile p;
     RunState won = newRun(1, Difficulty::Adept, false);
-    won.levelIndex = 4;
+    won.levelIndex = kFinalStage;
     CHECK(foldRun(p, won, true, "Completed the Great Work").unlockedOrdeal == 1);
     CHECK(foldRun(p, won, true, "Completed the Great Work").unlockedOrdeal == 0 && p.ordealUnlocked == 1);
     won.ordeal = 1;
@@ -572,7 +573,7 @@ TEST_CASE("slaying all four guardians gathers the Quintessence") {
     RunState run = newRun(14, Difficulty::Adept, false);
     Level level(generateSanctum(0, 14u, pool), run, audio, pool);
     const Vec2 near = level.player().body.pos + Vec2{40.0f, -10.0f};
-    for (int stage = 0; stage < 4; ++stage) {
+    for (int stage = 0; stage < kGuardianCount; ++stage) {
         CHECK(!run.quintessence());
         CHECK(guardianStage(guardianFor(stage)) == stage);
         Enemy& g = level.spawnEnemy(guardianFor(stage), near);
@@ -590,7 +591,7 @@ TEST_CASE("stage lanterns hang from solid ceilings, not pooled steam") {
     ThreadPool pool(4);
     Audio audio;
     // Seed 5's Athanor once hung lanterns from steam; they fell and burned as the player arrived.
-    for (int index = 0; index < 5; ++index) {
+    for (int index = 0; index < kStageCount; ++index) {
         RunState run = newRun(5, Difficulty::Adept, false);
         run.levelIndex = index;
         Level level(generateLevel(biomeForDepth(index), index, 5u, pool), run, audio, pool);
@@ -613,26 +614,6 @@ TEST_CASE("a body frozen into solid ice is freed") {
     CHECK(boxBlocked(w, b.pos, b.halfW, b.halfH));
     CHECK(unbury(b, w));
     CHECK(!boxBlocked(w, b.pos, b.halfW, b.halfH));
-}
-
-TEST_CASE("key=value files survive an interrupted replace") {
-    namespace fs = std::filesystem;
-    const fs::path dir = fs::temp_directory_path() / "pm_test_kv";
-    std::error_code ec;
-    fs::create_directories(dir, ec);
-    const fs::path file = dir / "profile.dat";
-    writeKeyValues(file, {{"runs", "7"}, {"fate", "a=b"}});
-    KeyValues kv = readKeyValues(file);
-    CHECK(kv["runs"] == "7");
-    CHECK(kv["fate"] == "a=b"); // values may contain '='
-
-    // Only the temporary file is left (old file removed, rename failed): it is still read.
-    fs::path tmp = file;
-    tmp += ".tmp";
-    fs::rename(file, tmp, ec);
-    CHECK(!fs::exists(file));
-    CHECK(readKeyValues(file)["runs"] == "7");
-    fs::remove_all(dir, ec);
 }
 
 namespace {

@@ -11,6 +11,13 @@ namespace pm {
 
 enum class BiomeId : uint8_t { Nigredo, Albedo, Citrinitas, Rubedo, Athanor, Sanctum, Count };
 
+/// Number of stages in a run's descent (Nigredo..Athanor); a sanctum follows each but the last.
+inline constexpr int kStageCount = 5;
+/// Level index of the last stage (the Athanor); clearing it completes the run.
+inline constexpr int kFinalStage = kStageCount - 1;
+static_assert(static_cast<int>(BiomeId::Athanor) == kFinalStage && static_cast<int>(BiomeId::Sanctum) == kStageCount,
+              "stage biomes come first in BiomeId, in order of descent");
+
 struct WeightedMat {
     MatId mat = mat::Empty;
     float weight = 0.0f;

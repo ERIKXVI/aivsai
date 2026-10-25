@@ -12,16 +12,21 @@
 #include "core/Profiler.hpp"
 #include "core/Timing.hpp"
 #include "gen/LevelGenerator.hpp"
-#include "render/Sprites.hpp"
-#include "scenes/MenuScene.hpp"
 #include "ui/SettingsPanel.hpp"
 #include "ui/Ui.hpp"
 
 namespace pm {
 
 namespace {
+
 bool g_deathPreviewShown = false; ///< --ui death fells only the first run of the session
 uint32_t g_previewFeats = 0;      ///< feats announced in a preview session, kept out of the profile
+
+void logAutoplay(const char* message) {
+    std::printf("[autoplay] %s\n", message);
+    std::fflush(stdout);
+}
+
 } // namespace
 
 GameScene::GameScene(App& app, RunState run)
@@ -69,24 +74,7 @@ void GameScene::finishLoading() {
     hints_.reset();
     minimap_.reset(*level_);
     mode_ = Mode::Playing;
-    if (app_.options().teleportX >= 0.0f) level_->debugTeleport({app_.options().teleportX, app_.options().teleportY});
-    if (app_.options().openUi == "vault" && !level_->layout().vaults.empty()) {
-        const Rectf& v = level_->layout().vaults.front();
-        level_->debugTeleport({v.x + v.w * 0.5f, v.y + v.h - 12.0f});
-    }
-    if (app_.options().openUi == "transmuter" && !level_->transmuters().empty()) {
-        level_->debugTeleport(level_->transmuters().front().pos + Vec2{-30.0f, -8.0f});
-        camera_.reset(level_->player().body.pos);
-    }
-    if (app_.options().openUi == "map") {
-        minimap_.revealAll(*level_);
-        mode_ = Mode::Map;
-    }
-    if (app_.options().openUi == "inventory") mode_ = Mode::Inventory;
-    else if (app_.options().openUi == "pause") mode_ = Mode::Paused;
-    else if (app_.options().openUi == "elixir") level_->player().status.hasted = level_->player().status.fury = 60.0f;
-    else if (app_.options().openUi == "death" && !std::exchange(g_deathPreviewShown, true)) // the end screen, once
-        level_->player().applyDamage(*level_, {1.0e6f, DamageType::Fire, {}, Team::Monster, false, true, enemyDef(EnemyType::Imp).name});
+    applyLaunchOptions();
     exiting_ = false;
     titleTimer_ = kTitleCardSeconds;
     titleOmen_.clear();
@@ -114,11 +102,32 @@ void GameScene::finishLoading() {
     if (!app_.options().previewOnly()) saveSuspendedRun(run_);
 }
 
+void GameScene::applyLaunchOptions() {
+    if (app_.options().teleportX >= 0.0f) level_->debugTeleport({app_.options().teleportX, app_.options().teleportY});
+    if (app_.options().openUi == "vault" && !level_->layout().vaults.empty()) {
+        const Rectf& v = level_->layout().vaults.front();
+        level_->debugTeleport({v.x + v.w * 0.5f, v.y + v.h - 12.0f});
+    }
+    if (app_.options().openUi == "transmuter" && !level_->transmuters().empty()) {
+        level_->debugTeleport(level_->transmuters().front().pos + Vec2{-30.0f, -8.0f});
+        camera_.reset(level_->player().body.pos);
+    }
+    if (app_.options().openUi == "map") {
+        minimap_.revealAll(*level_);
+        mode_ = Mode::Map;
+    }
+    if (app_.options().openUi == "inventory") mode_ = Mode::Inventory;
+    else if (app_.options().openUi == "pause") mode_ = Mode::Paused;
+    else if (app_.options().openUi == "elixir") level_->player().status.hasted = level_->player().status.fury = 60.0f;
+    else if (app_.options().openUi == "death" && !std::exchange(g_deathPreviewShown, true)) // the end screen, once
+        level_->player().applyDamage(*level_, {1.0e6f, DamageType::Fire, {}, Team::Monster, false, true, enemyDef(EnemyType::Imp).name});
+}
+
 void GameScene::advanceStage() {
     if (run_.inSanctum) {
         run_.inSanctum = false;
         run_.levelIndex++;
-    } else if (run_.levelIndex >= 4) {
+    } else if (run_.levelIndex >= kFinalStage) {
         mode_ = Mode::Victory;
         endTimer_ = 0.0f;
         titleTimer_ = 0.0f;
@@ -317,11 +326,6 @@ void GameScene::onSuspend() {
     if (mode_ == Mode::Playing && !app_.options().automated()) mode_ = Mode::Paused;
 }
 
-void GameScene::logAutoplay(const char* message) {
-    std::printf("[autoplay] %s\n", message);
-    std::fflush(stdout);
-}
-
 void GameScene::frame(float dt) {
     time_ += dt;
     Audio& audio = app_.audio();
@@ -361,7 +365,7 @@ void GameScene::frame(float dt) {
     titleTimer_ = std::max(0.0f, titleTimer_ - dt);
     updateFeats(dt);
     // A guardian is announced with a title card the first time it notices the alchemist.
-    if (mode_ == Mode::Playing && level_) {
+    if (mode_ == Mode::Playing) {
         if (const Enemy* g = level_->bossBarTarget(); g && g->guardian() && g->id != announcedGuardian_) {
             announcedGuardian_ = g->id;
             titleMain_ = g->def().name;
@@ -371,11 +375,9 @@ void GameScene::frame(float dt) {
         }
     }
     // A stage event announces itself under the title card's place.
-    if (level_) {
-        if (EventNotice n = level_->events().takeNotice(); !n.text.empty()) {
-            eventNotice_ = std::move(n);
-            eventNoticeTime_ = 0.0f;
-        }
+    if (EventNotice n = level_->events().takeNotice(); !n.text.empty()) {
+        eventNotice_ = std::move(n);
+        eventNoticeTime_ = 0.0f;
     }
     eventNoticeTime_ += dt;
     // The gold counter pops whenever gold comes in.
@@ -384,6 +386,26 @@ void GameScene::frame(float dt) {
     shownGold_ = run_.gold;
 
     if (input::keyPressed(KEY_F3)) debugOverlay_ = !debugOverlay_;
+    updateHeartbeat(dt);
+    if (mode_ != Mode::Playing) castBlocked_ = true;
+    noteInputDevice();
+    updateModeInput(dt);
+
+    // Camera and audio follow the alchemist.
+    const ViewInfo& v = scene_.view();
+    Vec2 viewSize{v.viewW > 0 ? v.viewW : 480.0f, v.viewH > 0 ? v.viewH : 270.0f};
+    const Player& pl = level_->player();
+    Vec2 aim = scene_.screenToWorld(GetMousePosition());
+    if (mode_ != Mode::Playing) aim = pl.body.pos;
+    camera_.kick(level_->player().takeRecoil());
+    updateLens(dt);
+    camera_.update(pl.body.pos, aim, dt, {static_cast<float>(level_->world().width()), static_cast<float>(level_->world().height())},
+                   viewSize);
+    const BiomeDef& b = biomeDef(level_->biome());
+    audio.setMusicMood(b.musicRoot, b.musicMode, level_->combatIntensity());
+}
+
+void GameScene::updateHeartbeat(float dt) {
     // A heartbeat quickens as the alchemist nears death.
     if (mode_ == Mode::Playing && level_->player().alive() && level_->player().hp < level_->player().maxHp * 0.25f) {
         heartbeat_ -= dt;
@@ -394,8 +416,9 @@ void GameScene::frame(float dt) {
     } else {
         heartbeat_ = 0.0f;
     }
-    if (mode_ != Mode::Playing) castBlocked_ = true;
-    noteInputDevice();
+}
+
+void GameScene::updateModeInput(float dt) {
     // Alt-tabbing away pauses the run.
     if (mode_ == Mode::Playing && !IsWindowFocused() && !app_.options().automated()) mode_ = Mode::Paused;
     if (mode_ == Mode::Playing) {
@@ -433,19 +456,6 @@ void GameScene::frame(float dt) {
     } else if (mode_ == Mode::Dead) {
         endTimer_ += dt;
     }
-
-    // Camera and audio follow the alchemist.
-    const ViewInfo& v = scene_.view();
-    Vec2 viewSize{v.viewW > 0 ? v.viewW : 480.0f, v.viewH > 0 ? v.viewH : 270.0f};
-    const Player& pl = level_->player();
-    Vec2 aim = scene_.screenToWorld(GetMousePosition());
-    if (mode_ != Mode::Playing) aim = pl.body.pos;
-    camera_.kick(level_->player().takeRecoil());
-    updateLens(dt);
-    camera_.update(pl.body.pos, aim, dt, {static_cast<float>(level_->world().width()), static_cast<float>(level_->world().height())},
-                   viewSize);
-    const BiomeDef& b = biomeDef(level_->biome());
-    audio.setMusicMood(b.musicRoot, b.musicMode, level_->combatIntensity());
 }
 
 void GameScene::render(float alpha) {

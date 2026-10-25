@@ -3,7 +3,6 @@
 // generative music and ambient material loops. Safe to use when no audio device exists.
 
 #include <array>
-#include <atomic>
 #include <memory>
 
 #include "core/Math.hpp"

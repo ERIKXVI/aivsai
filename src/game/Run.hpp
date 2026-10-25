@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+#include "core/Math.hpp"
 #include "game/Loadouts.hpp"
 #include "game/Ordeals.hpp"
 #include "game/Perks.hpp"
@@ -16,6 +17,10 @@
 namespace pm {
 
 enum class Difficulty : uint8_t { Apprentice, Adept, Archmage };
+constexpr int kDifficultyCount = 3;
+static_assert(static_cast<int>(Difficulty::Archmage) == kDifficultyCount - 1, "update kDifficultyCount");
+/// Settings and the chronicle store the difficulty as an int; out-of-range values snap to the nearest tier.
+constexpr Difficulty difficultyFromIndex(int i) { return static_cast<Difficulty>(clamp(i, 0, kDifficultyCount - 1)); }
 
 /// Room for every EnemyType in kill counts (saves and profiles), with space to grow.
 constexpr size_t kMaxCreatureTypes = 24;
@@ -48,7 +53,7 @@ struct RunState {
     bool daily = false;
     Difficulty difficulty = Difficulty::Adept;
     LoadoutId loadout = LoadoutId::Apprentice;
-    int levelIndex = 0;      ///< 0..4 = biomes, then victory
+    int levelIndex = 0;      ///< stage of the descent, 0..kFinalStage (gen/Biome.hpp)
     int ordeal = 0;          ///< ordeal level the run is under (0 = none)
     bool inSanctum = false;
 

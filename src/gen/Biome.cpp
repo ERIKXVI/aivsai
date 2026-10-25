@@ -90,15 +90,15 @@ static_assert(std::size(kBiomes) == static_cast<size_t>(BiomeId::Count), "a Biom
 /// The stages of the Great Work in order of descent.
 constexpr BiomeId kStageOrder[] = {BiomeId::Nigredo, BiomeId::Albedo, BiomeId::Citrinitas, BiomeId::Rubedo, BiomeId::Athanor};
 constexpr const char* kNumerals[] = {"I", "II", "III", "IV", "V"};
-static_assert(std::size(kNumerals) == std::size(kStageOrder), "a numeral for every stage");
-constexpr int kLastStage = static_cast<int>(std::size(kStageOrder)) - 1;
+static_assert(std::size(kStageOrder) == kStageCount && std::size(kNumerals) == kStageCount,
+              "a biome and a numeral for every stage");
 
 } // namespace
 
 const BiomeDef& biomeDef(BiomeId id) { return kBiomes[static_cast<int>(id)]; }
 
-BiomeId biomeForDepth(int levelIndex) { return kStageOrder[std::clamp(levelIndex, 0, kLastStage)]; }
+BiomeId biomeForDepth(int levelIndex) { return kStageOrder[std::clamp(levelIndex, 0, kFinalStage)]; }
 
-const char* stageNumeral(int levelIndex) { return kNumerals[std::clamp(levelIndex, 0, kLastStage)]; }
+const char* stageNumeral(int levelIndex) { return kNumerals[std::clamp(levelIndex, 0, kFinalStage)]; }
 
 } // namespace pm

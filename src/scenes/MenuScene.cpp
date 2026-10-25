@@ -25,6 +25,8 @@ constexpr const char* kTitle = "PRIMA MATERIA";
 constexpr const char* kDifficultyNames[] = {"Apprentice", "Adept", "Archmage"};
 constexpr const char* kDifficultyHints[] = {"Gentler foes, more health.", "The intended experience.",
                                             "For seasoned alchemists."};
+static_assert(std::size(kDifficultyNames) == kDifficultyCount && std::size(kDifficultyHints) == kDifficultyCount,
+              "a name and a hint for every difficulty");
 
 uint32_t dailySeed() {
     std::time_t now = std::time(nullptr);
@@ -43,6 +45,14 @@ uint32_t dailySeed() {
 MenuScene::MenuScene(App& app) : Scene(app), rng_(static_cast<uint64_t>(std::time(nullptr))) {
     buildWorld();
     background_.setBiome(BiomeId::Sanctum, 7u);
+    for (int i = 0; i < kLoadoutCount; ++i) {
+        const auto id = static_cast<LoadoutId>(i);
+        const LoadoutDef& def = loadoutDef(id);
+        if (def.randomKit) continue;
+        // Fixed kits do not depend on the seed, so any run shows the same starting wand.
+        const RunState kit = newRun(1, Difficulty::Adept, false, id);
+        kitPreview_[static_cast<size_t>(i)] = kit.wands[static_cast<size_t>(def.signatureWand)].slots;
+    }
     if (!app.options().automated()) suspended_ = loadSuspendedRun();
     const std::string& ui = app.options().openUi;
     if (ui == "loadout") panel_ = Panel::Loadout;
@@ -116,14 +126,14 @@ void MenuScene::replayRun(const RunHistoryEntry& entry) {
     LoadoutId loadout = LoadoutId::Apprentice;
     if (entry.loadout >= 0 && entry.loadout < kLoadoutCount && loadoutUnlocked(static_cast<LoadoutId>(entry.loadout), milestones()))
         loadout = static_cast<LoadoutId>(entry.loadout);
-    const auto diff = static_cast<Difficulty>(clamp(entry.difficulty, 0, 2));
+    const Difficulty diff = difficultyFromIndex(entry.difficulty);
     const int ordeal = std::min(entry.ordeal, app_.profile().ordealUnlocked);
     app_.setScene(std::make_unique<GameScene>(app_, newRun(entry.seed, diff, false, loadout, ordeal)));
 }
 
 void MenuScene::startRun(bool daily, LoadoutId loadout) {
     abandonSuspendedRun();
-    Difficulty diff = static_cast<Difficulty>(clamp(app_.settings().difficulty, 0, 2));
+    const Difficulty diff = difficultyFromIndex(app_.settings().difficulty);
     uint32_t seed = daily ? dailySeed() : randomRunSeed();
     if (daily) {
         app_.profile().lastDailySeed = static_cast<int>(seed);
@@ -278,9 +288,9 @@ void MenuScene::drawMain() {
             ui::tooltip("Daily Rite", "Today's seed, the same for every alchemist, with the Apprentice's kit.", ui::color::kGold);
     }
     Settings& st = app_.settings();
-    int d = clamp(st.difficulty, 0, 2);
+    const int d = clamp(st.difficulty, 0, kDifficultyCount - 1);
     if (item(std::string("Difficulty: ") + kDifficultyNames[d])) {
-        st.difficulty = (d + 1) % 3;
+        st.difficulty = (d + 1) % kDifficultyCount;
         saveSettings(st);
     }
     if (ui::hovered(last)) ui::tooltip(kDifficultyNames[d], kDifficultyHints[d], ui::color::kGold);
@@ -343,8 +353,7 @@ void MenuScene::drawLoadouts() {
                 ui::text("?", ix + icon * 0.5f, row.y + (rowH - static_cast<float>(size)) * 0.5f, size, ui::color::kAccent,
                          ui::Align::Center);
             } else {
-                const RunState kit = newRun(1, Difficulty::Adept, false, id);
-                const std::vector<SpellId>& slots = kit.wands[static_cast<size_t>(def.signatureWand)].slots;
+                const std::vector<SpellId>& slots = kitPreview_[static_cast<size_t>(i)];
                 for (auto it = slots.rbegin(); it != slots.rend(); ++it) {
                     if (*it == SpellId::None) continue;
                     Rectangle ir{ix, row.y + (rowH - icon) * 0.5f, icon, icon};

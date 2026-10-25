@@ -72,11 +72,22 @@ const std::filesystem::path& dataDirectory();
 using KeyValues = std::map<std::string, std::string>;
 KeyValues readKeyValues(const std::filesystem::path& path);
 void writeKeyValues(const std::filesystem::path& path, const KeyValues& kv);
+/// Deletes a key=value file and any temporary file an interrupted write left beside it.
+void removeKeyValues(const std::filesystem::path& path);
+/// Strict base-10 integer: the whole string must parse and lie in [lo, hi].
+bool parseInteger(const std::string& s, long long& out, long long lo, long long hi);
 
 Settings loadSettings();
 void saveSettings(const Settings& s);
 Profile loadProfile();
 void saveProfile(const Profile& p);
+
+/// The field mapping behind load/save, kept apart from file I/O so migrations of old files can be
+/// tested. Missing keys keep their defaults; profiles from older builds are upgraded on the way in.
+Settings settingsFromKeyValues(const KeyValues& kv);
+KeyValues settingsToKeyValues(const Settings& s);
+Profile profileFromKeyValues(const KeyValues& kv);
+KeyValues profileToKeyValues(const Profile& p);
 
 /// A chronicle entry as one line of text, and back; parsing rejects malformed lines.
 std::string encodeHistoryEntry(const RunHistoryEntry& e);

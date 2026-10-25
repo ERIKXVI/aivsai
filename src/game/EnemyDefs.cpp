@@ -6,6 +6,7 @@
 #include <iterator>
 
 #include "game/Run.hpp"
+#include "gen/Biome.hpp"
 
 namespace pm {
 
@@ -50,14 +51,14 @@ struct SpawnEntry {
 };
 
 // Ground and air tables per stage.
-const std::vector<SpawnEntry> kGround[5] = {
+const std::vector<SpawnEntry> kGround[kStageCount] = {
     {{EnemyType::Slime, 40, 0}, {EnemyType::Ghoul, 30, 0}, {EnemyType::Shroom, 15, 0.2f}, {EnemyType::BileSlug, 12, 0.3f}, {EnemyType::Beetle, 8, 0.5f}},
     {{EnemyType::FrostSlime, 35, 0}, {EnemyType::Ghoul, 20, 0}, {EnemyType::Turret, 20, 0.2f}, {EnemyType::Golem, 8, 0.6f}},
     {{EnemyType::Sapper, 30, 0}, {EnemyType::Beetle, 25, 0}, {EnemyType::Shroom, 20, 0}, {EnemyType::BileSlug, 15, 0}, {EnemyType::Worm, 8, 0.4f}, {EnemyType::Slime, 10, 0}},
     {{EnemyType::Beetle, 25, 0}, {EnemyType::Golem, 20, 0.2f}, {EnemyType::Worm, 15, 0.2f}, {EnemyType::Turret, 15, 0}, {EnemyType::Sapper, 15, 0}},
     {{EnemyType::Golem, 25, 0}, {EnemyType::Turret, 20, 0}, {EnemyType::Worm, 15, 0}, {EnemyType::Sapper, 15, 0}, {EnemyType::Beetle, 15, 0}},
 };
-const std::vector<SpawnEntry> kAir[5] = {
+const std::vector<SpawnEntry> kAir[kStageCount] = {
     {{EnemyType::Bat, 85, 0}, {EnemyType::Imp, 15, 0.7f}},
     {{EnemyType::Wraith, 50, 0}, {EnemyType::Bat, 40, 0}},
     {{EnemyType::Bat, 40, 0}, {EnemyType::Imp, 45, 0}},
@@ -114,7 +115,7 @@ std::optional<EnemyType> enemyNamed(const char* name) {
 }
 
 EnemyType pickEnemy(int levelIndex, bool air, float difficulty, Rng& rng) {
-    const auto& table = (air ? kAir : kGround)[clamp(levelIndex, 0, 4)];
+    const auto& table = (air ? kAir : kGround)[clamp(levelIndex, 0, kFinalStage)];
     const int i = weightedIndex(rng, table, [&](const SpawnEntry& e) { return difficulty >= e.minDifficulty ? e.weight : 0.0f; });
     return i < 0 ? table.front().type : table[static_cast<size_t>(i)].type;
 }

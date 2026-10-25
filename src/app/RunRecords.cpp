@@ -4,6 +4,7 @@
 #include <bit>
 #include <cstdlib>
 #include <iomanip>
+#include <limits>
 #include <sstream>
 
 #include "gen/Biome.hpp"
@@ -59,13 +60,6 @@ std::vector<std::string> split(const std::string& s, char sep) {
     return parts;
 }
 
-bool parseLong(const std::string& s, long long& out) {
-    if (s.empty()) return false;
-    char* end = nullptr;
-    out = std::strtoll(s.c_str(), &end, 10);
-    return end && *end == '\0';
-}
-
 bool parseFloat(const std::string& s, float& out) {
     if (s.empty()) return false;
     char* end = nullptr;
@@ -76,7 +70,7 @@ bool parseFloat(const std::string& s, float& out) {
 template <typename T>
 bool parseInt(const std::string& s, T& out, long long lo, long long hi) {
     long long v = 0;
-    if (!parseLong(s, v) || v < lo || v > hi) return false;
+    if (!parseInteger(s, v, lo, hi)) return false;
     out = static_cast<T>(v);
     return true;
 }
@@ -143,7 +137,7 @@ RunRecord foldRun(Profile& p, const RunState& run, bool victory, const std::stri
     entry.seed = run.seed;
     entry.loadout = static_cast<int>(run.loadout);
     entry.difficulty = static_cast<int>(run.difficulty);
-    entry.depth = std::clamp(run.levelIndex, 0, 4);
+    entry.depth = std::clamp(run.levelIndex, 0, kFinalStage);
     entry.sanctum = run.inSanctum;
     entry.victory = victory;
     entry.daily = run.daily;
@@ -234,12 +228,9 @@ void writeRunSave(const RunState& r, const fs::path& path) {
 }
 
 std::optional<RunState> readRunSave(const fs::path& path) {
-    std::error_code ec;
-    fs::path tmp = path;
-    tmp += ".tmp";
     // readKeyValues falls back to the temporary file when a replace was interrupted.
-    if (!fs::exists(path, ec) && !fs::exists(tmp, ec)) return std::nullopt;
     const KeyValues kv = readKeyValues(path);
+    if (kv.empty()) return std::nullopt; // no save
     auto get = [&](const char* key) -> std::string {
         auto it = kv.find(key);
         return it == kv.end() ? std::string() : it->second;
@@ -248,13 +239,16 @@ std::optional<RunState> readRunSave(const fs::path& path) {
     int version = 0, difficulty = 0, loadout = 0, wandCount = 0;
     long long spellsSeen = 0;
     bool ok = parseInt(get("version"), version, kSaveVersion, kSaveVersion) && parseInt(get("seed"), r.seed, 0, 0xFFFFFFFFll) &&
-              parseInt(get("difficulty"), difficulty, 0, 2) && parseInt(get("loadout"), loadout, 0, kLoadoutCount - 1) &&
-              parseInt(get("level"), r.levelIndex, 0, 4) && parseFloat(get("max_hp"), r.maxHp) && parseFloat(get("hp"), r.hp) &&
+              parseInt(get("difficulty"), difficulty, 0, kDifficultyCount - 1) &&
+              parseInt(get("loadout"), loadout, 0, kLoadoutCount - 1) && parseInt(get("level"), r.levelIndex, 0, kFinalStage) &&
+              parseFloat(get("max_hp"), r.maxHp) && parseFloat(get("hp"), r.hp) &&
               parseInt(get("gold"), r.gold, 0, 1000000000) && parseFloat(get("levitation"), r.levitationMax) &&
               parseInt(get("wands"), wandCount, 1, RunState::kMaxWands) &&
               parseInt(get("active_wand"), r.activeWand, 0, RunState::kMaxWands - 1) &&
               parseInt(get("flask_mat"), r.flask.mat, 0, kMaterialCount - 1) &&
-              parseInt(get("flask_amount"), r.flask.amount, 0, Flask::kCapacity) && parseLong(get("spells_seen"), spellsSeen);
+              parseInt(get("flask_amount"), r.flask.amount, 0, Flask::kCapacity) &&
+              parseInteger(get("spells_seen"), spellsSeen, std::numeric_limits<long long>::min(),
+                           std::numeric_limits<long long>::max());
     if (!ok || r.maxHp <= 0.0f) return std::nullopt;
     r.daily = get("daily") == "1";
     r.inSanctum = get("sanctum") == "1";
@@ -300,12 +294,6 @@ void saveSuspendedRun(const RunState& run) { writeRunSave(run, savePath()); }
 
 std::optional<RunState> loadSuspendedRun() { return readRunSave(savePath()); }
 
-void discardSuspendedRun() {
-    std::error_code ec;
-    fs::path tmp = savePath();
-    tmp += ".tmp";
-    fs::remove(savePath(), ec);
-    fs::remove(tmp, ec); // a leftover temporary file must not bring a finished run back
-}
+void discardSuspendedRun() { removeKeyValues(savePath()); }
 
 } // namespace pm

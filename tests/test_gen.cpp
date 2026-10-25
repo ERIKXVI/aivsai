@@ -17,7 +17,7 @@ TEST_CASE("stages I-IV hide a guardian's lair") {
     int lairs = 0, levels = 0;
     // Seed 19 once stamped a lair that cut off the cave its own door relied on.
     for (uint32_t seed : {3u, 5u, 9u, 19u})
-        for (int index = 0; index < 4; ++index) {
+        for (int index = 0; index < kFinalStage; ++index) {
             const LevelLayout layout = generateLevel(biomeForDepth(index), index, seed, pool);
             ++levels;
             for (const SpawnPoint& s : layout.spawns) lairs += s.kind == SpawnKind::LairGuardian ? 1 : 0;
@@ -31,7 +31,7 @@ TEST_CASE("generated levels are traversable from entrance to exit") {
     initMaterials();
     ThreadPool pool;
     for (uint32_t seed : {11u, 4242u, 90001u}) {
-        for (int level = 0; level < 5; ++level) {
+        for (int level = 0; level < kStageCount; ++level) {
             LevelLayout layout = generateLevel(biomeForDepth(level), level, seed + static_cast<uint32_t>(level), pool);
             bool ok = pathExists(*layout.world, layout.playerStart, layout.exitPos);
             if (!ok) std::printf("    blocked: seed %u level %d\n", seed, level);
@@ -72,7 +72,7 @@ TEST_CASE("sanctum has start, exit and shop slots") {
 TEST_CASE("omens follow their rules and keep the route open") {
     std::array<int, static_cast<size_t>(Omen::Count)> seen{};
     for (uint32_t seed = 1; seed <= 600; ++seed) {
-        CHECK(omenFor(4, seed) == Omen::None); // the Athanor is never touched
+        CHECK(omenFor(kFinalStage, seed) == Omen::None); // the Athanor is never touched
         const Omen first = omenFor(0, seed);
         CHECK(first == Omen::None || first == Omen::Flooded || first == Omen::Overgrown || first == Omen::Gilded);
         CHECK(omenFor(2, seed) == omenFor(2, seed));

@@ -10,8 +10,8 @@
 #include "app/InputLatch.hpp"
 #include "core/Profiler.hpp"
 #include "render/ColorUtil.hpp"
+#include "render/Sprites.hpp"
 #include "scenes/MenuScene.hpp"
-#include "ui/SettingsPanel.hpp"
 #include "ui/Ui.hpp"
 
 namespace pm {
@@ -702,7 +702,7 @@ void GameScene::drawEndScreen(bool victory) {
     // The run in two columns either side of a central gutter.
     const RunStats& st = run_.stats;
     const float lineH = fontH * 1.35f;
-    std::string reached = run_.levelIndex <= 4 ? biomeDef(biomeForDepth(run_.levelIndex)).name : "The Athanor";
+    const std::string reached = biomeDef(biomeForDepth(run_.levelIndex)).name;
     const std::string seedNote = run_.daily ? " (Daily Rite)" : run_.ordeal > 0 ? " (" + ordealLabel(run_.ordeal) + ")" : "";
     const std::string left[] = {
         std::string("Reached: ") + (run_.inSanctum ? "Sanctum after " : "") + reached,
@@ -821,6 +821,7 @@ void GameScene::drawLoading() const {
         {"Igne natura renovatur integra", "Through fire, nature is renewed whole."},
         {"Ars totum requirit hominem", "The Art demands the whole of you."},
     };
+    static_assert(std::size(kStageMottos) == kStageCount, "a motto for every stage");
     static constexpr Motto kSanctumMotto = {"Ora, lege, lege, lege, relege, labora et invenies",
                                             "Pray, read, read, read, reread, work, and you will find."};
 
@@ -831,7 +832,7 @@ void GameScene::drawLoading() const {
     ui::text(text + std::string(static_cast<size_t>(dots), '.'), sw * 0.5f, sh * 0.42f, ui::fontSize(s + 1), ui::color::kTextDim,
              ui::Align::Center);
 
-    const Motto& motto = run_.inSanctum ? kSanctumMotto : kStageMottos[clamp(run_.levelIndex, 0, 4)];
+    const Motto& motto = run_.inSanctum ? kSanctumMotto : kStageMottos[clamp(run_.levelIndex, 0, kFinalStage)];
     const auto alpha = static_cast<unsigned char>(255.0f * clamp(loadTimer_ * 2.5f - 0.3f, 0.0f, 1.0f));
     drawStoneSigil({sw * 0.5f, sh * 0.29f}, 24.0f * static_cast<float>(s), time_, Color{214, 186, 120, static_cast<unsigned char>(alpha / 2)});
     const float font = static_cast<float>(ui::fontSize(s));

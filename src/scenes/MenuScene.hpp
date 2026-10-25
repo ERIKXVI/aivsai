@@ -6,6 +6,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "app/Persistence.hpp"
 #include "app/Scene.hpp"
@@ -53,6 +54,8 @@ private:
     GrimoirePanel grimoire_;
     ui::NavList nav_;
     std::optional<RunState> suspended_; ///< run that "Continue the Work" resumes
+    /// Spells on each kit's signature wand, built once (empty for random kits).
+    std::array<std::vector<SpellId>, kLoadoutCount> kitPreview_;
     bool confirmDaily_ = false;         ///< Daily Rite pressed once with a run suspended
     float time_ = 0.0f;
     float nextEvent_ = 2.0f;

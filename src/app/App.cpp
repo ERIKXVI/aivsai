@@ -6,7 +6,9 @@
 #include "app/InputLatch.hpp"
 #include "app/Platform.hpp"
 #include "audio/Audio.hpp"
+#include "core/Timing.hpp"
 #include "game/Run.hpp"
+#include "gen/Biome.hpp"
 #include "raylib.h"
 #include "render/Sprites.hpp"
 #include "scenes/GameScene.hpp"
@@ -133,9 +135,9 @@ int App::run() {
         setScene(std::make_unique<SandboxScene>(*this));
     } else if (options_.startRun) {
         uint32_t seed = options_.seed ? options_.seed : randomRunSeed();
-        RunState run = newRun(seed, static_cast<Difficulty>(clamp(settings_.difficulty, 0, 2)), false,
+        RunState run = newRun(seed, difficultyFromIndex(settings_.difficulty), false,
                               static_cast<LoadoutId>(clamp(options_.startLoadout, 0, kLoadoutCount - 1)), options_.ordeal);
-        run.levelIndex = clamp(options_.startLevel, 0, 4);
+        run.levelIndex = clamp(options_.startLevel, 0, kFinalStage);
         if (!options_.testWand.empty()) applyTestWand(run, options_.testWand);
         run.inSanctum = options_.startInSanctum;
         if (run.inSanctum) run.gold = 900;

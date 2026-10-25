@@ -17,7 +17,7 @@ int main(int argc, char** argv) {
     uint32_t seed = argc > 2 ? static_cast<uint32_t>(std::strtoul(argv[2], nullptr, 10)) : 1234u;
     initMaterials();
     ThreadPool pool;
-    for (int level = 0; level < 5; ++level) {
+    for (int level = 0; level < kStageCount; ++level) {
         auto t0 = std::chrono::steady_clock::now();
         LevelLayout layout = generateLevel(biomeForDepth(level), level, seed + static_cast<uint32_t>(level), pool);
         auto t1 = std::chrono::steady_clock::now();

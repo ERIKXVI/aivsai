@@ -9,10 +9,23 @@
 #include <sstream>
 
 #include "game/Ordeals.hpp"
+#include "game/Run.hpp"
+#include "gen/Biome.hpp"
 
 namespace pm {
 
 namespace fs = std::filesystem;
+
+namespace {
+
+/// Where writeKeyValues stages a file before renaming it into place.
+fs::path tempPathFor(const fs::path& path) {
+    fs::path tmp = path;
+    tmp += ".tmp";
+    return tmp;
+}
+
+} // namespace
 
 KeyValues readKeyValues(const fs::path& path) {
     KeyValues kv;
@@ -21,9 +34,7 @@ KeyValues readKeyValues(const fs::path& path) {
     fs::path source = path;
     std::error_code ec;
     if (!fs::exists(path, ec)) {
-        fs::path tmp = path;
-        tmp += ".tmp";
-        if (fs::exists(tmp, ec)) source = tmp;
+        if (const fs::path tmp = tempPathFor(path); fs::exists(tmp, ec)) source = tmp;
     }
     std::ifstream in(source);
     std::string line;
@@ -37,8 +48,7 @@ KeyValues readKeyValues(const fs::path& path) {
 
 void writeKeyValues(const fs::path& path, const KeyValues& kv) {
     // Write to a temporary file first so a crash never leaves a truncated profile.
-    fs::path tmp = path;
-    tmp += ".tmp";
+    const fs::path tmp = tempPathFor(path);
     std::error_code ec;
     {
         std::ofstream out(tmp, std::ios::trunc);
@@ -58,6 +68,19 @@ void writeKeyValues(const fs::path& path, const KeyValues& kv) {
         fs::remove(path, ec);
         fs::rename(tmp, path, ec);
     }
+}
+
+void removeKeyValues(const fs::path& path) {
+    std::error_code ec;
+    fs::remove(path, ec);
+    fs::remove(tempPathFor(path), ec); // a leftover temporary file must not bring the data back
+}
+
+bool parseInteger(const std::string& s, long long& out, long long lo, long long hi) {
+    if (s.empty()) return false;
+    char* end = nullptr;
+    out = std::strtoll(s.c_str(), &end, 10);
+    return end && *end == '\0' && out >= lo && out <= hi;
 }
 
 namespace {
@@ -92,13 +115,6 @@ fs::path pathFor(const char* name) { return dataDirectory() / name; }
 
 std::string historyKey(size_t i) { return "history." + std::to_string(i); }
 
-bool parseNumber(const std::string& s, long long& out, long long lo, long long hi) {
-    if (s.empty()) return false;
-    char* end = nullptr;
-    out = std::strtoll(s.c_str(), &end, 10);
-    return end && *end == '\0' && out >= lo && out <= hi;
-}
-
 } // namespace
 
 std::string encodeHistoryEntry(const RunHistoryEntry& e) {
@@ -114,12 +130,13 @@ bool decodeHistoryEntry(const std::string& text, RunHistoryEntry& out) {
     // Nine numeric fields, then the fate (which may itself contain anything but a newline).
     constexpr int kNumbers = 9;
     long long v[kNumbers];
-    constexpr long long kLimits[kNumbers][2] = {{0, 0xFFFFFFFFll}, {0, 63}, {0, 2}, {0, 4}, {0, 1},
-                                                {0, 1},           {0, 1},  {0, 1000000}, {0, 1000000}};
+    // seed, loadout, difficulty, depth, sanctum, victory, daily, time, kills
+    constexpr long long kLimits[kNumbers][2] = {{0, 0xFFFFFFFFll}, {0, 63}, {0, kDifficultyCount - 1}, {0, kFinalStage},
+                                                {0, 1}, {0, 1}, {0, 1}, {0, 1000000}, {0, 1000000}};
     size_t pos = 0;
     for (int i = 0; i < kNumbers; ++i) {
         const size_t bar = text.find('|', pos);
-        if (bar == std::string::npos || !parseNumber(text.substr(pos, bar - pos), v[i], kLimits[i][0], kLimits[i][1]))
+        if (bar == std::string::npos || !parseInteger(text.substr(pos, bar - pos), v[i], kLimits[i][0], kLimits[i][1]))
             return false;
         pos = bar + 1;
     }
@@ -137,7 +154,7 @@ bool decodeHistoryEntry(const std::string& text, RunHistoryEntry& out) {
     if (pos < text.size() && text[pos] == 'o') {
         const size_t bar = text.find('|', pos);
         long long ordeal = 0;
-        if (bar != std::string::npos && parseNumber(text.substr(pos + 1, bar - pos - 1), ordeal, 1, kMaxOrdeal)) {
+        if (bar != std::string::npos && parseInteger(text.substr(pos + 1, bar - pos - 1), ordeal, 1, kMaxOrdeal)) {
             out.ordeal = static_cast<int>(ordeal);
             pos = bar + 1;
         }
@@ -163,9 +180,8 @@ const fs::path& dataDirectory() {
     return dir;
 }
 
-Settings loadSettings() {
+Settings settingsFromKeyValues(const KeyValues& kv) {
     Settings s;
-    KeyValues kv = readKeyValues(pathFor("settings.cfg"));
     read(kv, "master_volume", s.masterVolume);
     read(kv, "music_volume", s.musicVolume);
     read(kv, "sfx_volume", s.sfxVolume);
@@ -182,24 +198,23 @@ Settings loadSettings() {
     return s;
 }
 
-void saveSettings(const Settings& s) {
-    writeKeyValues(pathFor("settings.cfg"), {{"master_volume", str(s.masterVolume)},
-                                        {"music_volume", str(s.musicVolume)},
-                                        {"sfx_volume", str(s.sfxVolume)},
-                                        {"screen_shake", str(s.screenShake)},
-                                        {"fullscreen", str(s.fullscreen)},
-                                        {"show_fps", str(s.showFps)},
-                                        {"difficulty", str(s.difficulty)},
-                                        {"loadout", str(s.loadout)},
-                                        {"hints", str(s.hints)},
-                                        {"matter_lens", str(s.matterLens)},
-                                        {"high_quality", str(s.highQuality)},
-                                        {"ordeal", str(s.ordeal)}});
+KeyValues settingsToKeyValues(const Settings& s) {
+    return {{"master_volume", str(s.masterVolume)},
+            {"music_volume", str(s.musicVolume)},
+            {"sfx_volume", str(s.sfxVolume)},
+            {"screen_shake", str(s.screenShake)},
+            {"fullscreen", str(s.fullscreen)},
+            {"show_fps", str(s.showFps)},
+            {"difficulty", str(s.difficulty)},
+            {"loadout", str(s.loadout)},
+            {"hints", str(s.hints)},
+            {"matter_lens", str(s.matterLens)},
+            {"high_quality", str(s.highQuality)},
+            {"ordeal", str(s.ordeal)}};
 }
 
-Profile loadProfile() {
+Profile profileFromKeyValues(const KeyValues& kv) {
     Profile p;
-    KeyValues kv = readKeyValues(pathFor("profile.dat"));
     read(kv, "runs", p.runs);
     read(kv, "victories", p.victories);
     read(kv, "deepest", p.deepest);
@@ -237,7 +252,7 @@ Profile loadProfile() {
     return p;
 }
 
-void saveProfile(const Profile& p) {
+KeyValues profileToKeyValues(const Profile& p) {
     KeyValues kv{{"runs", str(p.runs)},
                  {"victories", str(p.victories)},
                  {"deepest", str(p.deepest)},
@@ -255,7 +270,15 @@ void saveProfile(const Profile& p) {
                  {"perks_seen", str(p.perksSeen)},
                  {"creature_kills", joinInts(p.creatureKills)}};
     for (size_t i = 0; i < p.history.size() && i < Profile::kHistorySize; ++i) kv[historyKey(i)] = encodeHistoryEntry(p.history[i]);
-    writeKeyValues(pathFor("profile.dat"), kv);
+    return kv;
 }
+
+Settings loadSettings() { return settingsFromKeyValues(readKeyValues(pathFor("settings.cfg"))); }
+
+void saveSettings(const Settings& s) { writeKeyValues(pathFor("settings.cfg"), settingsToKeyValues(s)); }
+
+Profile loadProfile() { return profileFromKeyValues(readKeyValues(pathFor("profile.dat"))); }
+
+void saveProfile(const Profile& p) { writeKeyValues(pathFor("profile.dat"), profileToKeyValues(p)); }
 
 } // namespace pm

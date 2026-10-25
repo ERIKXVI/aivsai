@@ -7,6 +7,7 @@
 #include "app/App.hpp"
 #include "app/InputLatch.hpp"
 #include "audio/Audio.hpp"
+#include "core/Timing.hpp"
 #include "raylib.h"
 #include "scenes/MenuScene.hpp"
 #include "ui/Ui.hpp"

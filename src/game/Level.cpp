@@ -116,12 +116,12 @@ void Level::populate() {
         }
         case SpawnKind::Transmuter: {
             // Each stage's basin craves a material found nearby; the first teaches with water.
-            static constexpr MatId kWants[5][3] = {{mat::Water, mat::Oil, mat::Blood},
-                                                    {mat::Water, mat::Brine, mat::Blood},
-                                                    {mat::Acid, mat::Toxic, mat::Water},
-                                                    {mat::Lava, mat::Oil, mat::Blood},
-                                                    {mat::Lava, mat::Quicksilver, mat::Blood}};
-            const int stage = clamp(layout_.levelIndex, 0, 4);
+            static constexpr MatId kWants[kStageCount][3] = {{mat::Water, mat::Oil, mat::Blood},
+                                                              {mat::Water, mat::Brine, mat::Blood},
+                                                              {mat::Acid, mat::Toxic, mat::Water},
+                                                              {mat::Lava, mat::Oil, mat::Blood},
+                                                              {mat::Lava, mat::Quicksilver, mat::Blood}};
+            const int stage = clamp(layout_.levelIndex, 0, kFinalStage);
             Transmuter t;
             t.pos = s.pos;
             t.wants = stage == 0 ? static_cast<MatId>(mat::Water) : rng_.pick(kWants[stage]);

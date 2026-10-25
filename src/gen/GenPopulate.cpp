@@ -64,8 +64,8 @@ void Generator::placeVaults(World& world, LevelLayout& out) {
     if (!nav.computeDistances(start_)) return;
     // Stages I-IV each hide a guardian's lair besides their ordinary vaults; the lair gets the
     // first pick of sites, as it is the hardest to fit.
-    const bool lairWanted = level_ <= 3;
-    const int wanted = level_ >= 4 ? 1 : (lairWanted ? 3 : 2);
+    const bool lairWanted = level_ < kFinalStage;
+    const int wanted = level_ >= kFinalStage ? 1 : (lairWanted ? 3 : 2);
     const int top = (surface_ ? kSkyRows : 0) + 70;
     constexpr uint32_t kLairBit = 1u << static_cast<unsigned>(VaultKind::Lair);
     uint32_t used = 0;
