@@ -21,6 +21,9 @@ struct RunRecord {
 /// saves the profile. `fate` says how the run ended, for the chronicle.
 RunRecord recordRun(Profile& profile, const RunState& run, bool victory, const std::string& fate);
 
+/// Where a chronicled run ended: "IV Rubedo", "Sanctum after II" or "Magnum Opus".
+std::string depthLabel(const RunHistoryEntry& entry);
+
 /// Serialises a run to `path`; `readRunSave` returns nothing for a missing or malformed file.
 void writeRunSave(const RunState& run, const std::filesystem::path& path);
 std::optional<RunState> readRunSave(const std::filesystem::path& path);

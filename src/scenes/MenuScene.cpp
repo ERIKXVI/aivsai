@@ -281,6 +281,13 @@ void MenuScene::drawMain() {
     std::string stats = TextFormat("Runs %d   Great Works completed %d   Deepest stage %d", p.runs, p.victories, p.deepest);
     if (p.bestTime > 0.0f) stats += TextFormat("   Best time %d:%02d", static_cast<int>(p.bestTime) / 60, static_cast<int>(p.bestTime) % 60);
     ui::text(stats, sw * 0.5f, sh - static_cast<float>(small) - 8.0f * s, small, Color{180, 170, 190, 220}, ui::Align::Center);
+    if (!p.history.empty()) {
+        const RunHistoryEntry& last = p.history.front();
+        const std::string line = last.victory ? "Last descent: the Great Work completed"
+                                              : "Last descent: " + last.fate + " - " + depthLabel(last);
+        ui::text(line, sw * 0.5f, sh - static_cast<float>(small) * 2.3f - 8.0f * s, small, Color{150, 135, 160, 200},
+                 ui::Align::Center);
+    }
     ui::text("v" PM_VERSION_STRING, sw - 6.0f * s, sh - static_cast<float>(small) - 8.0f * s, small, Color{120, 110, 130, 200},
              ui::Align::Right);
 }

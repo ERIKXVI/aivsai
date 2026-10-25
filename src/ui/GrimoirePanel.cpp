@@ -6,7 +6,7 @@
 
 #include "app/App.hpp"
 #include "app/InputLatch.hpp"
-#include "gen/Biome.hpp"
+#include "app/RunRecords.hpp"
 #include "game/Enemy.hpp"
 #include "game/Loadouts.hpp"
 #include "game/Perks.hpp"
@@ -37,13 +37,6 @@ std::string clockTime(float seconds) {
     char buf[32];
     std::snprintf(buf, sizeof(buf), "%d:%02d", t / 60, t % 60);
     return buf;
-}
-
-/// Where a run ended: "IV Rubedo", "Sanctum after II" or "Magnum Opus".
-std::string depthLabel(const RunHistoryEntry& e) {
-    if (e.victory) return "Magnum Opus";
-    if (e.sanctum) return std::string("Sanctum after ") + stageNumeral(e.depth);
-    return std::string(stageNumeral(e.depth)) + " " + biomeDef(biomeForDepth(e.depth)).name;
 }
 
 } // namespace

@@ -5,6 +5,8 @@
 #include <iomanip>
 #include <sstream>
 
+#include "gen/Biome.hpp"
+
 namespace pm {
 
 namespace {
@@ -162,6 +164,12 @@ RunRecord recordRun(Profile& p, const RunState& run, bool victory, const std::st
         if (!loadoutUnlocked(id, was) && loadoutUnlocked(id, now)) record.unlockedPaths.push_back(loadoutDef(id).name);
     }
     return record;
+}
+
+std::string depthLabel(const RunHistoryEntry& e) {
+    if (e.victory) return "Magnum Opus";
+    if (e.sanctum) return std::string("Sanctum after ") + stageNumeral(e.depth);
+    return std::string(stageNumeral(e.depth)) + " " + biomeDef(biomeForDepth(e.depth)).name;
 }
 
 void writeRunSave(const RunState& r, const fs::path& path) {
