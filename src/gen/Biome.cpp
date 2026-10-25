@@ -37,8 +37,8 @@ const BiomeDef kBiomes[static_cast<int>(BiomeId::Count)] = {
     // III. Citrinitas — the yellowing: sulphur mines, gunpowder stores, glowing fungus.
     {
         "Citrinitas", "The Sulphur Mines",
-        Rock, Sulphite, Soil, Sand, Basalt,
-        {{{Sulphite, 0.05f, 0.60f}, {GoldOre, 0.06f, 0.74f}, {Gunpowder, 0.05f, 0.84f}, {Fungus, 0.06f, 0.80f}}},
+        Rock, Soil, Soil, Sand, Basalt,
+        {{{Sulphite, 0.05f, 0.68f}, {GoldOre, 0.06f, 0.74f}, {Gunpowder, 0.05f, 0.84f}, {Fungus, 0.06f, 0.80f}}},
         {{{Toxic, 0.4f}, {Acid, 0.3f}, {Water, 0.3f}, {Empty, 0.0f}}},
         {{{Sulphur, 0.4f}, {Sand, 0.4f}, {Gunpowder, 0.2f}}},
         0.52f, 0.6f,
