@@ -56,6 +56,9 @@ struct EnemyDef {
 };
 
 const EnemyDef& enemyDef(EnemyType type);
+/// Colour a creature's shared sprite is tinted with (Frost Slimes and Sappers reuse the
+/// Slime and Ghoul art), for the world and for portraits.
+Color enemyTint(EnemyType type);
 /// The creature with this display name (e.g. a recorded death cause), if there is one.
 std::optional<EnemyType> enemyNamed(const char* name);
 

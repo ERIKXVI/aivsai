@@ -57,6 +57,14 @@ const std::vector<SpawnEntry> kAir[5] = {
 
 const EnemyDef& enemyDef(EnemyType type) { return kEnemies[static_cast<int>(type)]; }
 
+Color enemyTint(EnemyType type) {
+    switch (type) {
+    case EnemyType::FrostSlime: return Color{150, 210, 255, 255};
+    case EnemyType::Sapper: return Color{255, 220, 160, 255};
+    default: return WHITE;
+    }
+}
+
 std::optional<EnemyType> enemyNamed(const char* name) {
     if (name == nullptr) return std::nullopt;
     for (int i = 0; i < static_cast<int>(EnemyType::Count); ++i)

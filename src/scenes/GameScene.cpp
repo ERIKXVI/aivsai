@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <utility>
 
 #include "app/App.hpp"
 #include "app/InputLatch.hpp"
@@ -16,6 +17,10 @@
 #include "ui/Ui.hpp"
 
 namespace pm {
+
+namespace {
+bool g_deathPreviewShown = false; ///< --ui death fells only the first run of the session
+} // namespace
 
 GameScene::GameScene(App& app, RunState run)
     : Scene(app), run_(std::move(run)), levelRenderer_(scene_, app.sprites(), app.pool()), hints_(app.hintsShown()) {
@@ -75,7 +80,7 @@ void GameScene::finishLoading() {
     }
     if (app_.options().openUi == "inventory") mode_ = Mode::Inventory;
     else if (app_.options().openUi == "pause") mode_ = Mode::Paused;
-    else if (app_.options().openUi == "death") // previews the end screen: felled by an imp's firebolt
+    else if (app_.options().openUi == "death" && !std::exchange(g_deathPreviewShown, true)) // the end screen, once
         level_->player().applyDamage(*level_, {1.0e6f, DamageType::Fire, {}, Team::Monster, false, true, enemyDef(EnemyType::Imp).name});
     exiting_ = false;
     titleTimer_ = 4.0f;
@@ -98,7 +103,7 @@ void GameScene::finishLoading() {
     }
     run_.stats.deepest = std::max(run_.stats.deepest, run_.levelIndex + 1);
     // Every stage start is a resume point.
-    if (!app_.options().automated()) saveSuspendedRun(run_);
+    if (!app_.options().previewOnly()) saveSuspendedRun(run_);
 }
 
 void GameScene::advanceStage() {
@@ -115,7 +120,7 @@ void GameScene::advanceStage() {
     }
     // Save the cleared stage's gains straight away: closing the game during the fade or the
     // loading screen then resumes at the next stage, as promised.
-    if (!app_.options().automated()) saveSuspendedRun(run_);
+    if (!app_.options().previewOnly()) saveSuspendedRun(run_);
     requestLevel();
 }
 
@@ -141,48 +146,65 @@ void GameScene::noteInputDevice() {
     if (input::anyKeyPressed() || input::mousePressed(MOUSE_BUTTON_LEFT) || mouseDelta.x * mouseDelta.x + mouseDelta.y * mouseDelta.y > 4.0f) {
         usingGamepad_ = false;
     } else if (IsGamepadAvailable(0)) {
-        const float lx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X), rx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X),
-                    ry = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y);
-        if (std::fabs(lx) > 0.4f || rx * rx + ry * ry > 0.2f || GetGamepadButtonPressed() != GAMEPAD_BUTTON_UNKNOWN)
+        const float lx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X), ly = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y),
+                    rx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X), ry = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y);
+        if (std::fabs(lx) > 0.4f || std::fabs(ly) > 0.4f || rx * rx + ry * ry > 0.2f || GetGamepadButtonPressed() != GAMEPAD_BUTTON_UNKNOWN)
             usingGamepad_ = true;
     }
 }
 
 void GameScene::updateLens(float dt) {
     const Vector2 m = GetMousePosition();
+    const Vec2 at = scene_.screenToWorld(m);
+    // Resting means the cursor stays on one spot of the world: moving the mouse, walking or
+    // the camera drifting all restart it.
     const float dx = m.x - lens_.mouse.x, dy = m.y - lens_.mouse.y;
-    lens_.rest = dx * dx + dy * dy > 9.0f ? 0.0f : lens_.rest + dt;
+    if (dx * dx + dy * dy > 9.0f || (at - lens_.anchor).lengthSq() > 4.0f * 4.0f) {
+        lens_.rest = 0.0f;
+        lens_.anchor = at;
+    } else {
+        lens_.rest += dt;
+    }
     lens_.mouse = m;
     std::string title, body;
     Color color = WHITE;
-    // The cursor must rest a moment (or the flask be drawing), and never while casting.
+    // The cursor must rest a moment (or the flask be drawing), never while casting, and not
+    // while the screen fades through a portal (the label would float over the black).
     const bool looking = lens_.rest >= 0.4f || IsKeyDown(KEY_Q);
-    if (mode_ == Mode::Playing && app_.settings().matterLens && !usingGamepad_ && looking && !IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-        const Vec2 at = scene_.screenToWorld(m);
-        if ((at - level_->player().body.pos).lengthSq() < 120.0f * 120.0f) {
-            for (const auto& e : level_->enemies()) {
-                const Rectf b = e->bounds();
-                if (!e->alive() || at.x < b.x - 2.0f || at.x > b.x + b.w + 2.0f || at.y < b.y - 2.0f || at.y > b.y + b.h + 2.0f) continue;
-                title = e->elite() ? std::string(affixName(e->affix())) + " " + e->def().name : std::string(e->def().name);
-                body = TextFormat("%d / %d health", static_cast<int>(std::ceil(e->hp)), static_cast<int>(e->maxHp));
-                color = e->team == Team::Player ? ui::color::kAccent : ui::color::kDanger;
-                break;
-            }
-            if (title.empty()) {
-                const MatId mt = level_->world().matAt(floorToInt(at.x), floorToInt(at.y));
-                body = matDescription(mt);
-                if (!body.empty()) {
-                    title = matDef(mt).name;
-                    const Rgba c = materialColor(mt);
-                    color = ColorBrightness(Color{c.r, c.g, c.b, 255}, 0.35f);
-                }
+    bool eligible = false;
+    if (mode_ == Mode::Playing && !exiting_ && fade_ < 0.3f && app_.settings().matterLens && !usingGamepad_ && looking &&
+        !IsMouseButtonDown(MOUSE_BUTTON_LEFT) && (at - level_->player().body.pos).lengthSq() < 120.0f * 120.0f) {
+        eligible = true;
+        for (const auto& e : level_->enemies()) {
+            const Rectf b = e->bounds();
+            if (!e->alive() || at.x < b.x - 2.0f || at.x > b.x + b.w + 2.0f || at.y < b.y - 2.0f || at.y > b.y + b.h + 2.0f) continue;
+            title = e->elite() ? std::string(affixName(e->affix())) + " " + e->def().name : std::string(e->def().name);
+            body = TextFormat("%d / %d health", static_cast<int>(std::ceil(e->hp)), static_cast<int>(e->maxHp));
+            color = e->team == Team::Player ? ui::color::kAccent : ui::color::kDanger;
+            break;
+        }
+        if (title.empty()) {
+            const MatId mt = level_->world().matAt(floorToInt(at.x), floorToInt(at.y));
+            body = matDescription(mt);
+            if (!body.empty()) {
+                title = matDef(mt).name;
+                const Rgba c = materialColor(mt);
+                color = ColorBrightness(Color{c.r, c.g, c.b, 255}, 0.35f);
             }
         }
     }
-    lens_.same = title == lens_.title ? lens_.same + dt : 0.0f;
-    lens_.title = std::move(title);
-    lens_.body = std::move(body);
-    lens_.color = color;
+    if (!title.empty()) {
+        lens_.same = title == lens_.title ? lens_.same + dt : 0.0f;
+        lens_.title = std::move(title);
+        lens_.body = std::move(body);
+        lens_.color = color;
+        lens_.hold = 0.3f;
+    } else if (eligible && !lens_.title.empty() && (lens_.hold -= dt) > 0.0f) {
+        lens_.same += dt; // fire and gas flicker cell by cell: keep the label a moment
+    } else {
+        lens_.title.clear();
+        lens_.same = 0.0f;
+    }
 }
 
 PlayerInput GameScene::gatherInput() {
@@ -346,6 +368,10 @@ void GameScene::frame(float dt) {
         else if (input::keyPressed(KEY_TAB) || input::keyPressed(KEY_I) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT)) {
             mode_ = Mode::Inventory;
             hints_.markSeen(Hint::EditWands); // found the editor; no need to point at it
+            // A stick still held from walking must not count as a flick of the slot cursor.
+            const float lx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X), ly = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y);
+            stickX_ = lx < -0.6f ? -1 : (lx > 0.6f ? 1 : 0);
+            stickY_ = ly < -0.6f ? -1 : (ly > 0.6f ? 1 : 0);
         }
         else if (!level_->isSanctum() && (input::keyPressed(KEY_M) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN)))
             mode_ = Mode::Map;
@@ -363,6 +389,7 @@ void GameScene::frame(float dt) {
                    IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT)) {
             mode_ = Mode::Playing;
             drag_ = Drag{};
+            firstCastFlash_ = 0.0f;
             for (Wand& w : run_.wands) w.resetDeck();
         } else {
             updateEditorPad();
@@ -439,8 +466,8 @@ void GameScene::recordProfile(bool victory) {
     std::string fate = "Completed the Great Work";
     if (!victory) fate = level_ && !level_->player().alive() ? deathCause(level_->player()) : "Abandoned the Work";
     if (fate.empty()) fate = "Perished";
-    if (app_.options().automated()) {
-        // Bot runs and captures show what the end screen would say, but leave the profile be.
+    if (app_.options().previewOnly()) {
+        // Bot runs, captures and previews show what the end screen would say, but leave the profile be.
         Profile scratch = app_.profile();
         record_ = foldRun(scratch, run_, victory, fate);
         return;

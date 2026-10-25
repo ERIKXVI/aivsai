@@ -1,5 +1,6 @@
 #include "app/Persistence.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <filesystem>
@@ -207,6 +208,11 @@ Profile loadProfile() {
         if (it == kv.end() || !decodeHistoryEntry(it->second, e)) break;
         p.history.push_back(std::move(e));
     }
+    // Profiles from before personal bests were kept: recover what the chronicle remembers,
+    // and mark the gold best unknown so the next run does not claim a false record.
+    if (p.runs > 0 && !kv.count("best_kills"))
+        for (const RunHistoryEntry& e : p.history) p.bestKills = std::max(p.bestKills, e.kills);
+    if (p.runs > 0 && !kv.count("best_gold")) p.bestGold = -1;
     return p;
 }
 

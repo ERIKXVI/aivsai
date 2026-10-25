@@ -20,6 +20,9 @@ bool RunState::trySlotIntoActiveWand(SpellId s) {
     constexpr float kMaxBlast = 5.0f;
     const SpellDef& def = spellDef(s);
     if (def.type != SpellType::Projectile || def.proj.explosionRadius > kMaxBlast) return false;
+    // Nor does a spell whose spilled matter burns or corrodes whoever it lands on (Acid Glob).
+    const ProjectileDef& pd = def.proj;
+    if (pd.spawnMat != mat::Empty && pd.spawnAmount > 0 && matDef(pd.spawnMat).contactDamage > 0.0f) return false;
     switch (s) {
     case SpellId::DiggingBolt:
     case SpellId::TeleportBolt:

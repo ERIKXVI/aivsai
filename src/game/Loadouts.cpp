@@ -84,10 +84,7 @@ std::string loadoutRequirement(LoadoutId id, const Milestones& m) {
 void equipLoadout(RunState& run, LoadoutId id) {
     run.loadout = id;
     switch (id) {
-    case LoadoutId::Apprentice:
-        // The bomb waits in the satchel: on the digging wand it went off in the alchemist's face.
-        run.addSpell(SpellId::Bomb);
-        break;
+    case LoadoutId::Apprentice: break;
     case LoadoutId::Pyromancer:
         run.wands[0] = makeWand("Ember Staff", 4, 0.12f, 0.40f, 280.0f, 115.0f, 2.0f,
                                 {SpellId::FireBolt, SpellId::SparkBolt, SpellId::FireBolt}, 0x5a2a1a, 0xff7a30, 10);
@@ -130,6 +127,9 @@ void equipLoadout(RunState& run, LoadoutId id) {
     }
     case LoadoutId::Count: break;
     }
+    // The bomb waits in the satchel of every kit that keeps the Delver's Wand: on the digging
+    // wand it went off in the alchemist's face. (The Geomancer packs its own.)
+    if (id != LoadoutId::Geomancer) run.addSpell(SpellId::Bomb);
     for (const Wand& w : run.wands) run.noteWand(w);
 }
 

@@ -103,6 +103,9 @@ TEST_CASE("every loadout builds a consistent kit") {
                     if (s != SpellId::None) CHECK((run.spellsSeen >> static_cast<unsigned>(s)) & 1ull);
             }
             CHECK(run.maxHp > 0.0f && run.hp == run.maxHp);
+            // Every kit can blast through brick and basalt: a bomb in the satchel (or a quarry wand).
+            const bool bomb = std::find(run.inventory.begin(), run.inventory.end(), SpellId::Bomb) != run.inventory.end();
+            CHECK(bomb || static_cast<LoadoutId>(l) == LoadoutId::Geomancer);
             CHECK(run.flask.amount >= 0 && run.flask.amount <= Flask::kCapacity);
         }
     }
@@ -113,6 +116,7 @@ TEST_CASE("every loadout builds a consistent kit") {
 }
 
 TEST_CASE("found attack spells go straight onto the active wand") {
+    initMaterials(); // the filter reads what a spell's spilled matter does
     RunState run = newRun(5u, Difficulty::Adept, false, LoadoutId::Apprentice);
     // The digging wand only digs; its bomb waits in the satchel.
     for (SpellId s : run.wands[1].slots) CHECK(s != SpellId::Bomb);
@@ -130,6 +134,7 @@ TEST_CASE("found attack spells go straight onto the active wand") {
     CHECK(!run.trySlotIntoActiveWand(SpellId::Bomb));
     CHECK(!run.trySlotIntoActiveWand(SpellId::DamageUp));
     CHECK(!run.trySlotIntoActiveWand(SpellId::TeleportBolt));
+    CHECK(!run.trySlotIntoActiveWand(SpellId::AcidGlob)); // spills acid at the caster's feet
     CHECK(!run.trySlotIntoActiveWand(SpellId::Fireball));
     CHECK(run.trySlotIntoActiveWand(SpellId::IceShard));
 }

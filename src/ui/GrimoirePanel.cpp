@@ -142,7 +142,7 @@ void GrimoirePanel::drawCreatures(App& app, float x, float y) {
                                                                 artH / static_cast<float>(std::max(1, info.h)))));
         const float w = static_cast<float>(info.w * scale), h = static_cast<float>(info.h * scale);
         Vector2 pos{px + (cellW - w) * 0.5f, py + artH - h};
-        if (kills > 0) sprites.drawScaled(def.sprite, 0, pos, scale, false);
+        if (kills > 0) sprites.drawScaled(def.sprite, 0, pos, scale, false, enemyTint(type));
         else sprites.drawScaled(def.sprite, 0, pos, scale, false, Color{34, 28, 44, 255}, false, true);
 
         const float ny = py + artH + 3.0f * s;

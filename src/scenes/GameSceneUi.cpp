@@ -602,7 +602,9 @@ void GameScene::drawEndScreen(bool victory) {
                 const int scale = std::max(1, static_cast<int>(fontH * 1.6f) / std::max(1, info.h));
                 const float w = static_cast<float>(info.w * scale), h = static_cast<float>(info.h * scale);
                 const float x = sw * 0.5f - static_cast<float>(ui::measure(cause, font)) * 0.5f - w - 6.0f * s;
-                app_.sprites().drawScaled(def.sprite, 0, {x, causeY + fontH * 0.5f - h * 0.5f}, scale, false, Color{255, 255, 255, al});
+                Color tint = enemyTint(*killer);
+                tint.a = al;
+                app_.sprites().drawScaled(def.sprite, 0, {x, causeY + fontH * 0.5f - h * 0.5f}, scale, false, tint);
             }
         }
         if (const char* advice = deathAdvice(player))
@@ -678,7 +680,8 @@ void GameScene::drawEndScreen(bool victory) {
         return;
     }
     bx += bw + gap;
-    if (ui::button({bx, y, bw, bh}, "Retry Seed")) {
+    const bool retryKey = input::keyPressed(KEY_T) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_UP);
+    if (ui::button({bx, y, bw, bh}, usingGamepad_ ? "Retry Seed (Y)" : "Retry Seed (T)") || retryKey) {
         startRun(run_.seed); // the same stages and treasures, outside the Daily Rite
         return;
     }

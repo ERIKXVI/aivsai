@@ -93,9 +93,11 @@ private:
     struct Lens {
         std::string title, body;
         Color color = WHITE;
-        float rest = 0.0f; ///< seconds the cursor has rested
+        float rest = 0.0f; ///< seconds the cursor has rested on one spot of the world
         float same = 0.0f; ///< seconds the same thing has been named
+        float hold = 0.0f; ///< grace before a flickering reading (fire, gas, spray) clears the label
         Vector2 mouse{};
+        Vec2 anchor;       ///< world spot where the rest began
     } lens_;
     int shownGold_ = -1;         ///< gold total the HUD last saw
     float goldPop_ = 0.0f;       ///< seconds left on the HUD gold counter's pop

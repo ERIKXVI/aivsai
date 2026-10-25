@@ -36,6 +36,9 @@ struct LaunchOptions {
 
     /// Automated sessions (bot, captures) must not touch the player's profile.
     bool automated() const { return autoplay || captureFrame >= 0 || captureEvery > 0 || quitAfter >= 0; }
+    /// Runs that must leave the profile and the suspended run alone: bots, captures and the
+    /// --ui death preview.
+    bool previewOnly() const { return automated() || openUi == "death"; }
 };
 
 class App {

@@ -52,7 +52,7 @@ struct Profile {
     int bestDailyDepth = 0;
     int chestsOpened = 0;
     int bestKills = 0;        ///< most creatures slain in one run
-    int bestGold = 0;         ///< most gold gathered in one run
+    int bestGold = 0;         ///< most gold gathered in one run (-1: unknown, from an older profile)
     // Grimoire: what the alchemist has discovered across all runs.
     uint64_t spellsSeen = 0;          ///< bit i set = SpellId i discovered
     uint32_t perksSeen = 0;           ///< bit i set = PerkId i taken

@@ -68,7 +68,7 @@ void Level::launch(const ProjectileLaunch& l, Vec2 origin, float angle, Team tea
 
 void Level::explode(Vec2 c, const ExplosionSpec& s) {
     World& w = world();
-    knockLanterns(c, c, s.radius); // a blast shakes nearby lanterns from their hooks
+    if (s.team == Team::Player) knockLanterns(c, c, s.radius); // the alchemist's blasts shake lanterns loose
     const int r = static_cast<int>(std::ceil(s.radius));
     const int cx = floorToInt(c.x), cy = floorToInt(c.y);
     for (int dy = -r; dy <= r; ++dy) {

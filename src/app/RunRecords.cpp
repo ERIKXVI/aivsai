@@ -183,7 +183,7 @@ RunRecord foldRun(Profile& p, const RunState& run, bool victory, const std::stri
     if (before.runs > 0) {
         if (run.levelIndex + 1 > before.deepest) record.records.emplace_back("Deepest descent yet");
         if (run.stats.kills > before.bestKills && run.stats.kills > 0) record.records.emplace_back("Most creatures slain in a run");
-        if (run.stats.goldCollected > before.bestGold && run.stats.goldCollected > 0)
+        if (before.bestGold >= 0 && run.stats.goldCollected > before.bestGold && run.stats.goldCollected > 0)
             record.records.emplace_back("Most gold gathered in a run");
     }
     return record;

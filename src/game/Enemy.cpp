@@ -601,9 +601,7 @@ int Enemy::animFrame(float time) const {
 
 void Enemy::drawAlbedo(DrawContext& ctx) const {
     const Vec2 p = body.interpolated(ctx.alpha);
-    Color tint = WHITE;
-    if (type_ == EnemyType::FrostSlime) tint = Color{150, 210, 255, 255};
-    if (type_ == EnemyType::Sapper) tint = Color{255, 220, 160, 255};
+    Color tint = enemyTint(type_);
     if (status.chilled > 0.0f) tint = Color{static_cast<unsigned char>(tint.r * 0.7f), static_cast<unsigned char>(tint.g * 0.85f), 255, 255};
 
     if (!segments.empty()) {
