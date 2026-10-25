@@ -17,6 +17,7 @@ yourself from spell cards.
 | ![An alchemist's laboratory vault](docs/media/vault.jpg) | ![Sanctum](docs/media/sanctum.jpg) |
 | ![The map](docs/media/map.jpg) | ![The Grimoire](docs/media/grimoire.jpg) |
 | ![Alchemy Sandbox](docs/media/sandbox.jpg) | ![Wand editing](docs/media/inventory.jpg) |
+| ![A Volatile omen announced on the title card](docs/media/omen.jpg) | ![The chronicle of recent runs](docs/media/chronicle.jpg) |
 
 ## Playing
 
