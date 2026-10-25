@@ -131,6 +131,13 @@ reacting to combat intensity, with fire/water/lava ambience mixed in.
 - `pm_genpreview <dir>` renders full level maps; `pm_audiopreview <dir>` renders every sound
   and the music to WAV with level statistics.
 
+### Releasing
+
+Pushing a `v*` tag (or running the *Release* workflow by hand with a tag name) builds the
+game with MSVC, runs the tests and publishes `PrimaMateria-<tag>-windows-x64.zip` as a
+GitHub release with `docs/RELEASE_NOTES.md` as its text. A manual run with *dry_run*
+checked does everything except publish, leaving the zip as a workflow artifact.
+
 ### Repository layout
 
 ```
