@@ -14,7 +14,7 @@ constexpr float kParticleGravity = 420.0f;
 void ParticleSystem::addMatter(Vec2 pos, Vec2 vel, const Cell& cell, float life) {
     if (particles_.size() >= kMaxParticles) return;
     Particle p;
-    p.pos = pos;
+    p.pos = p.prevPos = pos;
     p.vel = vel;
     p.cell = cell;
     p.cell.flags &= static_cast<uint8_t>(~cellflag::kMoved);
@@ -27,7 +27,7 @@ void ParticleSystem::addMatter(Vec2 pos, Vec2 vel, const Cell& cell, float life)
 void ParticleSystem::addVisual(Vec2 pos, Vec2 vel, Rgba color, Rgba glow, float life, float gravity, uint8_t flags) {
     if (particles_.size() >= kMaxParticles) return;
     Particle p;
-    p.pos = pos;
+    p.pos = p.prevPos = pos;
     p.vel = vel;
     p.color = color;
     p.glow = glow;
@@ -64,6 +64,7 @@ void ParticleSystem::deposit(World& world, const Particle& p) {
 void ParticleSystem::update(World& world, float dt) {
     for (size_t i = 0; i < particles_.size();) {
         Particle& p = particles_[i];
+        p.prevPos = p.pos;
         p.life -= dt;
         bool dead = p.life <= 0.0f;
         if (!dead) {
@@ -108,10 +109,10 @@ void ParticleSystem::update(World& world, float dt) {
     }
 }
 
-void ParticleSystem::draw(WorldRenderer& layer) const {
-    const uint32_t tick = 0;
+void ParticleSystem::draw(WorldRenderer& layer, float alpha, uint32_t tick) const {
     for (const Particle& p : particles_) {
-        int x = floorToInt(p.pos.x), y = floorToInt(p.pos.y);
+        const Vec2 at = lerp(p.prevPos, p.pos, alpha);
+        int x = floorToInt(at.x), y = floorToInt(at.y);
         if (p.flags & partflag::kMatter) {
             layer.stamp(x, y, cellColor(p.cell, x, y, tick), cellEmission(p.cell, x, y, tick));
             continue;
@@ -127,7 +128,7 @@ void ParticleSystem::draw(WorldRenderer& layer) const {
         if (c.a < 8) continue;
         layer.stamp(x, y, c, g);
         if (p.flags & partflag::kStreak) {
-            Vec2 back = p.pos - p.vel.normalized() * 1.5f;
+            Vec2 back = at - p.vel.normalized() * 1.5f;
             layer.stamp(floorToInt(back.x), floorToInt(back.y), c, g);
         }
     }

@@ -35,7 +35,7 @@ void LevelRenderer::render(const Level& level, Vec2 camera, float alpha, float t
     {
         ScopedTimer buildTimer(ProfileSection::WorldBuild);
         layer.build(world, v.originX, v.originY, world.tick(), &pool_);
-        level.particles().draw(layer);
+        level.particles().draw(layer, alpha, level.ticks());
         for (const Projectile& p : level.projectiles()) drawProjectile(p, ctx, level.ticks());
     }
     {

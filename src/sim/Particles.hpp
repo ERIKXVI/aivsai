@@ -25,6 +25,7 @@ constexpr uint8_t kStreak = 1u << 4;    ///< draws a short streak along velocity
 
 struct Particle {
     Vec2 pos;
+    Vec2 prevPos;   ///< position a tick ago, for drawing between ticks
     Vec2 vel;
     Cell cell;      ///< matter payload (kMatter)
     Rgba color;
@@ -52,7 +53,9 @@ public:
     void burst(Vec2 pos, int count, float speed, Rgba color, Rgba glow, float life, Rng& rng, float gravity = 0.3f);
 
     void update(World& world, float dt);
-    void draw(WorldRenderer& layer) const;
+    /// Stamps every particle `alpha` of the way from its previous to its current position;
+    /// `tick` animates burning matter.
+    void draw(WorldRenderer& layer, float alpha = 1.0f, uint32_t tick = 0) const;
 
 private:
     void deposit(World& world, const Particle& p);
