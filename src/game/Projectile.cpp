@@ -170,7 +170,20 @@ void emitTrail(Level& level, Projectile& p) {
     const ProjectileDef& d = p.def;
     World& world = level.world();
     Rng& rng = level.rng();
-    if (d.trailMat != mat::Empty && d.trailRate > 0.0f) {
+    if (d.trailMat != mat::Empty && phaseOf(d.trailMat) == Phase::Solid) {
+        // A solid trail (rime) is laid cell by cell along the whole step, so it forms an
+        // unbroken bridge - though never inside the caster.
+        const Rectf keepClear = level.player().bounds();
+        const Vec2 step = p.pos - p.prevPos;
+        const int n = std::max(1, static_cast<int>(std::ceil(step.length())));
+        for (int i = 0; i <= n; ++i) {
+            const Vec2 t = p.prevPos + step * (static_cast<float>(i) / static_cast<float>(n));
+            if (t.x > keepClear.x - 2.0f && t.x < keepClear.x + keepClear.w + 2.0f && t.y > keepClear.y - 2.0f &&
+                t.y < keepClear.y + keepClear.h + 2.0f)
+                continue;
+            world.placeIfEmpty(floorToInt(t.x), floorToInt(t.y), d.trailMat);
+        }
+    } else if (d.trailMat != mat::Empty && d.trailRate > 0.0f) {
         p.trailAccum += d.trailRate;
         while (p.trailAccum >= 1.0f) {
             p.trailAccum -= 1.0f;

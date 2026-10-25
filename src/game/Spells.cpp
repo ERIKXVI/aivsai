@@ -403,6 +403,9 @@ struct SpellTable {
             mod(SpellId::OilTrail, "Oil Trail", "Leaves a trail of oil.", 5, 0.0f, 1, 70, m);
             m.trailMat = mat::Acid;
             mod(SpellId::AcidTrail, "Acid Trail", "Leaves a dripping trail of acid.", 15, 0.0f, 2, 140, m);
+            // Solid trails are laid along the whole path: rime hardens into a bridge of ice.
+            m.trailMat = mat::Ice;
+            mod(SpellId::RimeTrail, "Rime Trail", "Leaves a bridge of ice along its path.", 15, 0.0f, 1, 120, m);
         }
         {
             ModifierDef m;

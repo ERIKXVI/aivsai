@@ -259,6 +259,7 @@ void spellIcon(SpellId spell, Rectangle r, bool highlight) {
         case SpellId::WaterTrail: glyph = "W"; break;
         case SpellId::OilTrail: glyph = "O"; break;
         case SpellId::AcidTrail: glyph = "A"; break;
+        case SpellId::RimeTrail: glyph = "="; break;
         case SpellId::Heavy: glyph = "v"; break;
         case SpellId::Weightless: glyph = "^"; break;
         case SpellId::Accuracy: glyph = "|"; break;

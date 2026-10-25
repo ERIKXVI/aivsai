@@ -6,7 +6,7 @@ extra runtimes are needed. If Windows SmartScreen warns about an unrecognised ap
 switches to a window.
 
 - Every pixel is simulated matter: sand, water, oil, lava, acid, gunpowder, fire, steam and more.
-- Build your own wands from 49 spell cards; modifiers, multicasts and trigger spells combine.
+- Build your own wands from 50 spell cards; modifiers, multicasts and trigger spells combine.
 - Five stages of the alchemical Great Work with vaults to discover, omens that twist a
   stage (flooded, overgrown, volatile, gilded, teeming), transmutation circles, sanctums
   with shops and 22 perks, elite creatures and a multi-phase final boss.

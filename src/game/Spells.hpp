@@ -28,6 +28,8 @@ enum class SpellId : uint8_t {
     Heavy, Weightless, Accuracy, Critical, Incendiary, Frost, Larger, ManaRefund,
     // Multicasts
     DoubleCast, TripleCast, QuadScatter, Formation,
+    // Later additions (ids are saved, so new spells are only ever appended)
+    RimeTrail,
     Count
 };
 

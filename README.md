@@ -50,7 +50,7 @@ Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-p
 
 - **Wands** cast their spell cards in order. *Modifiers* (Damage Plus, Homing, Fire Trail...)
   affect every projectile in the same cast, *multicasts* fire several cards at once, and
-  *trigger* spells release the next card where they land. 49 spells, randomly rolled wands
+  *trigger* spells release the next card where they land. 50 spells, randomly rolled wands
   and four wand slots make every run's arsenal different. An attack spell you find drops
   straight into an empty slot of the wand in hand; the rest wait in the satchel, and the
   wand editor (`Tab`) walks you through your first drag.
