@@ -8,6 +8,7 @@
 #include "app/InputLatch.hpp"
 #include "app/RunRecords.hpp"
 #include "game/Enemy.hpp"
+#include "game/Feats.hpp"
 #include "game/Loadouts.hpp"
 #include "game/Perks.hpp"
 #include "game/Spells.hpp"
@@ -19,7 +20,7 @@ namespace pm {
 
 namespace {
 
-constexpr float kPanelW = 440.0f, kPanelH = 300.0f;
+constexpr float kPanelW = 460.0f, kPanelH = 300.0f;
 
 /// Creatures listed in the Grimoire (the homunculus companion is a perk, not a foe).
 bool listedCreature(EnemyType t) { return t != EnemyType::Companion; }
@@ -60,13 +61,15 @@ bool GrimoirePanel::draw(App& app) {
         creatures += p.creatureKills[static_cast<size_t>(i)] > 0 ? 1 : 0;
     }
     const int perks = countBits(p.perksSeen);
+    const int feats = countBits(p.featsEarned);
 
     // Tabs double as the completion summary.
     constexpr int kTabs = static_cast<int>(Tab::Count);
     const std::string labels[kTabs] = {TextFormat("Spells %d/%d", spells, kSpellCount - 1),
-                                       TextFormat("Creatures %d/%d", creatures, creatureTotal),
-                                       TextFormat("Perks %d/%d", perks, kPerkCount), "Chronicle"};
-    const float tabW = 98.0f * s, tabH = 16.0f * s, tabGap = 6.0f * s;
+                                       TextFormat("Bestiary %d/%d", creatures, creatureTotal),
+                                       TextFormat("Perks %d/%d", perks, kPerkCount), TextFormat("Feats %d/%d", feats, kFeatCount),
+                                       "Chronicle"};
+    const float tabW = 86.0f * s, tabH = 16.0f * s, tabGap = 4.0f * s;
     float tx = sw * 0.5f - (kTabs * tabW + (kTabs - 1) * tabGap) * 0.5f;
     for (int i = 0; i < kTabs; ++i) {
         Rectangle tr{tx + static_cast<float>(i) * (tabW + tabGap), r.y + 28.0f * s, tabW, tabH};
@@ -83,6 +86,7 @@ bool GrimoirePanel::draw(App& app) {
     case Tab::Spells: drawSpells(app, cx, cy); break;
     case Tab::Creatures: drawCreatures(app, cx, cy); break;
     case Tab::Perks: drawPerks(app, cx, cy); break;
+    case Tab::Feats: drawFeats(app, cx, cy); break;
     case Tab::Chronicle: drawChronicle(app, cx, cy); break;
     case Tab::Count: break;
     }
@@ -152,6 +156,31 @@ void GrimoirePanel::drawCreatures(App& app, float x, float y) {
         if (kills > 0)
             ui::text(TextFormat("slain %d", kills), px + cellW * 0.5f, ny + static_cast<float>(small) + 1.0f * s, small,
                      ui::color::kTextDim, ui::Align::Center);
+    }
+}
+
+void GrimoirePanel::drawFeats(App& app, float x, float y) {
+    const Profile& p = app.profile();
+    const float s = static_cast<float>(ui::scale());
+    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    constexpr int kRows = 12;
+    const float colW = 210.0f * s, rowH = 16.0f * s;
+    int hovered = -1;
+    for (int i = 0; i < kFeatCount; ++i) {
+        const FeatDef& def = featDef(static_cast<FeatId>(i));
+        const bool earned = (p.featsEarned >> i) & 1u;
+        const float px = x + static_cast<float>(i / kRows) * colW, py = y + static_cast<float>(i % kRows) * rowH;
+        // A gold seal for the earned, a dull one for the rest; every goal stays readable.
+        const Vector2 c{px + 3.5f * s, py + static_cast<float>(small) * 0.5f};
+        DrawCircleV(c, 3.5f * s, earned ? Color{240, 196, 90, 255} : Color{50, 44, 58, 255});
+        if (earned) DrawCircleV(c, 1.5f * s, Color{255, 240, 190, 255});
+        ui::text(def.name, px + 12.0f * s, py, small, earned ? ui::color::kText : ui::color::kTextDim);
+        if (ui::hovered({px, py, colW - 10.0f * s, rowH})) hovered = i;
+    }
+    if (hovered >= 0) {
+        const FeatDef& def = featDef(static_cast<FeatId>(hovered));
+        const bool earned = (p.featsEarned >> hovered) & 1u;
+        ui::tooltip(def.name, def.description, earned ? ui::color::kGold : ui::color::kTextDim);
     }
 }
 

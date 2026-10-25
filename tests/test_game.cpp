@@ -14,6 +14,7 @@
 #include "game/Actor.hpp"
 #include "game/Body.hpp"
 #include "game/Enemy.hpp"
+#include "game/Feats.hpp"
 #include "game/Level.hpp"
 #include "gen/Biome.hpp"
 #include "gen/LevelGenerator.hpp"
@@ -379,6 +380,34 @@ TEST_CASE("guardians rage, the toad sheds its brood and the slayer earns a perk"
     int after = 0;
     for (uint8_t n : run.perks) after += n;
     CHECK(after == perks + 1);
+}
+
+TEST_CASE("feats are described and kills earn them") {
+    for (int i = 0; i < kFeatCount; ++i) {
+        const FeatDef& d = featDef(static_cast<FeatId>(i));
+        CHECK(d.name && d.name[0] && d.description && d.description[0]);
+        for (int j = 0; j < i; ++j) CHECK(std::strcmp(d.name, featDef(static_cast<FeatId>(j)).name) != 0);
+    }
+    initMaterials();
+    ThreadPool pool(2);
+    Audio audio;
+    RunState run = newRun(11, Difficulty::Adept, false);
+    Level level(generateSanctum(0, 11u, pool), run, audio, pool);
+    const Vec2 near = level.player().body.pos + Vec2{30.0f, -10.0f};
+    auto kill = [&](EnemyType t) {
+        Enemy& e = level.spawnEnemy(t, near);
+        e.applyDamage(level, {1.0e6f, DamageType::Physical, {}, Team::Player, false, false, "test"});
+    };
+    kill(EnemyType::Slime);
+    std::vector<FeatId> earned = level.takeFeats();
+    CHECK(std::find(earned.begin(), earned.end(), FeatId::FirstBlood) != earned.end());
+    CHECK(std::find(earned.begin(), earned.end(), FeatId::Carnage) == earned.end());
+    kill(EnemyType::Slime);
+    kill(EnemyType::BlackToad); // three kills in the same instant, the last a guardian
+    earned = level.takeFeats();
+    CHECK(std::find(earned.begin(), earned.end(), FeatId::Carnage) != earned.end());
+    CHECK(std::find(earned.begin(), earned.end(), FeatId::BlackToad) != earned.end());
+    CHECK(level.takeFeats().empty());
 }
 
 TEST_CASE("stage lanterns hang from solid ceilings, not pooled steam") {

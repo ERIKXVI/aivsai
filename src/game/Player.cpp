@@ -299,6 +299,8 @@ void Player::handleFlask(Level& level) {
         level.audio().play(Sfx::Drink, 0.7f);
         float fraction = static_cast<float>(amount) / kDrinkAmount;
         if (run_.hasPerk(PerkId::IronStomach)) hp = std::min(maxHp, hp + 10.0f * fraction);
+        if ((m == mat::Water || m == mat::Brine) && status.burning > 0.0f) level.earnFeat(FeatId::Doused);
+        if (m == mat::Vitae && hp < maxHp) level.earnFeat(FeatId::Vitae);
         switch (m) {
         case mat::Vitae:
             hp = std::min(maxHp, hp + 40.0f * fraction);

@@ -195,6 +195,7 @@ Profile loadProfile() {
     read(kv, "chests_opened", p.chestsOpened);
     read(kv, "best_kills", p.bestKills);
     read(kv, "best_gold", p.bestGold);
+    read(kv, "feats", p.featsEarned);
     read(kv, "spells_seen", p.spellsSeen);
     read(kv, "perks_seen", p.perksSeen);
     if (auto it = kv.find("creature_kills"); it != kv.end()) {
@@ -228,6 +229,7 @@ void saveProfile(const Profile& p) {
                  {"chests_opened", str(p.chestsOpened)},
                  {"best_kills", str(p.bestKills)},
                  {"best_gold", str(p.bestGold)},
+                 {"feats", str(p.featsEarned)},
                  {"spells_seen", str(p.spellsSeen)},
                  {"perks_seen", str(p.perksSeen)},
                  {"creature_kills", joinInts(p.creatureKills)}};

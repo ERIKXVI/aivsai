@@ -230,6 +230,9 @@ void Level::tick(const PlayerInput& input) {
 
     updateIntensity();
     if (ticks_ % 10 == 0) updateTransmuters();
+    if (ticks_ % 30 == 0 && player_->alive())
+        for (const Rectf& v : layout_.vaults)
+            if (v.contains(player_->body.pos)) earnFeat(FeatId::VaultRaider);
     audio_.setListener(player_->body.pos);
 }
 
@@ -363,6 +366,7 @@ void Level::interact() {
         addFloatText(p.body.pos - Vec2{0.0f, 10.0f}, spellDef(p.spell).name, 0xc0e0ff);
         if (slotted) {
             addFloatText(p.body.pos - Vec2{0.0f, 4.0f}, "into " + run_.wands[static_cast<size_t>(run_.activeWand)].name, 0x9fb4d0, 0.6f);
+            earnFeat(FeatId::Spellwright);
         } else {
             addFloatText(p.body.pos - Vec2{0.0f, 4.0f}, "to the satchel", 0x9fb4d0, 0.6f);
             ++spellsToSatchel_;
@@ -506,6 +510,7 @@ void Level::updateTransmuters() {
             for (int x = cx - 9; x <= cx + 9; ++x)
                 if (w.inBounds(x, y) && w.at(x, y).mat == t.wants) w.clear(x, y);
         t.complete = true;
+        earnFeat(FeatId::Transmutation);
         t.progress = t.required;
         Rgba col = materialColor(t.wants);
         col.a = 255;

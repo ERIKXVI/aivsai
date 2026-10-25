@@ -44,6 +44,10 @@ private:
     void latchInput();
     void noteInputDevice();
     void updateLens(float dt);
+    /// Records a feat in the profile the first time it is earned, and queues its toast.
+    void earnFeat(FeatId feat);
+    void updateFeats(float dt);
+    void drawFeatToast();
     void updateEditorPad();
     /// Drops the dragged spell onto a wand slot (wand >= 0) or satchel slot (wand -1), swapping.
     void dropDragOnto(int wand, int slot);
@@ -101,6 +105,12 @@ private:
     } lens_;
     int shownGold_ = -1;         ///< gold total the HUD last saw
     uint32_t announcedGuardian_ = 0; ///< id of the guardian whose title card was last shown
+    struct Toast {
+        FeatId feat;
+        float time = 0.0f; ///< seconds shown so far
+    };
+    std::vector<Toast> toasts_;      ///< newly earned feats, announced one at a time
+    float stageDamageStart_ = 0.0f;  ///< damage taken before this stage (for Untouched)
     float goldPop_ = 0.0f;       ///< seconds left on the HUD gold counter's pop
 
     // Input pressed between ticks is latched so nothing is lost at high frame rates.

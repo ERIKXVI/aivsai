@@ -381,6 +381,19 @@ void Level::onEnemyKilled(Enemy& e) {
     if (e.team == Team::Monster) {
         run_.stats.kills++;
         run_.killsByType[static_cast<size_t>(e.type())]++;
+        earnFeat(FeatId::FirstBlood);
+        if (e.elite()) earnFeat(FeatId::EliteHunter);
+        switch (e.type()) {
+        case EnemyType::BlackToad: earnFeat(FeatId::BlackToad); break;
+        case EnemyType::WhiteWraith: earnFeat(FeatId::WhiteWraith); break;
+        case EnemyType::MineKing: earnFeat(FeatId::MineKing); break;
+        case EnemyType::RedColossus: earnFeat(FeatId::RedColossus); break;
+        default: break;
+        }
+        // Three kills inside a second.
+        recentKills_[killRing_] = time_;
+        killRing_ = (killRing_ + 1) % recentKills_.size();
+        if (time_ - recentKills_[killRing_] <= 1.0f) earnFeat(FeatId::Carnage);
         if (run_.hasPerk(PerkId::Vampirism) && player_->alive()) {
             player_->hp = std::min(player_->maxHp, player_->hp + 4.0f * run_.perkCount(PerkId::Vampirism));
             run_.hp = player_->hp;
@@ -552,6 +565,7 @@ void Level::knockLanterns(Vec2 a, Vec2 b, float radius) {
             if ((a + ab * t - q).lengthSq() > radius * radius) continue;
             l.fallSpeed = 1.0f;
             audio_.playAt(Sfx::Hit, q, 0.4f, 2.1f);
+            earnFeat(FeatId::Lanternfall);
             break;
         }
     }

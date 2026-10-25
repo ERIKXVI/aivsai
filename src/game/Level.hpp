@@ -3,13 +3,16 @@
 // talks to the level through its effects API (explode, dig, castShot, ...), which keeps
 // the cell simulation, creatures, particles, sounds and screen effects in sync.
 
+#include <array>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "audio/Audio.hpp"
 #include "core/Rng.hpp"
 #include "game/Enemy.hpp"
+#include "game/Feats.hpp"
 #include "game/Input.hpp"
 #include "game/Pickup.hpp"
 #include "game/Player.hpp"
@@ -123,6 +126,9 @@ public:
     /// instead of interpolating back towards the previous tick when the last frozen tick ends.
     bool hitStopActive() const { return hitStop_ > 0 || heldSinceTick_; }
     float time() const { return time_; }
+    /// Feats earned since the last call; the scene records and announces them.
+    std::vector<FeatId> takeFeats() { return std::exchange(feats_, {}); }
+    void earnFeat(FeatId feat) { feats_.push_back(feat); }
     /// Spells picked up on this stage that went to the satchel rather than onto a wand.
     int spellsToSatchel() const { return spellsToSatchel_; }
     uint32_t ticks() const { return ticks_; }
@@ -217,6 +223,9 @@ private:
     PlayerInput input_;
     float time_ = 0.0f;
     int spellsToSatchel_ = 0;
+    std::vector<FeatId> feats_;
+    std::array<float, 3> recentKills_{-9.0f, -9.0f, -9.0f}; ///< times of the last three kills (Carnage)
+    size_t killRing_ = 0;
     uint32_t ticks_ = 0;
     float shake_ = 0.0f;
     float intensity_ = 0.0f;

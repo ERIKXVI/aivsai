@@ -266,6 +266,30 @@ void GameScene::drawHud() {
     }
 }
 
+void GameScene::drawFeatToast() {
+    if (toasts_.empty()) return;
+    const Toast& t = toasts_.front();
+    const FeatDef& def = featDef(t.feat);
+    const float sw = static_cast<float>(app_.screenWidth());
+    const float s = static_cast<float>(ui::scale());
+    const int size = ui::fontSize(ui::scale()), small = ui::fontSize(std::max(1, ui::scale() - 1));
+    // Slides down from the top, holds, then fades.
+    const float in = std::min(1.0f, t.time / 0.25f), out = clamp((3.5f - t.time) / 0.5f, 0.0f, 1.0f);
+    const float a = std::min(in, out);
+    const float w = static_cast<float>(std::max(ui::measure(def.name, size), ui::measure(def.description, small))) + 24.0f * s;
+    const float h = static_cast<float>(small * 2 + size) + 14.0f * s;
+    const Rectangle r{sw * 0.5f - w * 0.5f, 26.0f * s - (1.0f - in) * 12.0f * s, w, h};
+    const auto al = [&](float k) { return static_cast<unsigned char>(255.0f * a * k); };
+    DrawRectangleRec(r, Color{18, 13, 28, al(0.9f)});
+    DrawRectangleLinesEx(r, s, Color{ui::color::kGold.r, ui::color::kGold.g, ui::color::kGold.b, al(0.8f)});
+    float y = r.y + 4.0f * s;
+    ui::text("FEAT EARNED", sw * 0.5f, y, small, Color{200, 170, 100, al(1.0f)}, ui::Align::Center);
+    y += static_cast<float>(small) + 2.0f * s;
+    ui::text(def.name, sw * 0.5f, y, size, Color{255, 222, 140, al(1.0f)}, ui::Align::Center);
+    y += static_cast<float>(size) + 2.0f * s;
+    ui::text(def.description, sw * 0.5f, y, small, Color{205, 195, 215, al(1.0f)}, ui::Align::Center);
+}
+
 void GameScene::drawTitleCard() {
     if (titleTimer_ <= 0.0f) return;
     float a = std::min(1.0f, titleTimer_ / 1.0f) * std::min(1.0f, (4.0f - titleTimer_) * 2.0f);
@@ -312,7 +336,10 @@ void GameScene::dropDragOnto(int wand, int slot) {
         // Show what the change did to the wand's first cast.
         firstCastWand_ = wand;
         firstCastFlash_ = 1.5f;
-        if (drag_.wand < 0) hints_.markSeen(Hint::WandGuide);
+        if (drag_.wand < 0) {
+            hints_.markSeen(Hint::WandGuide);
+            earnFeat(FeatId::Spellwright);
+        }
     }
     drag_ = Drag{};
 }

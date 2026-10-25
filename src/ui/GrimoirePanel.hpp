@@ -25,11 +25,12 @@ public:
     }
 
 private:
-    enum class Tab { Spells, Creatures, Perks, Chronicle, Count };
+    enum class Tab { Spells, Creatures, Perks, Feats, Chronicle, Count };
 
     void drawSpells(App& app, float x, float y);
     void drawCreatures(App& app, float x, float y);
     void drawPerks(App& app, float x, float y);
+    void drawFeats(App& app, float x, float y);
     void drawChronicle(App& app, float x, float y);
 
     Tab tab_ = Tab::Spells;

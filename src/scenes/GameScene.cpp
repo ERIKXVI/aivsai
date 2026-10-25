@@ -1,6 +1,7 @@
 #include "scenes/GameScene.hpp"
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstdio>
 #include <utility>
@@ -87,6 +88,8 @@ void GameScene::finishLoading() {
     titleTimer_ = 4.0f;
     titleOmen_.clear();
     announcedGuardian_ = 0;
+    stageDamageStart_ = run_.stats.damageTaken;
+    if (run_.levelIndex >= 3 && !run_.inSanctum) earnFeat(FeatId::DeepDelver);
     if (run_.inSanctum) {
         // Sanctums restore the alchemist completely.
         run_.hp = run_.maxHp;
@@ -282,6 +285,7 @@ void GameScene::stepLevel() {
     switch (level_->pollEvent()) {
     case LevelEvent::ExitReached:
         exiting_ = true;
+        if (!run_.inSanctum && run_.stats.damageTaken <= stageDamageStart_) earnFeat(FeatId::Untouched);
         if (autoplay) logAutoplay(TextFormat("stage %d%s cleared at %.1fs", run_.levelIndex, run_.inSanctum ? " (sanctum)" : "", run_.stats.time));
         break;
     case LevelEvent::PlayerDied:
@@ -344,6 +348,7 @@ void GameScene::frame(float dt) {
         fade_ = std::max(0.0f, fade_ - dt * 1.5f);
     }
     titleTimer_ = std::max(0.0f, titleTimer_ - dt);
+    updateFeats(dt);
     // A guardian is announced with a title card the first time it notices the alchemist.
     if (mode_ == Mode::Playing && level_) {
         if (const Enemy* g = level_->bossBarTarget(); g && g->guardian() && g->id != announcedGuardian_) {
@@ -446,6 +451,7 @@ void GameScene::render(float alpha) {
         if (mode_ == Mode::Playing && !lens_.title.empty() && lens_.same < 4.0f) ui::tooltip(lens_.title, lens_.body, lens_.color);
         if (mode_ == Mode::Playing && app_.settings().hints) hints_.draw(static_cast<float>(app_.screenWidth()), static_cast<float>(app_.screenHeight()), usingGamepad_);
         drawTitleCard();
+        drawFeatToast();
         if (mode_ != Mode::Dead && app_.settings().hints && !run_.inSanctum && run_.levelIndex == 0 && level_->time() < 30.0f)
             drawControlsHint();
     }
@@ -478,14 +484,46 @@ void GameScene::recordProfile(bool victory) {
     std::string fate = "Completed the Great Work";
     if (!victory) fate = level_ && !level_->player().alive() ? deathCause(level_->player()) : "Abandoned the Work";
     if (fate.empty()) fate = "Perished";
+    Profile scratch;
+    const Profile* after = &app_.profile();
     if (app_.options().previewOnly()) {
         // Bot runs, captures and previews show what the end screen would say, but leave the profile be.
-        Profile scratch = app_.profile();
+        scratch = app_.profile();
         record_ = foldRun(scratch, run_, victory, fate);
-        return;
+        after = &scratch;
+    } else {
+        record_ = recordRun(app_.profile(), run_, victory, fate);
+        discardSuspendedRun();
     }
-    record_ = recordRun(app_.profile(), run_, victory, fate);
-    discardSuspendedRun();
+    // Feats the ending earns.
+    const bool died = level_ && !level_->player().alive();
+    if (victory) earnFeat(FeatId::MagnumOpus);
+    if (victory && run_.difficulty == Difficulty::Archmage) earnFeat(FeatId::Archmage);
+    if (run_.daily && (victory || died)) earnFeat(FeatId::DailyRite);
+    if (!record_.unlockedPaths.empty()) earnFeat(FeatId::Pathfinder);
+    if (std::popcount(after->spellsSeen) >= 25) earnFeat(FeatId::Polymath);
+}
+
+void GameScene::earnFeat(FeatId feat) {
+    Profile& p = app_.profile();
+    if (p.featsEarned & featBit(feat)) return;
+    p.featsEarned |= featBit(feat);
+    if (!app_.options().previewOnly()) saveProfile(p);
+    toasts_.push_back({feat});
+    app_.audio().play(Sfx::Perk, 0.6f, 1.3f);
+}
+
+void GameScene::updateFeats(float dt) {
+    if (level_)
+        for (FeatId f : level_->takeFeats()) earnFeat(f);
+    if (mode_ == Mode::Playing) {
+        if (run_.gold >= 500) earnFeat(FeatId::Midas);
+        if (run_.flask.amount >= Flask::kCapacity) earnFeat(FeatId::Brimming);
+        if (run_.stats.chestsOpened >= 5) earnFeat(FeatId::TreasureHunter);
+    }
+    // Toasts show one at a time.
+    constexpr float kToastTime = 3.5f;
+    if (!toasts_.empty() && (toasts_.front().time += dt) > kToastTime) toasts_.erase(toasts_.begin());
 }
 
 } // namespace pm
