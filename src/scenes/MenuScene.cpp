@@ -109,7 +109,7 @@ Milestones MenuScene::milestones() const {
 
 void MenuScene::abandonSuspendedRun() {
     if (!suspended_) return;
-    recordRun(app_.profile(), *suspended_, false);
+    recordRun(app_.profile(), *suspended_, false, "Abandoned the Work");
     discardSuspendedRun();
     suspended_.reset();
 }

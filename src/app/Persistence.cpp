@@ -70,7 +70,50 @@ std::string joinInts(const std::array<int, N>& values) {
 
 fs::path pathFor(const char* name) { return dataDirectory() / name; }
 
+std::string historyKey(size_t i) { return "history." + std::to_string(i); }
+
+bool parseNumber(const std::string& s, long long& out, long long lo, long long hi) {
+    if (s.empty()) return false;
+    char* end = nullptr;
+    out = std::strtoll(s.c_str(), &end, 10);
+    return end && *end == '\0' && out >= lo && out <= hi;
+}
+
 } // namespace
+
+std::string encodeHistoryEntry(const RunHistoryEntry& e) {
+    std::ostringstream ss;
+    ss << e.seed << '|' << e.loadout << '|' << e.difficulty << '|' << e.depth << '|' << (e.sanctum ? 1 : 0) << '|'
+       << (e.victory ? 1 : 0) << '|' << (e.daily ? 1 : 0) << '|' << static_cast<long long>(e.time) << '|' << e.kills << '|'
+       << e.fate;
+    return ss.str();
+}
+
+bool decodeHistoryEntry(const std::string& text, RunHistoryEntry& out) {
+    // Nine numeric fields, then the fate (which may itself contain anything but a newline).
+    constexpr int kNumbers = 9;
+    long long v[kNumbers];
+    constexpr long long kLimits[kNumbers][2] = {{0, 0xFFFFFFFFll}, {0, 63}, {0, 2}, {0, 4}, {0, 1},
+                                                {0, 1},           {0, 1},  {0, 1000000}, {0, 1000000}};
+    size_t pos = 0;
+    for (int i = 0; i < kNumbers; ++i) {
+        const size_t bar = text.find('|', pos);
+        if (bar == std::string::npos || !parseNumber(text.substr(pos, bar - pos), v[i], kLimits[i][0], kLimits[i][1]))
+            return false;
+        pos = bar + 1;
+    }
+    out.seed = static_cast<uint32_t>(v[0]);
+    out.loadout = static_cast<int>(v[1]);
+    out.difficulty = static_cast<int>(v[2]);
+    out.depth = static_cast<int>(v[3]);
+    out.sanctum = v[4] != 0;
+    out.victory = v[5] != 0;
+    out.daily = v[6] != 0;
+    out.time = static_cast<float>(v[7]);
+    out.kills = static_cast<int>(v[8]);
+    out.fate = text.substr(pos);
+    return true;
+}
 
 const fs::path& dataDirectory() {
     static const fs::path dir = [] {
@@ -137,22 +180,30 @@ Profile loadProfile() {
         std::string item;
         for (size_t i = 0; i < p.creatureKills.size() && std::getline(ss, item, ','); ++i) p.creatureKills[i] = std::atoi(item.c_str());
     }
+    for (size_t i = 0; i < Profile::kHistorySize; ++i) {
+        auto it = kv.find(historyKey(i));
+        RunHistoryEntry e;
+        if (it == kv.end() || !decodeHistoryEntry(it->second, e)) break;
+        p.history.push_back(std::move(e));
+    }
     return p;
 }
 
 void saveProfile(const Profile& p) {
-    writeKeyValues(pathFor("profile.dat"), {{"runs", str(p.runs)},
-                                       {"victories", str(p.victories)},
-                                       {"deepest", str(p.deepest)},
-                                       {"best_time", str(p.bestTime)},
-                                       {"total_kills", str(p.totalKills)},
-                                       {"total_gold", str(p.totalGold)},
-                                       {"last_daily_seed", str(p.lastDailySeed)},
-                                       {"best_daily_depth", str(p.bestDailyDepth)},
-                                       {"chests_opened", str(p.chestsOpened)},
-                                       {"spells_seen", str(p.spellsSeen)},
-                                       {"perks_seen", str(p.perksSeen)},
-                                       {"creature_kills", joinInts(p.creatureKills)}});
+    KeyValues kv{{"runs", str(p.runs)},
+                 {"victories", str(p.victories)},
+                 {"deepest", str(p.deepest)},
+                 {"best_time", str(p.bestTime)},
+                 {"total_kills", str(p.totalKills)},
+                 {"total_gold", str(p.totalGold)},
+                 {"last_daily_seed", str(p.lastDailySeed)},
+                 {"best_daily_depth", str(p.bestDailyDepth)},
+                 {"chests_opened", str(p.chestsOpened)},
+                 {"spells_seen", str(p.spellsSeen)},
+                 {"perks_seen", str(p.perksSeen)},
+                 {"creature_kills", joinInts(p.creatureKills)}};
+    for (size_t i = 0; i < p.history.size() && i < Profile::kHistorySize; ++i) kv[historyKey(i)] = encodeHistoryEntry(p.history[i]);
+    writeKeyValues(pathFor("profile.dat"), kv);
 }
 
 } // namespace pm

@@ -1,11 +1,14 @@
 #include "ui/GrimoirePanel.hpp"
 
 #include <algorithm>
+#include <cstdio>
 #include <string>
 
 #include "app/App.hpp"
 #include "app/InputLatch.hpp"
+#include "gen/Biome.hpp"
 #include "game/Enemy.hpp"
+#include "game/Loadouts.hpp"
 #include "game/Perks.hpp"
 #include "game/Spells.hpp"
 #include "render/ColorUtil.hpp"
@@ -28,6 +31,20 @@ int countBits(uint64_t v) {
 }
 
 bool spellKnown(const Profile& p, int i) { return (p.spellsSeen >> i) & 1ull; }
+
+std::string clockTime(float seconds) {
+    const int t = static_cast<int>(seconds);
+    char buf[32];
+    std::snprintf(buf, sizeof(buf), "%d:%02d", t / 60, t % 60);
+    return buf;
+}
+
+/// Where a run ended: "IV Rubedo", "Sanctum after II" or "Magnum Opus".
+std::string depthLabel(const RunHistoryEntry& e) {
+    if (e.victory) return "Magnum Opus";
+    if (e.sanctum) return std::string("Sanctum after ") + stageNumeral(e.depth);
+    return std::string(stageNumeral(e.depth)) + " " + biomeDef(biomeForDepth(e.depth)).name;
+}
 
 } // namespace
 
@@ -52,12 +69,13 @@ bool GrimoirePanel::draw(App& app) {
     const int perks = countBits(p.perksSeen);
 
     // Tabs double as the completion summary.
-    const std::string labels[] = {TextFormat("Spells %d/%d", spells, kSpellCount - 1),
-                                  TextFormat("Creatures %d/%d", creatures, creatureTotal),
-                                  TextFormat("Perks %d/%d", perks, kPerkCount)};
-    const float tabW = 120.0f * s, tabH = 16.0f * s, tabGap = 6.0f * s;
-    float tx = sw * 0.5f - (3.0f * tabW + 2.0f * tabGap) * 0.5f;
-    for (int i = 0; i < 3; ++i) {
+    constexpr int kTabs = static_cast<int>(Tab::Count);
+    const std::string labels[kTabs] = {TextFormat("Spells %d/%d", spells, kSpellCount - 1),
+                                       TextFormat("Creatures %d/%d", creatures, creatureTotal),
+                                       TextFormat("Perks %d/%d", perks, kPerkCount), "Chronicle"};
+    const float tabW = 98.0f * s, tabH = 16.0f * s, tabGap = 6.0f * s;
+    float tx = sw * 0.5f - (kTabs * tabW + (kTabs - 1) * tabGap) * 0.5f;
+    for (int i = 0; i < kTabs; ++i) {
         Rectangle tr{tx + static_cast<float>(i) * (tabW + tabGap), r.y + 28.0f * s, tabW, tabH};
         if (ui::button(tr, labels[i], true, static_cast<int>(tab_) == i)) tab_ = static_cast<Tab>(i);
     }
@@ -65,13 +83,15 @@ bool GrimoirePanel::draw(App& app) {
     // Left/right (A/D, D-pad) flip between the tabs.
     const bool left = input::keyPressed(KEY_LEFT) || input::keyPressed(KEY_A) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_LEFT);
     const bool right = input::keyPressed(KEY_RIGHT) || input::keyPressed(KEY_D) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_RIGHT);
-    if (left || right) tab_ = static_cast<Tab>((static_cast<int>(tab_) + (right ? 1 : 2)) % 3);
+    if (left || right) tab_ = static_cast<Tab>((static_cast<int>(tab_) + (right ? 1 : kTabs - 1)) % kTabs);
 
     const float cx = r.x + 20.0f * s, cy = r.y + 54.0f * s;
     switch (tab_) {
     case Tab::Spells: drawSpells(app, cx, cy); break;
     case Tab::Creatures: drawCreatures(app, cx, cy); break;
     case Tab::Perks: drawPerks(app, cx, cy); break;
+    case Tab::Chronicle: drawChronicle(app, cx, cy); break;
+    case Tab::Count: break;
     }
 
     std::string footer = TextFormat("Chests opened %d    Creatures slain %d    Gold gathered %d", p.chestsOpened, p.totalKills,
@@ -162,6 +182,35 @@ void GrimoirePanel::drawPerks(App& app, float x, float y) {
         const PerkDef& def = perkDef(static_cast<PerkId>(hovered));
         if ((p.perksSeen >> hovered) & 1u) ui::tooltip(def.name, def.description, hexColor(def.color));
         else ui::tooltip("Unknown perk", "Take it at a sanctum altar or a transmutation circle to record it.", ui::color::kTextDim);
+    }
+}
+
+void GrimoirePanel::drawChronicle(App& app, float x, float y) {
+    const Profile& p = app.profile();
+    const float s = static_cast<float>(ui::scale());
+    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    if (p.history.empty()) {
+        ui::text("No runs recorded yet. Your first descent will be written here.", x + (kPanelW - 40.0f) * 0.5f * s, y + 40.0f * s,
+                 small, ui::color::kTextDim, ui::Align::Center);
+        return;
+    }
+    // Columns: path, how deep, time, fate.
+    const int size = ui::fontSize(ui::scale());
+    const float cols[] = {0.0f, 100.0f * s, 205.0f * s, 250.0f * s};
+    const float rowH = 17.0f * s;
+    const char* headers[] = {"Path", "Reached", "Time", "Fate"};
+    for (int c = 0; c < 4; ++c) ui::text(headers[c], x + cols[c], y, size, ui::color::kGold);
+    float py = y + rowH * 1.25f;
+    for (const RunHistoryEntry& e : p.history) {
+        const bool known = e.loadout >= 0 && e.loadout < kLoadoutCount;
+        std::string path = known ? loadoutDef(static_cast<LoadoutId>(e.loadout)).name : "?";
+        if (e.daily) path += " (daily)";
+        const Color main = e.victory ? ui::color::kGold : ui::color::kText;
+        ui::text(path, x + cols[0], py, size, main);
+        ui::text(depthLabel(e), x + cols[1], py, size, main);
+        ui::text(clockTime(e.time), x + cols[2], py, size, ui::color::kTextDim);
+        ui::text(e.fate, x + cols[3], py, size, e.victory ? ui::color::kGold : Color{230, 150, 120, 255});
+        py += rowH;
     }
 }
 

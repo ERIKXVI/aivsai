@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <map>
 #include <string>
+#include <vector>
 
 namespace pm {
 
@@ -23,7 +24,23 @@ struct Settings {
     bool highQuality = true; ///< graphics quality (false trims lighting for weak GPUs)
 };
 
+/// One finished run, remembered for the Grimoire's chronicle.
+struct RunHistoryEntry {
+    uint32_t seed = 0;
+    int loadout = 0;
+    int difficulty = 1;
+    int depth = 0;         ///< level index reached (0-based)
+    bool sanctum = false;  ///< ...and whether the run ended in the sanctum after it
+    bool victory = false;
+    bool daily = false;
+    float time = 0.0f;     ///< seconds
+    int kills = 0;
+    std::string fate;      ///< how it ended: "Slain by a Fire Imp", "Abandoned"...
+};
+
 struct Profile {
+    static constexpr size_t kHistorySize = 10;
+
     int runs = 0;
     int victories = 0;
     int deepest = 0;          ///< deepest stage reached (1-based)
@@ -37,6 +54,7 @@ struct Profile {
     uint64_t spellsSeen = 0;          ///< bit i set = SpellId i discovered
     uint32_t perksSeen = 0;           ///< bit i set = PerkId i taken
     std::array<int, 16> creatureKills{}; ///< indexed by EnemyType
+    std::vector<RunHistoryEntry> history; ///< most recent first, at most kHistorySize
 };
 
 /// Directory for settings and profile (created on demand). Falls back to the working
@@ -52,5 +70,9 @@ Settings loadSettings();
 void saveSettings(const Settings& s);
 Profile loadProfile();
 void saveProfile(const Profile& p);
+
+/// A chronicle entry as one line of text, and back; parsing rejects malformed lines.
+std::string encodeHistoryEntry(const RunHistoryEntry& e);
+bool decodeHistoryEntry(const std::string& text, RunHistoryEntry& out);
 
 } // namespace pm

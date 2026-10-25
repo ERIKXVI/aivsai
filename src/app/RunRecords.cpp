@@ -108,7 +108,7 @@ bool decodeWand(const std::string& s, Wand& w) {
 
 } // namespace
 
-RunRecord recordRun(Profile& p, const RunState& run, bool victory) {
+RunRecord recordRun(Profile& p, const RunState& run, bool victory, const std::string& fate) {
     const Profile before = p;
     p.runs++;
     p.deepest = std::max(p.deepest, run.levelIndex + 1);
@@ -128,6 +128,19 @@ RunRecord recordRun(Profile& p, const RunState& run, bool victory) {
     for (size_t i = 0; i < run.perks.size(); ++i)
         if (run.perks[i] > 0) p.perksSeen |= 1u << i;
     for (size_t i = 0; i < p.creatureKills.size(); ++i) p.creatureKills[i] += run.killsByType[i];
+    RunHistoryEntry entry;
+    entry.seed = run.seed;
+    entry.loadout = static_cast<int>(run.loadout);
+    entry.difficulty = static_cast<int>(run.difficulty);
+    entry.depth = std::clamp(run.levelIndex, 0, 4);
+    entry.sanctum = run.inSanctum;
+    entry.victory = victory;
+    entry.daily = run.daily;
+    entry.time = run.stats.time;
+    entry.kills = run.stats.kills;
+    entry.fate = fate;
+    p.history.insert(p.history.begin(), std::move(entry));
+    if (p.history.size() > Profile::kHistorySize) p.history.resize(Profile::kHistorySize);
     saveProfile(p);
 
     RunRecord record;

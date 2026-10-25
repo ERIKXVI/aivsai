@@ -17,8 +17,9 @@ struct RunRecord {
     std::vector<std::string> unlockedPaths; ///< starting paths unlocked by this run
 };
 
-/// Folds a finished or abandoned run into the profile and saves the profile.
-RunRecord recordRun(Profile& profile, const RunState& run, bool victory);
+/// Folds a finished or abandoned run into the profile (statistics, Grimoire, chronicle) and
+/// saves the profile. `fate` says how the run ended, for the chronicle.
+RunRecord recordRun(Profile& profile, const RunState& run, bool victory, const std::string& fate);
 
 /// Serialises a run to `path`; `readRunSave` returns nothing for a missing or malformed file.
 void writeRunSave(const RunState& run, const std::filesystem::path& path);

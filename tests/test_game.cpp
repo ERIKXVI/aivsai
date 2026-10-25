@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 
+#include "app/Persistence.hpp"
 #include "app/RunRecords.hpp"
 #include "game/Actor.hpp"
 #include "game/Enemy.hpp"
@@ -179,4 +180,28 @@ TEST_CASE("the death screen names the killer and offers advice") {
     victim.lastHitSelf = true;
     CHECK(deathCause(victim) == "Undone by your own Bomb");
     CHECK(std::strstr(deathAdvice(victim), "Your own spells") != nullptr);
+}
+
+TEST_CASE("chronicle entries survive encoding and reject garbage") {
+    RunHistoryEntry e;
+    e.seed = 0xDEADBEEFu;
+    e.loadout = 3;
+    e.difficulty = 2;
+    e.depth = 3;
+    e.sanctum = true;
+    e.daily = true;
+    e.time = 1234.0f;
+    e.kills = 77;
+    e.fate = "Undone by your own Bomb | twice";
+    RunHistoryEntry back;
+    CHECK(decodeHistoryEntry(encodeHistoryEntry(e), back));
+    CHECK(back.seed == e.seed && back.loadout == 3 && back.difficulty == 2 && back.depth == 3);
+    CHECK(back.sanctum && back.daily && !back.victory);
+    CHECK(back.time == 1234.0f && back.kills == 77);
+    CHECK(back.fate == e.fate);
+
+    CHECK(!decodeHistoryEntry("", back));
+    CHECK(!decodeHistoryEntry("1|2|3", back));
+    CHECK(!decodeHistoryEntry("1|0|9|0|0|0|0|10|5|fate", back));   // difficulty out of range
+    CHECK(!decodeHistoryEntry("1|0|1|0|0|0|0|ten|5|fate", back)); // not a number
 }

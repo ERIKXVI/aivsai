@@ -346,7 +346,10 @@ void GameScene::render(float alpha) {
 void GameScene::recordProfile(bool victory) {
     if (profileRecorded_ || app_.options().automated()) return;
     profileRecorded_ = true;
-    const RunRecord record = recordRun(app_.profile(), run_, victory);
+    std::string fate = "Completed the Great Work";
+    if (!victory) fate = level_ && !level_->player().alive() ? deathCause(level_->player()) : "Abandoned the Work";
+    if (fate.empty()) fate = "Perished";
+    const RunRecord record = recordRun(app_.profile(), run_, victory, fate);
     discoveries_ = record.discoveries;
     unlockedPaths_ = record.unlockedPaths;
     discardSuspendedRun();

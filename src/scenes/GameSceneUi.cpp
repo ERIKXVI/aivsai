@@ -419,7 +419,7 @@ void GameScene::drawPauseMenu() {
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
     const float s = static_cast<float>(ui::scale());
     DrawRectangle(0, 0, app_.screenWidth(), app_.screenHeight(), Color{0, 0, 0, 150});
-    Rectangle panelR{sw * 0.5f - 80.0f * s, sh * 0.5f - 75.0f * s, 160.0f * s, 150.0f * s};
+    Rectangle panelR{sw * 0.5f - 80.0f * s, sh * 0.5f - 66.0f * s, 160.0f * s, 132.0f * s};
     ui::panel(panelR);
     ui::text("PAUSED", sw * 0.5f, panelR.y + 8.0f * s, ui::fontSize(ui::scale() + 1), ui::color::kGold, ui::Align::Center);
     float bw = 130.0f * s, bh = 18.0f * s, x = sw * 0.5f - bw * 0.5f, y = panelR.y + 30.0f * s;
