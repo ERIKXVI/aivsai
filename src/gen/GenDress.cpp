@@ -59,8 +59,9 @@ void Generator::paintMaterials(World& world, ThreadPool& pool) {
                 for (int k = 0; k < static_cast<int>(b_.veins.size()); ++k) {
                     const VeinDef& v = b_.veins[k];
                     if (v.mat == mat::Empty) continue;
+                    const float threshold = v.threshold - (omen_ == Omen::Gilded && v.mat == mat::GoldOre ? 0.06f : 0.0f);
                     float n = noise::fbm(x * v.scale, y * v.scale, s + 101u * static_cast<uint32_t>(k + 1), 2);
-                    if (n * 0.5f + 0.5f > v.threshold) {
+                    if (n * 0.5f + 0.5f > threshold) {
                         m = v.mat;
                         break;
                     }
@@ -88,7 +89,7 @@ bool Generator::isFloor(const World& w, int x, int y) const {
 }
 
 void Generator::placeVegetation(World& world) {
-    if (b_.vegetation <= 0.0f) return;
+    if (vegetation() <= 0.0f) return;
     for (int y = kBorder + 1; y < h_ - kBorder - 1; ++y) {
         for (int x = kBorder + 1; x < w_ - kBorder - 1; ++x) {
             if (!open_[idx(x, y)]) continue;
@@ -96,7 +97,7 @@ void Generator::placeVegetation(World& world) {
             MatId above = world.at(x, y - 1).mat;
             float n = noise::perlin(x * 0.04f, y * 0.04f, seed_ ^ 0xC0FEu);
             // Moss carpets on floors.
-            if (isSolidForCollision(below) && phaseOf(below) == Phase::Solid && n > 0.35f - b_.vegetation * 0.4f) {
+            if (isSolidForCollision(below) && phaseOf(below) == Phase::Solid && n > 0.35f - vegetation() * 0.4f) {
                 int thickness = 1 + static_cast<int>(hash2(x, y, seed_) % 3u);
                 for (int k = 1; k <= thickness; ++k) {
                     if (world.inBounds(x, y + k) && phaseOf(world.at(x, y + k).mat) == Phase::Solid &&
@@ -106,7 +107,7 @@ void Generator::placeVegetation(World& world) {
             }
             // Hanging strands from ceilings.
             if (isSolidForCollision(above) && phaseOf(above) == Phase::Solid && above != mat::Bedrock &&
-                (hash2(x, y, seed_ ^ 7u) % 1000u) < static_cast<uint32_t>(b_.vegetation * 70.0f)) {
+                (hash2(x, y, seed_ ^ 7u) % 1000u) < static_cast<uint32_t>(vegetation() * 70.0f)) {
                 int len = 3 + static_cast<int>(hash2(x, y, seed_ ^ 9u) % 14u);
                 MatId strand = (biome_ == BiomeId::Citrinitas || hash2(x, y, 3u) % 4u == 0) ? mat::GlowVine : mat::Vine;
                 for (int k = 0; k < len && world.inBounds(x, y + k) && world.at(x, y + k).mat == mat::Empty; ++k)
@@ -115,7 +116,7 @@ void Generator::placeVegetation(World& world) {
         }
     }
     // Glowcap mushrooms on floors.
-    int shrooms = static_cast<int>(40 * b_.vegetation);
+    int shrooms = static_cast<int>(40 * vegetation());
     for (int i = 0; i < shrooms; ++i) {
         int x = rng_.rangeInt(10, w_ - 10), y = rng_.rangeInt(10, h_ - 10);
         for (int k = 0; k < 40 && y < h_ - 10; ++k, ++y) {
@@ -250,7 +251,9 @@ float Generator::distanceToPath(Vec2 p) const {
 
 void Generator::placePools(World& world) {
     const bool molten = biome_ == BiomeId::Rubedo || biome_ == BiomeId::Athanor;
-    int attempts = molten ? 70 : 46;
+    const bool flooded = omen_ == Omen::Flooded;
+    const int baseAttempts = molten ? 70 : 46;
+    const int attempts = baseAttempts * (flooded ? 3 : 1);
     for (int i = 0; i < attempts; ++i) {
         int x = rng_.rangeInt(20, w_ - 20), y = rng_.rangeInt(120, h_ - 30);
         if (!isOpen(x, y)) continue;
@@ -258,12 +261,18 @@ void Generator::placePools(World& world) {
         int fy = y;
         while (fy < h_ - 10 && isOpen(x, fy + 1) && fy - y < 60) ++fy;
         if (isOpen(x, fy + 1)) continue;
+        // The flood's extra pools keep off the main route so it never becomes a long swim.
+        if (i >= baseAttempts && distanceToPath({static_cast<float>(x), static_cast<float>(fy)}) < 30.0f) continue;
         MatId liquid = pickWeighted(b_.pools, rng_);
         if (liquid == mat::Empty) continue;
         bool dangerous = liquid == mat::Lava || liquid == mat::Acid;
+        // A flood is water, even in the forge; a volatile stage keeps oil about.
+        if (flooded && dangerous) liquid = mat::Water;
+        if (omen_ == Omen::Volatile && rng_.chance(0.35f)) liquid = mat::Oil;
+        dangerous = liquid == mat::Lava || liquid == mat::Acid;
         if (dangerous && distanceToPath({static_cast<float>(x), static_cast<float>(fy)}) < 40.0f) liquid = mat::Water;
-        if (biome_ == BiomeId::Rubedo && liquid == mat::Water) liquid = mat::Oil;
-        int r = rng_.rangeInt(6, 15) + (molten && liquid == mat::Lava ? 5 : 0);
+        if (biome_ == BiomeId::Rubedo && liquid == mat::Water && !flooded) liquid = mat::Oil;
+        int r = rng_.rangeInt(6, 15) + (molten && liquid == mat::Lava ? 5 : 0) + (flooded ? 6 : 0);
         for (int dy = -r; dy <= r; ++dy)
             for (int dx = -r; dx <= r; ++dx)
                 if (dx * dx + dy * dy <= r * r) world.placeIfEmpty(x + dx, fy - r + dy, liquid);
@@ -282,14 +291,16 @@ void Generator::placePools(World& world) {
 }
 
 void Generator::placePowders(World& world) {
-    int attempts = 28;
+    const bool volatileOmen = omen_ == Omen::Volatile;
+    const int attempts = volatileOmen ? 120 : 28;
     for (int i = 0; i < attempts; ++i) {
         int x = rng_.rangeInt(20, w_ - 20), y = rng_.rangeInt(80, h_ - 30);
         if (!isOpen(x, y)) continue;
         if (distanceToPath({static_cast<float>(x), static_cast<float>(y)}) < 30.0f) continue;
         MatId powder = pickWeighted(b_.powders, rng_);
+        if (volatileOmen && rng_.chance(0.6f)) powder = mat::Gunpowder;
         if (powder == mat::Empty) continue;
-        int r = rng_.rangeInt(4, 10);
+        int r = rng_.rangeInt(4, 10) + (volatileOmen ? 2 : 0);
         for (int dy = -r; dy <= r; ++dy)
             for (int dx = -r; dx <= r; ++dx)
                 if (dx * dx + dy * dy <= r * r) world.placeIfEmpty(x + dx, y + dy, powder);

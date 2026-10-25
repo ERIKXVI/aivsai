@@ -170,6 +170,7 @@ void GameScene::drawHud() {
     // Gold and stage.
     ui::text(TextFormat("%d gold", run_.gold), sw - 10.0f * s, 10.0f * s, size, ui::color::kGold, ui::Align::Right);
     std::string stage = run_.inSanctum ? "Sanctum" : std::string(stageNumeral(run_.levelIndex)) + ". " + biomeDef(level_->biome()).name;
+    if (const Omen omen = level_->layout().omen; omen != Omen::None) stage += std::string(" - ") + omenDef(omen).name;
     ui::text(stage, sw - 10.0f * s, 10.0f * s + static_cast<float>(size) + 2.0f * s, small, ui::color::kTextDim, ui::Align::Right);
     if (!level_->isSanctum() && mode_ != Mode::Map)
         minimap_.drawCorner(*level_, sw, 10.0f * s + static_cast<float>(size + small) + 8.0f * s, time_);
@@ -237,8 +238,11 @@ void GameScene::drawTitleCard() {
     const int s = ui::scale();
     unsigned char alpha = static_cast<unsigned char>(255.0f * clamp(a, 0.0f, 1.0f));
     ui::text(titleMain_, sw * 0.5f, sh * 0.22f, ui::fontSize(s * 3), Color{240, 226, 200, alpha}, ui::Align::Center);
-    ui::text(titleSub_, sw * 0.5f, sh * 0.22f + static_cast<float>(ui::fontSize(s * 3)) + 6.0f * s, ui::fontSize(s + 1),
-             Color{190, 170, 220, alpha}, ui::Align::Center);
+    const float subY = sh * 0.22f + static_cast<float>(ui::fontSize(s * 3)) + 6.0f * s;
+    ui::text(titleSub_, sw * 0.5f, subY, ui::fontSize(s + 1), Color{190, 170, 220, alpha}, ui::Align::Center);
+    if (!titleOmen_.empty())
+        ui::text(titleOmen_, sw * 0.5f, subY + static_cast<float>(ui::fontSize(s + 1)) * 1.5f, ui::fontSize(s), Color{235, 190, 110, alpha},
+                 ui::Align::Center);
 }
 
 void GameScene::drawControlsHint() {

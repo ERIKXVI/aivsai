@@ -14,6 +14,19 @@ namespace pm {
 class World;
 class ThreadPool;
 
+/// A stage's omen: an occasional twist on its biome, announced on the title card.
+enum class Omen : uint8_t { None, Flooded, Overgrown, Volatile, Gilded, Teeming, Count };
+
+struct OmenDef {
+    const char* name;
+    const char* description;
+};
+
+const OmenDef& omenDef(Omen omen);
+/// The omen of a stage, decided by its level seed. The first stage only draws gentle omens
+/// and less often; the Athanor never has one.
+Omen omenFor(int levelIndex, uint32_t levelSeed);
+
 enum class SpawnKind : uint8_t { GroundEnemy, AirEnemy, Chest, Potion, Spell, Lantern, Altar, Transmuter, Wand, Guardian };
 
 struct SpawnPoint {
@@ -32,6 +45,7 @@ struct LevelLayout {
     std::vector<Vec2> mainPath;       ///< polyline of the guaranteed route
     std::vector<SpawnPoint> spawns;
     std::vector<Rectf> vaults;        ///< outer bounds of the set-piece rooms
+    Omen omen = Omen::None;
     int surfaceY = -1;                ///< > 0 when the level opens onto the sky
     std::vector<int> skyline;         ///< per column: first ground row (surface levels only)
 };

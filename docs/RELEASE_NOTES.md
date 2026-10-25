@@ -7,10 +7,12 @@ switches to a window.
 
 - Every pixel is simulated matter: sand, water, oil, lava, acid, gunpowder, fire, steam and more.
 - Build your own wands from 49 spell cards; modifiers, multicasts and trigger spells combine.
-- Five stages of the alchemical Great Work with vaults to discover, transmutation circles,
-  sanctums with shops and 22 perks, elite creatures and a multi-phase final boss.
-- Unlockable starting paths, a Grimoire of everything you have discovered, a Daily Rite
-  seed, three difficulties and an Alchemy Sandbox to experiment freely.
+- Five stages of the alchemical Great Work with vaults to discover, omens that twist a
+  stage (flooded, overgrown, volatile, gilded, teeming), transmutation circles, sanctums
+  with shops and 22 perks, elite creatures and a multi-phase final boss.
+- Unlockable starting paths, a Grimoire of everything you have discovered with a chronicle
+  of recent runs (replay any seed), a Daily Rite seed, three difficulties and an Alchemy
+  Sandbox to experiment freely.
 - A fog-of-war map, contextual hints for new players and a death screen that tells you
   what got you and how to avoid it.
 - All art, sound and music are generated procedurally by the game.

@@ -209,8 +209,13 @@ void GrimoirePanel::drawChronicle(App& app, float x, float y) {
     int hot = -1;
     bool mouseHot = false;
     for (size_t i = 0; i < p.history.size(); ++i) {
-        if (chronicleNav_.focused(static_cast<int>(i))) hot = static_cast<int>(i);
-        else if (hot < 0 && ui::hovered(rowRect(i))) hot = static_cast<int>(i), mouseHot = true;
+        if (chronicleNav_.focused(static_cast<int>(i))) {
+            hot = static_cast<int>(i);
+            mouseHot = false;
+        } else if (hot < 0 && ui::hovered(rowRect(i))) {
+            hot = static_cast<int>(i);
+            mouseHot = true;
+        }
     }
     if (hot >= 0) {
         DrawRectangleRec(rowRect(static_cast<size_t>(hot)), Color{170, 130, 255, 40});

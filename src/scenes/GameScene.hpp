@@ -69,7 +69,7 @@ private:
     float loadTimer_ = 0.0f;     ///< seconds spent on the loading screen
     bool exiting_ = false;       ///< fading out towards the next stage
     float titleTimer_ = 0.0f;
-    std::string titleMain_, titleSub_;
+    std::string titleMain_, titleSub_, titleOmen_;
     float endTimer_ = 0.0f;
     float time_ = 0.0f;
     float slowMo_ = 1.0f;

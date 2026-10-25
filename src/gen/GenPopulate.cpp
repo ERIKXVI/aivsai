@@ -127,6 +127,10 @@ void Generator::collectSpawns(const World& world, LevelLayout& out) {
 
     int groundTarget = 16 + level_ * 4;
     int airTarget = 7 + level_ * 2;
+    if (omen_ == Omen::Teeming) {
+        groundTarget = groundTarget * 4 / 3;
+        airTarget = airTarget * 4 / 3;
+    }
     int tries = 0;
     int ground = 0, air = 0;
     while ((ground < groundTarget || air < airTarget) && tries++ < 6000) {
@@ -168,6 +172,11 @@ void Generator::collectSpawns(const World& world, LevelLayout& out) {
     }
     for (const Vec2& p : pockets_) placeOnFloor(rng_.chance(0.5f) ? SpawnKind::Spell : SpawnKind::Potion, p, 12.0f);
     placeOnFloor(SpawnKind::Chest, path_[path_.size() / 2], 60.0f);
+    // Rich omens leave extra chests along the way.
+    if (omen_ == Omen::Teeming || omen_ == Omen::Gilded) {
+        placeOnFloor(SpawnKind::Chest, path_[path_.size() / 4], 60.0f);
+        placeOnFloor(SpawnKind::Chest, path_[path_.size() * 3 / 4], 60.0f);
+    }
 
     // Lanterns along the main path help orientation in the dark.
     for (size_t i = 0; i + 1 < path_.size(); ++i) {

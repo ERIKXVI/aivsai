@@ -3,6 +3,7 @@
 // LevelGenerator.cpp drives the pipeline; GenCarve.cpp shapes the open space, GenDress.cpp
 // paints and furnishes it, and GenPopulate.cpp places spawns, transmuters and vaults.
 
+#include <algorithm>
 #include <array>
 #include <vector>
 
@@ -42,6 +43,8 @@ private:
     bool inBounds(int x, int y) const { return x >= 0 && y >= 0 && x < w_ && y < h_; }
     bool isOpen(int x, int y) const { return inBounds(x, y) && open_[idx(x, y)] != 0; }
     bool aboveGround(int x, int y) const { return surface_ && y < skyline_[static_cast<size_t>(x)]; }
+    /// Vegetation density after the omen (an overgrown stage is far greener).
+    float vegetation() const { return omen_ == Omen::Overgrown ? std::min(1.0f, b_.vegetation + 0.45f) : b_.vegetation; }
 
     // Shaping the open space (GenCarve.cpp).
     void carveCircle(float cx, float cy, float r, float roughness = 0.0f);
@@ -96,6 +99,7 @@ private:
     std::vector<Vec2> pockets_;
     Vec2 start_, exit_;
     bool surface_ = false;
+    Omen omen_ = Omen::None;
     int surfaceY_ = 0;
     Rectf arena_{0.0f, 0.0f, 0.0f, 0.0f}; ///< boss arena centre (x, y) and radii (w, h)
     std::vector<int> skyline_;

@@ -73,6 +73,7 @@ void GameScene::finishLoading() {
     else if (app_.options().openUi == "pause") mode_ = Mode::Paused;
     exiting_ = false;
     titleTimer_ = 4.0f;
+    titleOmen_.clear();
     if (run_.inSanctum) {
         // Sanctums restore the alchemist completely.
         run_.hp = run_.maxHp;
@@ -83,6 +84,10 @@ void GameScene::finishLoading() {
         const BiomeDef& b = biomeDef(level_->biome());
         titleMain_ = std::string(stageNumeral(run_.levelIndex)) + "  " + b.name;
         titleSub_ = b.subtitle;
+        if (const Omen omen = level_->layout().omen; omen != Omen::None) {
+            titleOmen_ = std::string("Omen: ") + omenDef(omen).name + ". " + omenDef(omen).description;
+            if (app_.options().autoplay) logAutoplay(TextFormat("stage %d omen %s", run_.levelIndex, omenDef(omen).name));
+        }
     }
     run_.stats.deepest = std::max(run_.stats.deepest, run_.levelIndex + 1);
     // Every stage start is a resume point.

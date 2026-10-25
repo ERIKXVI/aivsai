@@ -53,6 +53,8 @@ Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-p
 - **The flask** absorbs any liquid or powder (`Q`) and pours it back out (right mouse): carry
   water to douse fires, acid to dissolve walls, oil to set traps. Drinking has effects too -
   Vitae heals.
+- **Omens** twist some stages: a *Flooded* cavern, an *Overgrown* one, a *Volatile* mine
+  stocked with black powder, *Gilded* walls or a *Teeming* stage full of creatures and loot.
 - **Vaults** hide off the main route: an alchemist's laboratory with a brimming cauldron, a
   powder magazine waiting for a spark, a flooded crypt, a guarded treasury and a healing
   spring.
@@ -111,8 +113,9 @@ behaviours (including a worm that tunnels through rock and a multi-phase boss); 
 
 **Generation (`src/gen`).** Levels combine domain-warped noise caves with a guaranteed
 winding route, chambers, branches, biome materials, vegetation, structures and pools, then
-pre-simulate so liquids and sand settle before you arrive. A flow-field navigation grid
-verifies every level is traversable (and drives the test bot).
+pre-simulate so liquids and sand settle before you arrive; omens reweight those passes to
+flood, overgrow or gild a stage. A flow-field navigation grid verifies every level is
+traversable (and drives the test bot).
 
 **Audio (`src/audio`).** An sfxr-style synthesizer renders all sound effects; music is
 generative - pads, bass, Karplus-Strong plucks and drums improvise in each biome's mode,

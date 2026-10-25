@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 
 #include "core/Rng.hpp"
 #include "core/ThreadPool.hpp"
@@ -15,7 +16,7 @@ namespace gen_detail {
 
 Generator::Generator(BiomeId biome, int levelIndex, uint32_t seed, const GenOptions& opt)
     : w_(opt.width), h_(opt.height), opt_(opt), biome_(biome), b_(biomeDef(biome)), level_(levelIndex),
-      seed_(seed), rng_(seed), surface_(levelIndex == 0) {
+      seed_(seed), rng_(seed), surface_(levelIndex == 0), omen_(omenFor(levelIndex, seed)) {
     // The first stage begins outdoors on the mountainside, so it gets extra sky above.
     if (surface_) h_ += kSkyRows;
 }
@@ -55,6 +56,7 @@ LevelLayout Generator::run(ThreadPool& pool) {
     out.playerStart = start_;
     out.exitPos = exit_;
     out.mainPath = path_;
+    out.omen = omen_;
     if (surface_) {
         out.skyline = skyline_;
         out.surfaceY = surfaceY_;
@@ -68,6 +70,31 @@ LevelLayout Generator::run(ThreadPool& pool) {
 } // namespace gen_detail
 
 using gen_detail::Generator;
+
+const OmenDef& omenDef(Omen omen) {
+    static constexpr OmenDef kOmens[] = {
+        {"", ""},
+        {"Flooded", "The waters have risen."},
+        {"Overgrown", "Life runs riot in the dark."},
+        {"Volatile", "The air smells of black powder."},
+        {"Gilded", "Gold glitters in the walls."},
+        {"Teeming", "Something stirs in every shadow, and guards its treasure."},
+    };
+    static_assert(std::size(kOmens) == static_cast<size_t>(Omen::Count));
+    return kOmens[static_cast<size_t>(omen) < std::size(kOmens) ? static_cast<size_t>(omen) : 0];
+}
+
+Omen omenFor(int levelIndex, uint32_t levelSeed) {
+    if (levelIndex >= 4) return Omen::None;
+    const uint32_t h = hash32(levelSeed ^ 0x0E1Eu), pick = hashCombine(h, 1u);
+    if (levelIndex <= 0) {
+        // The first stage is a first impression: only gentle omens, and only sometimes.
+        static constexpr Omen kGentle[] = {Omen::Flooded, Omen::Overgrown, Omen::Gilded};
+        return hashToUnit(h) < 0.25f ? kGentle[pick % std::size(kGentle)] : Omen::None;
+    }
+    if (hashToUnit(h) >= 0.45f) return Omen::None;
+    return static_cast<Omen>(1 + pick % (static_cast<uint32_t>(Omen::Count) - 1));
+}
 
 LevelLayout generateLevel(BiomeId biome, int levelIndex, uint32_t seed, ThreadPool& pool, const GenOptions& options) {
     Generator gen(biome, levelIndex, seed, options);

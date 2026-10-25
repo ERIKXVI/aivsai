@@ -1,4 +1,8 @@
-// Level generation: every biome, several seeds, must have a traversable main route.
+// Level generation: every biome, several seeds, must have a traversable main route; omens
+// follow their rules and stay traversable too.
+#include <array>
+#include <cstring>
+
 #include "core/ThreadPool.hpp"
 #include "gen/LevelGenerator.hpp"
 #include "sim/World.hpp"
@@ -46,4 +50,33 @@ TEST_CASE("sanctum has start, exit and shop slots") {
     for (const auto& sp : s.spawns)
         if (sp.kind == SpawnKind::Spell) ++shop;
     CHECK(shop >= 3);
+}
+
+TEST_CASE("omens follow their rules and keep the route open") {
+    std::array<int, static_cast<size_t>(Omen::Count)> seen{};
+    for (uint32_t seed = 1; seed <= 600; ++seed) {
+        CHECK(omenFor(4, seed) == Omen::None); // the Athanor is never touched
+        const Omen first = omenFor(0, seed);
+        CHECK(first == Omen::None || first == Omen::Flooded || first == Omen::Overgrown || first == Omen::Gilded);
+        CHECK(omenFor(2, seed) == omenFor(2, seed));
+        seen[static_cast<size_t>(omenFor(2, seed))]++;
+    }
+    for (int count : seen) CHECK(count > 0); // every omen (and none) occurs
+    for (int i = 1; i < static_cast<int>(Omen::Count); ++i) CHECK(std::strlen(omenDef(static_cast<Omen>(i)).name) > 0);
+
+    // One stage of each omen must still be traversable.
+    initMaterials();
+    ThreadPool pool;
+    std::array<bool, static_cast<size_t>(Omen::Count)> generated{};
+    generated[0] = true;
+    for (uint32_t seed = 1; seed <= 200; ++seed) {
+        const Omen omen = omenFor(2, seed);
+        if (generated[static_cast<size_t>(omen)]) continue;
+        generated[static_cast<size_t>(omen)] = true;
+        LevelLayout layout = generateLevel(biomeForDepth(2), 2, seed, pool);
+        CHECK(layout.omen == omen);
+        const bool ok = pathExists(*layout.world, layout.playerStart, layout.exitPos);
+        if (!ok) std::printf("    blocked: %s stage, seed %u\n", omenDef(omen).name, seed);
+        CHECK(ok);
+    }
 }

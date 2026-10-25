@@ -47,6 +47,10 @@ The descent follows the four stages of the alchemical Great Work:
   an alchemist's laboratory with a cauldron, a powder magazine, a flooded crypt, a
   guarded treasury and a healing spring. Their passages are validated against the
   navigation grid so they are always reachable.
+- **Omens** give some stages a twist, announced on the title card: *Flooded*,
+  *Overgrown*, *Volatile* (powder and oil everywhere), *Gilded* (rich gold veins and extra
+  chests) or *Teeming* (more creatures, more treasure). The first stage only draws gentle
+  omens and the Athanor none.
 - **Transmutation circles** crave a material; pour enough of it in with the flask to
   earn a perk. They teach the flask by rewarding it.
 - **Sanctums** between stages heal fully and offer a shop (three spells and a wand,
