@@ -32,6 +32,7 @@ constexpr std::array<FeatDef, kFeatCount> kFeats = {{
     {"Pathfinder", "Unlock a new starting path."},
     {"Polymath", "Discover 25 spells."},
     {"Not a Chest", "Slay a mimic."},
+    {"Quintessence", "Complete the Great Work holding all four guardians' essences."},
 }};
 
 } // namespace

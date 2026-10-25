@@ -168,6 +168,7 @@ TEST_CASE("suspended runs survive a save and load") {
     run.killsByType[3] = 9;
     run.wands[0].name = "Staff of the Rebis";
     run.ordeal = 4;
+    run.essences = 0b0101;
 
     const auto path = std::filesystem::temp_directory_path() / "pm_test_run.sav";
     writeRunSave(run, path);
@@ -175,7 +176,7 @@ TEST_CASE("suspended runs survive a save and load") {
     CHECK(loaded.has_value());
     if (loaded) {
         const RunState& r = *loaded;
-        CHECK(r.seed == run.seed && r.difficulty == run.difficulty && r.loadout == run.loadout && r.ordeal == 4);
+        CHECK(r.seed == run.seed && r.difficulty == run.difficulty && r.loadout == run.loadout && r.ordeal == 4 && r.essences == 0b0101);
         CHECK(r.levelIndex == 3 && r.inSanctum && r.gold == 777 && r.activeWand == 1);
         CHECK(r.hp == run.hp && r.maxHp == run.maxHp);
         CHECK(r.wands.size() == run.wands.size());
@@ -554,6 +555,26 @@ TEST_CASE("ordeals stack their rules and open one at a time") {
     RunHistoryEntry back;
     CHECK(decodeHistoryEntry(encodeHistoryEntry(e), back) && back.ordeal == 3 && back.fate == e.fate);
     CHECK(decodeHistoryEntry("7|0|1|2|0|0|0|100|5|orbited by bats", back) && back.ordeal == 0 && back.fate == "orbited by bats");
+}
+
+TEST_CASE("slaying all four guardians gathers the Quintessence") {
+    initMaterials();
+    ThreadPool pool(2);
+    Audio audio;
+    RunState run = newRun(14, Difficulty::Adept, false);
+    Level level(generateSanctum(0, 14u, pool), run, audio, pool);
+    const Vec2 near = level.player().body.pos + Vec2{40.0f, -10.0f};
+    for (int stage = 0; stage < 4; ++stage) {
+        CHECK(!run.quintessence());
+        CHECK(guardianStage(guardianFor(stage)) == stage);
+        Enemy& g = level.spawnEnemy(guardianFor(stage), near);
+        g.applyDamage(level, {1.0e7f, DamageType::Physical, {}, Team::Player, false, false, "test"});
+        CHECK(run.essences == (1u << (stage + 1)) - 1u);
+    }
+    CHECK(run.quintessence());
+    CHECK(guardianStage(EnemyType::Slime) == -1);
+    const std::vector<FeatId> feats = level.takeFeats();
+    CHECK(std::find(feats.begin(), feats.end(), FeatId::RedColossus) != feats.end());
 }
 
 TEST_CASE("stage lanterns hang from solid ceilings, not pooled steam") {

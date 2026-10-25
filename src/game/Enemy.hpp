@@ -74,6 +74,10 @@ const EnemyDef& enemyDef(EnemyType type);
 Color enemyTint(EnemyType type);
 /// The guardian whose lair lies on this stage.
 EnemyType guardianFor(int levelIndex);
+/// The stage (0-3) whose lair `type` keeps, or -1 for any other creature.
+int guardianStage(EnemyType type);
+/// The colour of the essence the guardian of stage `stage` (0-3) yields: mire, frost, gold, fire.
+uint32_t essenceColor(int stage);
 /// A guardian's title for its introduction ("Keeper of the Mire"); empty for other creatures.
 const char* guardianEpithet(EnemyType type);
 /// The creature with this display name (e.g. a recorded death cause), if there is one.

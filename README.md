@@ -76,7 +76,9 @@ Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-p
   spring.
 - **Guardians:** each of the first four stages hides a lair, marked on the map, where a giant
   keeps a hoard - the Black Toad, the White Wraith, the Mine King and the Red Colossus. The
-  fight is optional; win it and the guardian's essence becomes a perk.
+  fight is optional; win it and the guardian's essence becomes a perk and circles you. Gather
+  all four essences in one run (the sockets under the stage name) and completing the Work
+  earns the *Quintessence* ending.
 - **Sanctums** between stages fully heal you and offer a shop and a choice of perks
   (22 perks, from *Salamander Skin* to a homunculus companion).
 - **Save & Quit** from the pause menu (or just close the window) and *Continue the Work*
@@ -91,7 +93,7 @@ Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-p
   *Cruel Blows*, *Restless Mountain*, *Frail Flesh* and *Wrathful Keepers*. Each keeps the
   rules of those beneath it; complete the Work under the highest one open to unlock the next.
 - **The Grimoire** records every spell discovered, creature slain and perk taken across all
-  of your runs, the 24 *feats* you have earned (from *First Blood* to *Archmage*, each
+  of your runs, the 25 *feats* you have earned (from *First Blood* to *Archmage*, each
   announced the moment it is won), and its chronicle remembers how your last ten runs
   ended; choose one to replay its seed.
 - The **Alchemy Sandbox** on the title screen lets you paint every material freely.

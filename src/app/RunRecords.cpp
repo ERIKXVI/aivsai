@@ -229,6 +229,7 @@ void writeRunSave(const RunState& r, const fs::path& path) {
                   std::to_string(r.stats.chestsOpened) + "," + num(r.stats.damageDealt) + "," + num(r.stats.damageTaken);
     kv["spells_seen"] = std::to_string(r.spellsSeen);
     kv["kills_by_type"] = list(r.killsByType);
+    kv["essences"] = std::to_string(r.essences);
     writeKeyValues(path, kv);
 }
 
@@ -287,6 +288,8 @@ std::optional<RunState> readRunSave(const fs::path& path) {
         return std::nullopt;
 
     const std::vector<std::string> kills = split(get("kills_by_type"), ',');
+    // Saves from before essences carry none.
+    if (!get("essences").empty() && !parseInt(get("essences"), r.essences, 0, RunState::kAllEssences)) return std::nullopt;
     if (kills.size() > r.killsByType.size()) return std::nullopt; // older saves know fewer creatures
     for (size_t i = 0; i < kills.size(); ++i)
         if (!parseInt(kills[i], r.killsByType[i], 0, 1 << 30)) return std::nullopt;

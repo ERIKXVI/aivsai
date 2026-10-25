@@ -164,8 +164,10 @@ void GrimoirePanel::drawFeats(App& app, float x, float y) {
     const Profile& p = app.profile();
     const float s = static_cast<float>(ui::scale());
     const int small = ui::fontSize(std::max(1, ui::scale() - 1));
-    constexpr int kRows = 12;
-    const float colW = 210.0f * s, rowH = 16.0f * s;
+    // Three columns of nine leave room for every feat with a few slots to spare.
+    constexpr int kRows = 9;
+    static_assert(kFeatCount <= 3 * kRows, "the feats page holds three columns");
+    const float colW = 140.0f * s, rowH = 17.0f * s;
     int hovered = -1;
     for (int i = 0; i < kFeatCount; ++i) {
         const FeatDef& def = featDef(static_cast<FeatId>(i));

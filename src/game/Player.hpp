@@ -46,6 +46,7 @@ private:
     void handleWands(Level& level);
     void handleFlask(Level& level);
     void collectGold(Level& level);
+    void drawEssences(DrawContext& ctx, Vec2 p) const;
 
     RunState& run_;
     PlayerInput input_;

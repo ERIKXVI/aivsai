@@ -48,6 +48,7 @@ private:
     void earnFeat(FeatId feat);
     void updateFeats(float dt);
     void drawFeatToast();
+    void drawEssences(float right, float y) const;
     void updateEditorPad();
     /// Drops the dragged spell onto a wand slot (wand >= 0) or satchel slot (wand -1), swapping.
     void dropDragOnto(int wand, int slot);

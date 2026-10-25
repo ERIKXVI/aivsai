@@ -32,6 +32,7 @@ enum class FeatId : uint8_t {
     Pathfinder,
     Polymath,
     Mimic,
+    Quintessence,
     Count
 };
 

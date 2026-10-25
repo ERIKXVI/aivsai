@@ -61,6 +61,10 @@ struct RunState {
     RunStats stats;
     uint64_t spellsSeen = 0;            ///< discoveries this run, merged into the profile
     std::array<int, kMaxCreatureTypes> killsByType{}; ///< indexed by EnemyType
+    uint8_t essences = 0; ///< bit i: the guardian of stage i slain this run (all four: the Quintessence)
+
+    static constexpr uint8_t kAllEssences = 0xF;
+    bool quintessence() const { return essences == kAllEssences; }
 
     void noteSpell(SpellId s) { spellsSeen |= 1ull << static_cast<unsigned>(s); }
     void noteWand(const Wand& w) {

@@ -2,6 +2,7 @@
 // simulated world, plus props that come down once it is reshaped beneath them.
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <queue>
 
@@ -414,7 +415,15 @@ void Level::onEnemyKilled(Enemy& e) {
         if (rng_.chance(0.06f)) pickups_.push_back(makeHeart(e.body.pos));
         if (d.guardian) {
             // A guardian's essence passes to the alchemist as a perk, if they lived to claim it.
-            if (player_->alive()) grantPerk(rollPerk({}), "A guardian's essence");
+            // Gathered from all four keepers in one run, the essences make the Quintessence.
+            if (player_->alive()) {
+                grantPerk(rollPerk({}), "A guardian's essence");
+                if (const int stage = guardianStage(e.type()); stage >= 0) run_.essences |= static_cast<uint8_t>(1u << stage);
+                const int held = std::popcount(static_cast<unsigned>(run_.essences));
+                addFloatText(e.body.pos - Vec2{0.0f, e.body.halfH + 18.0f},
+                             held == 4 ? std::string("The Quintessence is yours!") : "Essence " + std::to_string(held) + " of 4", 0xfff0c0,
+                             1.2f);
+            }
             addFloatText(e.body.pos - Vec2{0.0f, e.body.halfH + 8.0f}, std::string(d.name) + " falls!", 0xffd27a, 1.4f);
             addFlash(e.body.pos, 0xffe0a0, 2.5f, 120.0f, 0.4f);
             audio_.play(Sfx::Roar, 0.9f, 0.6f);

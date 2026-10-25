@@ -76,6 +76,17 @@ EnemyType guardianFor(int levelIndex) {
     return kGuardians[clamp(levelIndex, 0, 3)];
 }
 
+int guardianStage(EnemyType type) {
+    for (int i = 0; i < 4; ++i)
+        if (guardianFor(i) == type) return i;
+    return -1;
+}
+
+uint32_t essenceColor(int stage) {
+    static constexpr uint32_t kColors[] = {0x7ad070, 0xc8f0ff, 0xffd060, 0xff6a48};
+    return kColors[clamp(stage, 0, 3)];
+}
+
 const char* guardianEpithet(EnemyType type) {
     switch (type) {
     case EnemyType::BlackToad: return "Keeper of the Mire";

@@ -221,8 +221,9 @@ void GameScene::drawHud() {
     std::string stage = run_.inSanctum ? "Sanctum" : std::string(stageNumeral(run_.levelIndex)) + ". " + biomeDef(level_->biome()).name;
     if (const Omen omen = level_->layout().omen; omen != Omen::None) stage += std::string(" - ") + omenDef(omen).name;
     ui::text(stage, sw - 10.0f * s, 10.0f * s + static_cast<float>(size) + 2.0f * s, small, ui::color::kTextDim, ui::Align::Right);
-    if (!level_->isSanctum() && mode_ != Mode::Map)
-        minimap_.drawCorner(*level_, sw, 10.0f * s + static_cast<float>(size + small) + 8.0f * s, time_);
+    const float essenceY = 10.0f * s + static_cast<float>(size + small) + 8.0f * s;
+    drawEssences(sw - 10.0f * s, essenceY);
+    if (!level_->isSanctum() && mode_ != Mode::Map) minimap_.drawCorner(*level_, sw, essenceY + 8.0f * s, time_);
 
     // Wands and the active deck.
     const float icon = 13.0f * s;
@@ -277,6 +278,21 @@ void GameScene::drawHud() {
         Rectangle r{(sw - bw) * 0.5f, 14.0f * s, bw, 6.0f * s};
         ui::text(boss->def().name, sw * 0.5f, r.y - static_cast<float>(small) - 2.0f, small, Color{255, 220, 140, 255}, ui::Align::Center);
         ui::bar(r, boss->hp / boss->maxHp, Color{220, 160, 40, 255});
+    }
+}
+
+void GameScene::drawEssences(float right, float y) const {
+    // The guardians' essences gathered this run: four sockets, each lit as its keeper falls;
+    // all four (the Quintessence) shimmer.
+    const float s = static_cast<float>(ui::scale());
+    const float r = 3.0f * s, gap = 9.0f * s;
+    for (int i = 0; i < 4; ++i) {
+        const bool held = (run_.essences >> i) & 1u;
+        const Vector2 c{right - r - static_cast<float>(3 - i) * gap, y};
+        Color color = held ? hexColor(essenceColor(i)) : Color{46, 40, 56, 255};
+        if (held && run_.quintessence()) color = ColorBrightness(color, 0.25f * std::sin(time_ * 4.0f + static_cast<float>(i)));
+        DrawPoly(c, 4, r + s, 0.0f, Color{12, 8, 18, 220});
+        DrawPoly(c, 4, r, 0.0f, color);
     }
 }
 
@@ -633,11 +649,14 @@ void GameScene::drawEndScreen(bool victory) {
     unsigned char al = static_cast<unsigned char>(255.0f * a);
     const int font = ui::fontSize(ui::scale());
     const float fontH = static_cast<float>(font);
-    const char* title = victory ? "MAGNUM OPUS" : "THE WORK IS UNDONE";
-    const char* sub = victory ? "The Prima Materia is perfected. You have become the Stone."
-                              : "Your matter returns to the prima materia...";
-    ui::text(title, sw * 0.5f, sh * 0.2f, ui::fontSize(ui::scale() * 3), victory ? Color{255, 220, 120, al} : Color{230, 80, 80, al},
-             ui::Align::Center);
+    // Gathering all four guardians' essences on the way crowns the Work with the Quintessence.
+    const bool perfected = victory && run_.quintessence();
+    const char* title = perfected ? "THE QUINTESSENCE" : victory ? "MAGNUM OPUS" : "THE WORK IS UNDONE";
+    const char* sub = perfected ? "Four essences and the Stone made one: the fifth element is yours."
+                      : victory ? "The Prima Materia is perfected. You have become the Stone."
+                                : "Your matter returns to the prima materia...";
+    const Color titleColor = perfected ? Color{235, 245, 255, al} : victory ? Color{255, 220, 120, al} : Color{230, 80, 80, al};
+    ui::text(title, sw * 0.5f, sh * 0.2f, ui::fontSize(ui::scale() * 3), titleColor, ui::Align::Center);
     const float subY = sh * 0.2f + static_cast<float>(ui::fontSize(ui::scale() * 3)) + 8.0f * s;
     ui::text(sub, sw * 0.5f, subY, font, Color{210, 200, 220, al}, ui::Align::Center);
     if (!victory && level_) {

@@ -49,7 +49,10 @@ The descent follows the four stages of the alchemical Great Work:
   navigation grid so they are always reachable.
 - **Guardians' lairs** (one on each of stages I-IV) are larger vaults holding an optional
   mini-boss: a giant of the stage's own kind, too big for the door and leashed to its
-  hall, so the fight is always the player's choice. The Black Toad leaps with quakes and
+  hall, so the fight is always the player's choice. Each slain keeper also yields its
+  essence: four sockets under the stage name track them and the gathered ones orbit the
+  alchemist; holding all four when the Rebis falls crowns the run with the Quintessence
+  ending (and a feat). The Black Toad leaps with quakes and
   sheds slimes, the White Wraith looses fans of ice, the Mine King lobs dynamite and the
   Red Colossus slams and hurls fire. Below half health they enrage; slain, they grant a
   perk, and their hoard (a wand, chests, gold) waits on a dais behind them. Lairs are

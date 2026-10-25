@@ -459,6 +459,8 @@ void Player::drawAlbedo(DrawContext& ctx) const {
         }
     }
 
+    drawEssences(ctx, p);
+
     // The wand: a line of pixels from the hand towards the cursor, gem at the tip.
     if (!run_.wands.empty()) {
         const Wand& w = run_.wands[static_cast<size_t>(run_.activeWand)];
@@ -472,6 +474,24 @@ void Player::drawAlbedo(DrawContext& ctx) const {
     }
 }
 
+void Player::drawEssences(DrawContext& ctx, Vec2 p) const {
+    // Each guardian's essence gathered this run circles the alchemist (in both layers, so
+    // the mote is seen and also glows).
+    for (int i = 0; i < 4; ++i) {
+        if (!((run_.essences >> i) & 1u)) continue;
+        const float a = animTime_ * 1.6f + static_cast<float>(i) * kTau * 0.25f;
+        const Vector2 m = ctx.scene.layerPos(p + Vec2{std::cos(a) * 11.0f, std::sin(a) * 5.0f - 2.0f});
+        const int x = static_cast<int>(std::floor(m.x)), y = static_cast<int>(std::floor(m.y));
+        const Color c = hexColor(essenceColor(i));
+        const Color halo{c.r, c.g, c.b, 110};
+        DrawPixel(x, y, c);
+        DrawPixel(x - 1, y, halo);
+        DrawPixel(x + 1, y, halo);
+        DrawPixel(x, y - 1, halo);
+        DrawPixel(x, y + 1, halo);
+    }
+}
+
 void Player::drawEmission(DrawContext& ctx) const {
     const Vec2 p = body.interpolated(ctx.alpha);
     SpriteId sprite = body.onGround ? (std::fabs(body.vel.x) > 8.0f ? SpriteId::PlayerRun : SpriteId::PlayerIdle)
@@ -480,6 +500,7 @@ void Player::drawEmission(DrawContext& ctx) const {
     Vector2 lp = ctx.scene.layerPos({p.x - info.w * 0.5f, p.y + body.halfH - static_cast<float>(info.h)});
     int frame = sprite == SpriteId::PlayerRun ? static_cast<int>(animTime_ * 11.0f) % 4 : 0;
     ctx.sprites.drawEmissive(sprite, frame, lp, !facingRight_);
+    drawEssences(ctx, p);
     if (!run_.wands.empty()) {
         const Wand& w = run_.wands[static_cast<size_t>(run_.activeWand)];
         Vec2 tip = Vec2{p.x + (facingRight_ ? 1.5f : -1.5f), p.y + 0.5f} + aimDir_ * static_cast<float>(w.length);

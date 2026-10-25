@@ -500,7 +500,7 @@ void GameScene::render(float alpha) {
 void GameScene::recordProfile(bool victory) {
     if (profileRecorded_) return;
     profileRecorded_ = true;
-    std::string fate = "Completed the Great Work";
+    std::string fate = run_.quintessence() ? "Perfected the Work" : "Completed the Great Work";
     if (!victory) fate = level_ && !level_->player().alive() ? deathCause(level_->player()) : "Abandoned the Work";
     if (fate.empty()) fate = "Perished";
     Profile scratch;
@@ -517,6 +517,7 @@ void GameScene::recordProfile(bool victory) {
     // Feats the ending earns.
     const bool died = level_ && !level_->player().alive();
     if (victory) earnFeat(FeatId::MagnumOpus);
+    if (victory && run_.quintessence()) earnFeat(FeatId::Quintessence);
     if (victory && run_.difficulty == Difficulty::Archmage) earnFeat(FeatId::Archmage);
     if (run_.daily && (victory || died)) earnFeat(FeatId::DailyRite);
     // Any path beyond the Apprentice's open, however it opened (an abandoned run included).

@@ -11,8 +11,9 @@ switches to a window.
   stage (flooded, overgrown, volatile, gilded, teeming), transmutation circles, sanctums
   with shops and 22 perks, elite creatures and a multi-phase final boss.
 - Four optional guardians - the Black Toad, the White Wraith, the Mine King and the Red
-  Colossus - each keeping a lair and a hoard; slay one to claim a perk.
-- Eight stacking Ordeals for after your first Great Work, unlockable starting paths, 24 feats to earn, a Grimoire of everything you have
+  Colossus - each keeping a lair and a hoard; slay one to claim a perk and its essence, and
+  gather all four in one run for the Quintessence ending.
+- Eight stacking Ordeals for after your first Great Work, unlockable starting paths, 25 feats to earn, a Grimoire of everything you have
   discovered with a chronicle of recent runs (replay any seed), a Daily Rite seed, three difficulties and an Alchemy
   Sandbox to experiment freely.
 - Found attack spells slot straight into your wand, and the wand editor guides your first
