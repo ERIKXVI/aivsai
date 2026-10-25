@@ -12,7 +12,7 @@ struct RunState;
 
 // Values are bit positions in the seen-mask. WandGuide is not a banner: it marks the wand
 // editor's guided first drop as done, and its text captions that guide.
-enum class Hint : uint8_t { Absorb, Satchel, Heal, Sanctum, Transmuter, Compass, Gold, Burning, EditWands, WandGuide, Lantern, Count };
+enum class Hint : uint8_t { Absorb, Satchel, Heal, Sanctum, Transmuter, Compass, Gold, Burning, EditWands, WandGuide, Lantern, Lair, Count };
 
 class HintTracker {
 public:

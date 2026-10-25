@@ -133,6 +133,10 @@ public:
     /// Pickup the player could interact with right now (or nullptr).
     const Pickup* focusedPickup() const;
     const Enemy* boss() const;
+    /// The nearest living lair guardian within `radius` of `pos`, if any.
+    const Enemy* nearestGuardian(Vec2 pos, float radius) const;
+    /// Whose health the HUD shows across the top: the Rebis, or a guardian in a fight nearby.
+    const Enemy* bossBarTarget() const;
     float playerHurtPulse() const { return hurtPulse_; }
 
     // --- Effects API --------------------------------------------------------------------

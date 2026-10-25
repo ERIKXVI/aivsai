@@ -54,6 +54,12 @@ void Level::populate() {
             if (guardians++ % 2 == 0) e.makeElite(rollAffix());
             break;
         }
+        case SpawnKind::LairGuardian: {
+            const EnemyType t = guardianFor(layout_.levelIndex);
+            const EnemyDef& d = enemyDef(t);
+            spawnEnemy(t, d.flying ? s.pos - Vec2{0.0f, 24.0f} : Vec2{s.pos.x, s.pos.y - d.halfH});
+            break;
+        }
         case SpawnKind::Wand: pickups_.push_back(makeWandPickup(s.pos - Vec2{0.0f, 6.0f}, makeRandomWand(std::min(4, tier + 1), rng_))); break;
         case SpawnKind::Chest: pickups_.push_back(makeChest(s.pos - Vec2{0.0f, 4.0f})); break;
         case SpawnKind::Potion:
@@ -153,6 +159,26 @@ const Enemy* Level::boss() const {
     for (const auto& e : enemies_)
         if (e->type() == EnemyType::Boss && e->alive()) return e.get();
     return nullptr;
+}
+
+const Enemy* Level::nearestGuardian(Vec2 pos, float radius) const {
+    const Enemy* best = nullptr;
+    float bestSq = radius * radius;
+    for (const auto& e : enemies_) {
+        if (!e->guardian() || !e->alive()) continue;
+        const float d = (e->body.pos - pos).lengthSq();
+        if (d < bestSq) {
+            bestSq = d;
+            best = e.get();
+        }
+    }
+    return best;
+}
+
+const Enemy* Level::bossBarTarget() const {
+    if (const Enemy* b = boss(); b && b->aggro()) return b;
+    const Enemy* g = nearestGuardian(player_->body.pos, 240.0f);
+    return g && g->aggro() ? g : nullptr;
 }
 
 void Level::tick(const PlayerInput& input) {

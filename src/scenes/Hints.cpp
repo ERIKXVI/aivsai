@@ -40,6 +40,8 @@ constexpr HintText kTexts[static_cast<int>(Hint::Count)] = {
      "Pick up the glowing spell with A and place it in the glowing slot with A"},
     {"Shoot a lantern down onto your foes - it shatters into burning oil",
      "Shoot a lantern down onto your foes - it shatters into burning oil"},
+    {"A guardian's lair: slay its keeper for a perk and a hoard - or leave it be, the fight is optional",
+     "A guardian's lair: slay its keeper for a perk and a hoard - or leave it be, the fight is optional"},
 };
 
 /// True when a satchel spell could go onto a wand right now.
@@ -149,6 +151,12 @@ void HintTracker::update(const Level& level, const RunState& run, float dt) {
     if (!seen(Hint::Gold) && nearby(world, player.center(), 20, [](MatId m) { return m == mat::GoldOre; })) {
         show(Hint::Gold);
         return;
+    }
+    if (!seen(Hint::Lair)) {
+        if (const Enemy* g = level.nearestGuardian(player.center(), 110.0f); g && !g->aggro()) {
+            show(Hint::Lair);
+            return;
+        }
     }
     if (!seen(Hint::Lantern) && lanternOverFoe(level)) {
         show(Hint::Lantern);

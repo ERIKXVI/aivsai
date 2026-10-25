@@ -1,6 +1,8 @@
 #include "game/Enemy.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <string>
 
 #include "core/Timing.hpp"
 #include "game/Level.hpp"
@@ -115,6 +117,7 @@ void Enemy::tick(Level& level) {
     case Behaviour::Boss: tickBoss(level, toPlayer, sees); break;
     case Behaviour::Companion: break;
     }
+    if (def_->guardian) tickGuardian(level, toPlayer, sees);
     if (dead) return;
 
     // Chilled creatures move sluggishly.
@@ -169,7 +172,74 @@ void Enemy::fireAt(Level& level, Vec2 target, SpellId spell, float spreadRad) {
     }
     angle += level.rng().range(-spreadRad, spreadRad);
     float dmgMul = (1.0f + 0.1f * static_cast<float>(level.layout().levelIndex)) * damageScale();
-    level.launch(l, origin, angle, team, id, dmgMul);
+    // A volley fans out around the aim (an enraged guardian adds two more).
+    const int shots = def_->volley > 1 ? def_->volley + (enraged_ ? 2 : 0) : 1;
+    for (int k = 0; k < shots; ++k) {
+        const float fan = (static_cast<float>(k) - static_cast<float>(shots - 1) * 0.5f) * 0.16f;
+        level.launch(l, origin, angle + fan, team, id, dmgMul);
+    }
+}
+
+void Enemy::tickGuardian(Level& level, Vec2 toPlayer, bool sees) {
+    Rng& rng = level.rng();
+    // A guardian keeps to its hall (it is spawned at the centre): the fight is the player's to
+    // seek, never one that follows them out through the door or a blasted wall.
+    constexpr float kLeashX = 54.0f, kLeashUp = 44.0f;
+    if (std::fabs(body.pos.x - home_.x) > kLeashX) {
+        body.pos.x = home_.x + sign(body.pos.x - home_.x) * kLeashX;
+        body.vel.x = 0.0f;
+    }
+    if (body.pos.y < home_.y - kLeashUp) {
+        body.pos.y = home_.y - kLeashUp;
+        body.vel.y = std::max(body.vel.y, 0.0f);
+    }
+    // Below half health a guardian is enraged: faster, quicker to strike, wider volleys.
+    if (!enraged_ && hp < maxHp * 0.5f) {
+        enraged_ = true;
+        level.audio().playAt(Sfx::Roar, body.pos, 0.9f, 0.8f);
+        level.addShake(0.4f);
+        level.addFloatText(body.pos - Vec2{0.0f, body.halfH + 6.0f}, std::string(def_->name) + " is enraged!", 0xff7050, 1.2f);
+    }
+    // Leaps end in a quake that knocks the alchemist about.
+    if (!flying) {
+        if (!body.onGround) {
+            airborne_ = true;
+            fallSpeed_ = std::max(fallSpeed_, body.vel.y);
+        } else if (airborne_) {
+            if (fallSpeed_ > 120.0f && def_->behaviour == Behaviour::Hopper) {
+                ExplosionSpec s;
+                s.radius = 14.0f;
+                s.damage = 14.0f;
+                s.power = 25;
+                s.team = Team::Monster;
+                s.knockback = 200.0f;
+                s.hurtsOwner = false;
+                s.cause = def_->name;
+                level.explode(body.feet(), s);
+                level.addShake(0.35f);
+            }
+            airborne_ = false;
+            fallSpeed_ = 0.0f;
+        }
+    }
+    // The toad sheds a brood of slimes at two thirds and one third of its health.
+    if (type_ == EnemyType::BlackToad) {
+        const int due = hp < maxHp * 0.33f ? 2 : (hp < maxHp * 0.66f ? 1 : 0);
+        while (broods_ < due) {
+            ++broods_;
+            for (int i = 0; i < 2; ++i) level.spawnEnemy(EnemyType::Slime, body.pos + Vec2{rng.range(-12.0f, 12.0f), -4.0f});
+            level.audio().playAt(Sfx::Squish, body.pos, 0.8f, 0.7f);
+        }
+    }
+    // The colossus hurls fire between its slams.
+    if (def_->behaviour == Behaviour::Brute && def_->attack != SpellId::None) {
+        guardTimer_ -= kTickDt;
+        const bool wants = aggro_ && sees && phase_ == 0 && toPlayer.length() > 40.0f && guardTimer_ <= 0.0f;
+        if (readyToFire(level, wants)) {
+            fireAt(level, level.player().body.pos, def_->attack, 0.06f);
+            guardTimer_ = attackCooldown();
+        }
+    }
 }
 
 bool Enemy::readyToFire(Level& level, bool wantsToFire) {
@@ -220,8 +290,8 @@ void Enemy::tickWalker(Level& level, Vec2 toPlayer, bool sees) {
     if (aggro_) {
         dir = sign(toPlayer.x);
         targetSpeed = speed;
-        if (def_->attack != SpellId::None) {
-            // Ranged walkers keep their distance and lob explosives.
+        if (def_->attack != SpellId::None && def_->behaviour == Behaviour::Walker) {
+            // Ranged walkers keep their distance and lob explosives (brutes close in to slam).
             if (dist < 55.0f) dir = -dir;
             else if (dist < 120.0f) targetSpeed = 0.0f;
             if (readyToFire(level, sees && attackTimer_ <= 0.0f && dist < 200.0f)) {
@@ -403,7 +473,7 @@ void Enemy::tickBrute(Level& level, Vec2 toPlayer, bool sees) {
         if (body.onGround) {
             phase_ = 0;
             ExplosionSpec s;
-            s.radius = 16.0f;
+            s.radius = 16.0f + 8.0f * static_cast<float>(def_->scale - 1);
             s.damage = 26.0f;
             s.power = 60;
             s.team = Team::Monster;
@@ -619,27 +689,39 @@ void Enemy::drawAlbedo(DrawContext& ctx) const {
     }
     const SpriteInfo& info = ctx.sprites.info(def_->sprite);
     const int frame = animFrame(ctx.time);
-    float top = flying || !segments.empty() ? p.y - info.h * 0.5f : p.y + body.halfH - static_cast<float>(info.h);
-    Vector2 lp = ctx.scene.layerPos({p.x - info.w * 0.5f, top});
+    const int sc = def_->scale;
+    const float w = static_cast<float>(info.w * sc), h = static_cast<float>(info.h * sc);
+    float top = flying || !segments.empty() ? p.y - h * 0.5f : p.y + body.halfH - h;
+    Vector2 lp = ctx.scene.layerPos({p.x - w * 0.5f, top});
     const bool flip = !facingRight_;
-    ctx.sprites.draw(def_->sprite, frame, lp, flip, tint);
+    // Giants (guardians) are drawn scaled; everything else at the sprite's own size.
+    auto draw = [&](Color c, bool silhouette) {
+        if (sc > 1) ctx.sprites.drawScaled(def_->sprite, frame, lp, sc, flip, c, false, silhouette);
+        else if (silhouette) ctx.sprites.drawSilhouette(def_->sprite, frame, lp, flip, c);
+        else ctx.sprites.draw(def_->sprite, frame, lp, flip, c);
+    };
+    draw(tint, false);
+    if (enraged_) {
+        const unsigned char a = static_cast<unsigned char>(50.0f + 40.0f * std::sin(ctx.time * 9.0f));
+        draw(Color{255, 60, 40, a}, true);
+    }
     if (elite_) {
         // The aura's hue tells the affix: embers, quicksilver or gold.
         const unsigned char a = static_cast<unsigned char>(60.0f + 40.0f * std::sin(ctx.time * 5.0f));
         Color aura{255, 200, 80, a};
         if (affix_ == Affix::Burning) aura = {255, 100, 40, a};
         else if (affix_ == Affix::Swift) aura = {140, 220, 255, a};
-        ctx.sprites.drawSilhouette(def_->sprite, frame, lp, flip, aura);
+        draw(aura, true);
     }
     if (windup_ > 0.0f) {
         // Telegraph: the creature brightens as its attack charges.
         const Color c = def_->glow ? hexColor(def_->glow) : Color{255, 240, 200, 255};
         const float charge = 1.0f - windup_ / 0.4f;
-        ctx.sprites.drawSilhouette(def_->sprite, frame, lp, flip, Color{c.r, c.g, c.b, static_cast<unsigned char>(60.0f + 150.0f * charge)});
+        draw(Color{c.r, c.g, c.b, static_cast<unsigned char>(60.0f + 150.0f * charge)}, true);
     }
-    if (hurtFlash > 0.0f) ctx.sprites.drawSilhouette(def_->sprite, frame, lp, flip, Color{255, 255, 255, 210});
-    else if (status.burning > 0.0f) ctx.sprites.drawSilhouette(def_->sprite, frame, lp, flip, Color{255, 120, 30, 100});
-    else if (status.shocked > 0.0f) ctx.sprites.drawSilhouette(def_->sprite, frame, lp, flip, Color{200, 220, 255, 150});
+    if (hurtFlash > 0.0f) draw(Color{255, 255, 255, 210}, true);
+    else if (status.burning > 0.0f) draw(Color{255, 120, 30, 100}, true);
+    else if (status.shocked > 0.0f) draw(Color{200, 220, 255, 150}, true);
 
 }
 
@@ -671,9 +753,12 @@ void Enemy::drawEmission(DrawContext& ctx) const {
         return;
     }
     const SpriteInfo& info = ctx.sprites.info(def_->sprite);
-    float top = flying || !segments.empty() ? p.y - info.h * 0.5f : p.y + body.halfH - static_cast<float>(info.h);
-    Vector2 lp = ctx.scene.layerPos({p.x - info.w * 0.5f, top});
-    ctx.sprites.drawEmissive(def_->sprite, animFrame(ctx.time), lp, !facingRight_);
+    const int sc = def_->scale;
+    const float w = static_cast<float>(info.w * sc), h = static_cast<float>(info.h * sc);
+    float top = flying || !segments.empty() ? p.y - h * 0.5f : p.y + body.halfH - h;
+    Vector2 lp = ctx.scene.layerPos({p.x - w * 0.5f, top});
+    if (sc > 1) ctx.sprites.drawScaled(def_->sprite, animFrame(ctx.time), lp, sc, !facingRight_, WHITE, true);
+    else ctx.sprites.drawEmissive(def_->sprite, animFrame(ctx.time), lp, !facingRight_);
 }
 
 void Enemy::addLights(DrawContext& ctx) const {
@@ -692,7 +777,7 @@ void Enemy::addLights(DrawContext& ctx) const {
         return;
     }
     constexpr float k = 0.9f;
-    ctx.scene.addLight(PointLight{p, c.r / 255.0f * k, c.g / 255.0f * k, c.b / 255.0f * k, 40.0f, 4.0f, 1.0f});
+    ctx.scene.addLight(PointLight{p, c.r / 255.0f * k, c.g / 255.0f * k, c.b / 255.0f * k, 40.0f * static_cast<float>(def_->scale), 4.0f, 1.0f});
 }
 
 } // namespace pm

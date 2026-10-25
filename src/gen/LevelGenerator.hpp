@@ -27,7 +27,7 @@ const OmenDef& omenDef(Omen omen);
 /// and less often; the Athanor never has one.
 Omen omenFor(int levelIndex, uint32_t levelSeed);
 
-enum class SpawnKind : uint8_t { GroundEnemy, AirEnemy, Chest, Potion, Spell, Lantern, Altar, Transmuter, Wand, Guardian };
+enum class SpawnKind : uint8_t { GroundEnemy, AirEnemy, Chest, Potion, Spell, Lantern, Altar, Transmuter, Wand, Guardian, LairGuardian };
 
 struct SpawnPoint {
     SpawnKind kind;

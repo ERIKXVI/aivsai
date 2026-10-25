@@ -56,7 +56,7 @@ struct Profile {
     // Grimoire: what the alchemist has discovered across all runs.
     uint64_t spellsSeen = 0;          ///< bit i set = SpellId i discovered
     uint32_t perksSeen = 0;           ///< bit i set = PerkId i taken
-    std::array<int, 16> creatureKills{}; ///< indexed by EnemyType
+    std::array<int, 24> creatureKills{}; ///< indexed by EnemyType (kMaxCreatureTypes)
     std::vector<RunHistoryEntry> history; ///< most recent first, at most kHistorySize
 };
 

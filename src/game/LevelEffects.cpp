@@ -394,6 +394,13 @@ void Level::onEnemyKilled(Enemy& e) {
             pickups_.push_back(makeGold(e.body.pos, v, {rng_.range(-70.0f, 70.0f), rng_.range(-150.0f, -70.0f)}));
         }
         if (rng_.chance(0.06f)) pickups_.push_back(makeHeart(e.body.pos));
+        if (d.guardian) {
+            // A guardian's essence passes to the alchemist as a perk.
+            grantPerk(rollPerk({}), "A guardian's essence");
+            addFloatText(e.body.pos - Vec2{0.0f, e.body.halfH + 8.0f}, std::string(d.name) + " falls!", 0xffd27a, 1.4f);
+            addFlash(e.body.pos, 0xffe0a0, 2.5f, 120.0f, 0.4f);
+            audio_.play(Sfx::Roar, 0.9f, 0.6f);
+        }
         if (e.elite()) {
             // Elites carry treasure: a spell or a potion, plus extra gold. A Burning elite
             // always carries fire.
@@ -427,8 +434,8 @@ void Level::onEnemyKilled(Enemy& e) {
     // Weighty kills land with a beat of hit-stop; small fry do not, so a sweep of kills
     // never stutters.
     if (e.team == Team::Monster && (e.elite() || e.maxHp >= 30.0f)) {
-        addHitStop(e.elite() ? 2 : 1);
-        addShake(0.14f);
+        addHitStop(d.guardian ? 4 : (e.elite() ? 2 : 1));
+        addShake(d.guardian ? 0.7f : 0.14f);
     } else {
         addShake(0.08f);
     }

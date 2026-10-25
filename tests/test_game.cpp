@@ -345,6 +345,42 @@ TEST_CASE("elites carry an affix, rolled from the seed") {
     CHECK(burning.resist[static_cast<size_t>(DamageType::Fire)] == 0.0f);
 }
 
+TEST_CASE("guardians rage, the toad sheds its brood and the slayer earns a perk") {
+    initMaterials();
+    ThreadPool pool(2);
+    Audio audio;
+    RunState run = newRun(11, Difficulty::Adept, false);
+    Level level(generateSanctum(0, 11u, pool), run, audio, pool);
+    for (int t = 0; t < 4; ++t) CHECK(enemyDef(guardianFor(t)).guardian);
+    Enemy& toad = level.spawnEnemy(EnemyType::BlackToad, level.player().body.pos + Vec2{40.0f, -10.0f});
+    const uint32_t toadId = toad.id;
+    auto find = [&]() -> Enemy* {
+        for (auto& e : level.enemies())
+            if (e->id == toadId) return e.get();
+        return nullptr;
+    };
+    auto hurtTo = [&](float fraction) {
+        Enemy* t = find();
+        t->applyDamage(level, {t->hp - t->maxHp * fraction, DamageType::Physical, {}, Team::Player, false, true, "test"});
+        level.tick(PlayerInput{});
+    };
+    const size_t before = level.enemies().size();
+    hurtTo(0.6f);
+    CHECK(level.enemies().size() == before + 2); // the first brood
+    CHECK(!find()->enraged());
+    hurtTo(0.45f);
+    CHECK(find()->enraged());
+    hurtTo(0.3f);
+    CHECK(level.enemies().size() == before + 4); // and the second
+    int perks = 0;
+    for (uint8_t n : run.perks) perks += n;
+    Enemy* t = find();
+    t->applyDamage(level, {1.0e6f, DamageType::Physical, {}, Team::Player, false, false, "test"});
+    int after = 0;
+    for (uint8_t n : run.perks) after += n;
+    CHECK(after == perks + 1);
+}
+
 TEST_CASE("stage lanterns hang from solid ceilings, not pooled steam") {
     initMaterials();
     ThreadPool pool(4);

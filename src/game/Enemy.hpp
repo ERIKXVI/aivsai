@@ -10,6 +10,7 @@
 
 namespace pm {
 
+// Values index the kill counts kept in saves and profiles: only ever append.
 enum class EnemyType : uint8_t {
     Slime,
     FrostSlime,
@@ -25,6 +26,11 @@ enum class EnemyType : uint8_t {
     Golem,
     Companion,
     Boss,
+    // Stage guardians, one per lair on stages I-IV.
+    BlackToad,
+    WhiteWraith,
+    MineKing,
+    RedColossus,
     Count
 };
 
@@ -53,12 +59,19 @@ struct EnemyDef {
     bool flying;
     uint32_t glow;          ///< light colour (0 = none)
     std::array<float, static_cast<int>(DamageType::Count)> resist;
+    // Optional extras for recoloured kin and giants:
+    uint32_t tint = 0xffffff; ///< colour multiplied over the (often shared) sprite
+    int scale = 1;            ///< sprite drawn at this integer scale
+    int volley = 1;           ///< projectiles per ranged attack, fanned out
+    bool guardian = false;    ///< a lair's guardian: optional, grants a perk when slain
 };
 
 const EnemyDef& enemyDef(EnemyType type);
 /// Colour a creature's shared sprite is tinted with (Frost Slimes and Sappers reuse the
 /// Slime and Ghoul art), for the world and for portraits.
 Color enemyTint(EnemyType type);
+/// The guardian whose lair lies on this stage.
+EnemyType guardianFor(int levelIndex);
 /// The creature with this display name (e.g. a recorded death cause), if there is one.
 std::optional<EnemyType> enemyNamed(const char* name);
 
@@ -79,9 +92,15 @@ public:
     void makeElite(Affix affix);
     bool elite() const { return elite_; }
     Affix affix() const { return affix_; }
-    /// Movement speed (cells / s) and attack cooldown (s), after a Swift elite's haste.
-    float moveSpeed() const { return def_->speed * (affix_ == Affix::Swift ? 1.5f : 1.0f); }
-    float attackCooldown() const { return def_->attackCooldown * (affix_ == Affix::Swift ? 0.67f : 1.0f); }
+    /// Movement speed (cells / s) and attack cooldown (s), after a Swift elite's haste or an
+    /// enraged guardian's fury.
+    float moveSpeed() const { return def_->speed * (affix_ == Affix::Swift ? 1.5f : 1.0f) * (enraged_ ? 1.3f : 1.0f); }
+    float attackCooldown() const {
+        return def_->attackCooldown * (affix_ == Affix::Swift ? 0.67f : 1.0f) * (enraged_ ? 0.7f : 1.0f);
+    }
+    bool guardian() const { return def_->guardian; }
+    /// A guardian below half health fights faster and harder.
+    bool enraged() const { return enraged_; }
     float damageScale() const { return elite_ ? 1.35f : 1.0f; }
     const EnemyDef& def() const { return *def_; }
     bool aggro() const { return aggro_; }
@@ -109,6 +128,8 @@ private:
     void tickBrute(Level& level, Vec2 toPlayer, bool sees);
     void tickCompanion(Level& level);
     void tickBoss(Level& level, Vec2 toPlayer, bool sees);
+    /// What every guardian adds to its kind's behaviour: rage, landing shockwaves, a brood.
+    void tickGuardian(Level& level, Vec2 toPlayer, bool sees);
     void fireAt(Level& level, Vec2 target, SpellId spell, float spreadRad = 0.05f);
     /// Ranged attacks are telegraphed: when `wantsToFire` (and the player is within view range)
     /// a short glowing wind-up starts, and this returns true on the tick it completes.
@@ -133,6 +154,12 @@ private:
     float special_ = 0.0f;
     bool elite_ = false;
     Affix affix_ = Affix::None;
+    // Guardian state.
+    bool enraged_ = false;
+    bool airborne_ = false;
+    float fallSpeed_ = 0.0f;  ///< fastest descent of the current leap, for the landing quake
+    float guardTimer_ = 0.0f; ///< the colossus' fire between slams
+    int broods_ = 0;          ///< slime broods the toad has spawned
 };
 
 } // namespace pm

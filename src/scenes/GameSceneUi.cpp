@@ -257,8 +257,8 @@ void GameScene::drawHud() {
                  Color{120, 112, 104, 200}, ui::Align::Right);
     }
 
-    // Boss health.
-    if (const Enemy* boss = level_->boss(); boss && boss->aggro()) {
+    // Boss (or guardian) health.
+    if (const Enemy* boss = level_->bossBarTarget()) {
         float bw = sw * 0.5f;
         Rectangle r{(sw - bw) * 0.5f, 14.0f * s, bw, 6.0f * s};
         ui::text(boss->def().name, sw * 0.5f, r.y - static_cast<float>(small) - 2.0f, small, Color{255, 220, 140, 255}, ui::Align::Center);

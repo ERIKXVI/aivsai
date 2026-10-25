@@ -9,6 +9,8 @@
 
 namespace pm {
 
+static_assert(std::tuple_size_v<decltype(Profile::creatureKills)> == kMaxCreatureTypes, "profile and run kill counts must match");
+
 namespace {
 
 namespace fs = std::filesystem;
@@ -276,7 +278,7 @@ std::optional<RunState> readRunSave(const fs::path& path) {
         return std::nullopt;
 
     const std::vector<std::string> kills = split(get("kills_by_type"), ',');
-    if (kills.size() != r.killsByType.size()) return std::nullopt;
+    if (kills.size() > r.killsByType.size()) return std::nullopt; // older saves know fewer creatures
     for (size_t i = 0; i < kills.size(); ++i)
         if (!parseInt(kills[i], r.killsByType[i], 0, 1 << 30)) return std::nullopt;
     return r;

@@ -45,17 +45,35 @@ bool Generator::solidRect(const World& world, int x0, int y0, int w, int h) cons
     return true;
 }
 
+bool Generator::mostlySolidRect(const World& world, int x0, int y0, int w, int h, float maxOpen) const {
+    int open = 0, total = 0;
+    for (int y = y0; y < y0 + h; y += 2)
+        for (int x = x0; x < x0 + w; x += 2) {
+            if (!world.inBounds(x, y)) return false;
+            const MatId m = world.at(x, y).mat;
+            if (m == mat::Bedrock || m == mat::Rune) return false;
+            ++total;
+            open += isOpen(x, y) || phaseOf(m) != Phase::Solid ? 1 : 0;
+        }
+    return total > 0 && static_cast<float>(open) <= maxOpen * static_cast<float>(total);
+}
+
 void Generator::placeVaults(World& world, LevelLayout& out) {
     NavGrid nav;
     nav.build(world);
     if (!nav.computeDistances(start_)) return;
-    const int wanted = level_ >= 4 ? 1 : 2;
+    // Stages I-IV each hide a guardian's lair besides their ordinary vaults; the lair gets the
+    // first pick of sites, as it is the hardest to fit.
+    const bool lairWanted = level_ <= 3;
+    const int wanted = level_ >= 4 ? 1 : (lairWanted ? 3 : 2);
     const int top = (surface_ ? kSkyRows : 0) + 70;
+    constexpr uint32_t kLairBit = 1u << static_cast<unsigned>(VaultKind::Lair);
     uint32_t used = 0;
     std::vector<Rectf> placed;
     for (int attempt = 0; attempt < 1500 && static_cast<int>(placed.size()) < wanted; ++attempt) {
         VaultPlan plan;
-        plan.kind = pickVaultKind(biome_, rng_, used);
+        const bool lairTurn = lairWanted && !(used & kLairBit) && attempt < 900;
+        plan.kind = lairTurn ? VaultKind::Lair : pickVaultKind(biome_, rng_, used | kLairBit);
         vaultSize(plan.kind, plan.w, plan.h);
         if (w_ - 2 * kBorder - 40 < plan.w || h_ - top - 60 < plan.h) return;
         plan.x0 = rng_.rangeInt(kBorder + 20, w_ - kBorder - 20 - plan.w);
@@ -67,7 +85,10 @@ void Generator::placeVaults(World& world, LevelLayout& out) {
         bool overlaps = false;
         for (const Rectf& r : placed)
             overlaps |= std::fabs(r.x - c.x) < (r.w + plan.w) * 0.5f + 30.0f && std::fabs(r.y - c.y) < (r.h + plan.h) * 0.5f + 30.0f;
-        if (overlaps || !solidRect(world, plan.x0 - 4, plan.y0 - 4, plan.w + 8, plan.h + 8)) continue;
+        // A lair may swallow the odd cave pocket; other vaults need sound rock all round.
+        const bool sound = plan.kind == VaultKind::Lair ? mostlySolidRect(world, plan.x0 - 4, plan.y0 - 4, plan.w + 8, plan.h + 8, 0.2f)
+                                                        : solidRect(world, plan.x0 - 4, plan.y0 - 4, plan.w + 8, plan.h + 8);
+        if (overlaps || !sound) continue;
 
         // The doorway must tunnel through to caves the player can actually reach.
         const int door = vaultDoorRow(plan);
@@ -136,14 +157,15 @@ void Generator::collectSpawns(const World& world, LevelLayout& out) {
     while ((ground < groundTarget || air < airTarget) && tries++ < 6000) {
         int x = rng_.rangeInt(12, w_ - 12), y = rng_.rangeInt(40, h_ - 20);
         Vec2 p{static_cast<float>(x), static_cast<float>(y)};
-        if (!farFromEnds(p, 110.0f)) continue;
+        if (!farFromEnds(p, 150.0f)) continue;
         // Nothing lurks under the open sky; the first steps outside are peaceful.
         if (surface_ && y < skyline_[static_cast<size_t>(x)] + 40) continue;
         if (ground < groundTarget && isFloor(world, x, y) && spaceAbove(world, x, y, 14, 4)) {
             out.spawns.push_back({SpawnKind::GroundEnemy, p, difficultyAt(p.y)});
             ++ground;
-        } else if (air < airTarget && farFromEnds(p, 150.0f) && spaceAbove(world, x, y, 24, 10)) {
-            // Flyers close distance fast, so they start further from the entrance.
+        } else if (air < airTarget && farFromEnds(p, 230.0f) && spaceAbove(world, x, y, 24, 10)) {
+            // Flyers close distance fast, so they start beyond sight of the entrance (imps see
+            // 180 cells, bats 190): arriving on a stage is never an ambush.
             out.spawns.push_back({SpawnKind::AirEnemy, p, difficultyAt(p.y)});
             ++air;
         }

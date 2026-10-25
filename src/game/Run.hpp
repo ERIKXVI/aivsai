@@ -15,6 +15,9 @@ namespace pm {
 
 enum class Difficulty : uint8_t { Apprentice, Adept, Archmage };
 
+/// Room for every EnemyType in kill counts (saves and profiles), with space to grow.
+constexpr size_t kMaxCreatureTypes = 24;
+
 struct Flask {
     static constexpr int kCapacity = 1000;
     MatId mat = mat::Empty;
@@ -55,7 +58,7 @@ struct RunState {
     std::array<uint8_t, kPerkCount> perks{};
     RunStats stats;
     uint64_t spellsSeen = 0;            ///< discoveries this run, merged into the profile
-    std::array<int, 16> killsByType{};  ///< indexed by EnemyType
+    std::array<int, kMaxCreatureTypes> killsByType{}; ///< indexed by EnemyType
 
     void noteSpell(SpellId s) { spellsSeen |= 1ull << static_cast<unsigned>(s); }
     void noteWand(const Wand& w) {

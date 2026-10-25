@@ -1,6 +1,7 @@
 #pragma once
 // Vaults: set-piece rooms stamped into solid rock off the main route - an alchemist's
-// laboratory, a powder magazine, a flooded crypt, a guarded treasury and a healing spring.
+// laboratory, a powder magazine, a flooded crypt, a guarded treasury, a healing spring and,
+// on stages I-IV, a guardian's lair.
 // The generator picks a site, opens a doorway towards reachable caves and asks this module
 // to build the room; treasure and guardians are emitted as spawn points.
 
@@ -15,7 +16,7 @@ namespace pm {
 class World;
 class Rng;
 
-enum class VaultKind : uint8_t { Laboratory, Magazine, Crypt, Treasury, Spring, Count };
+enum class VaultKind : uint8_t { Laboratory, Magazine, Crypt, Treasury, Spring, Lair, Count };
 
 struct VaultPlan {
     VaultKind kind = VaultKind::Laboratory;
@@ -33,7 +34,8 @@ constexpr int kVaultDoorHeight = 16;
 void vaultSize(VaultKind kind, int& w, int& h);
 /// Bottom row of the doorway (a cell row inside the room); see kVaultDoorHeight.
 int vaultDoorRow(const VaultPlan& plan);
-/// Picks a vault kind that suits the biome, avoiding kinds set in `usedMask`.
+/// Picks a vault kind that suits the biome, avoiding kinds set in `usedMask`. Lairs are never
+/// picked at random: the generator places one on purpose.
 VaultKind pickVaultKind(BiomeId biome, Rng& rng, uint32_t usedMask);
 /// Builds the room with its doorway open and appends its treasure and guardians.
 void buildVault(World& world, const VaultPlan& plan, Rng& rng, std::vector<SpawnPoint>& spawns);

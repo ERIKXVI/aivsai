@@ -110,6 +110,8 @@ const char* deathAdvice(const Actor& victim) {
     if (victim.lastHitSelf) return "Your own spells can hurt you: mind bounces, blast radii and the fires you start.";
     if (const auto killer = enemyNamed(cause)) {
         const EnemyDef& def = enemyDef(*killer);
+        if (def.guardian)
+            return "Guardians are optional. Come back stronger, and use the ledges - or fight from the doorway it cannot pass.";
         if (def.behaviour == Behaviour::Boss)
             return "The Rebis grows wilder as it weakens. Use the floating ledges and never stop moving.";
         if (def.behaviour == Behaviour::Kamikaze) return "Bomb Beetles burst when they reach you. Strike them from afar.";

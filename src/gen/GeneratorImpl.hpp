@@ -82,6 +82,8 @@ private:
     void placeTransmuter(World& world, LevelLayout& out);
     /// True if every cell of the rectangle is solid ground the vault may replace.
     bool solidRect(const World& world, int x0, int y0, int w, int h) const;
+    /// Like solidRect, but up to `maxOpen` of the area may be cave (a lair's shell overwrites it).
+    bool mostlySolidRect(const World& world, int x0, int y0, int w, int h, float maxOpen) const;
     void placeVaults(World& world, LevelLayout& out);
     bool spaceAbove(const World& w, int x, int y, int height, int halfWidth) const;
     void collectSpawns(const World& world, LevelLayout& out);

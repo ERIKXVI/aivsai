@@ -220,6 +220,40 @@ void buildSpring(Room& r) {
     r.spawn(SpawnKind::Spell, r.near(10), r.iy1);
 }
 
+void buildLair(Room& r) {
+    // A guardian's hall: an arena of old brick, too narrow at the door for its keeper to
+    // leave, with ledges to fight from and a hoard on a runestone dais at the far end.
+    r.shell(mat::Brick);
+    for (int y = r.plan.y0; y < r.plan.y0 + r.plan.h; ++y)
+        for (int x = r.plan.x0; x < r.plan.x0 + r.plan.w; ++x) {
+            const bool inside = x >= r.ix0 && x <= r.ix1 && y >= r.iy0 && y <= r.iy1;
+            if (!inside && r.world.at(x, y).mat == mat::Brick && hash2(x / 4, y / 3, 0x1a12u) % 100 < 14) r.set(x, y, mat::Rune);
+        }
+    // Bones of the fallen litter the floor.
+    for (int x = r.ix0 + 4; x <= r.ix1 - 4; ++x)
+        if (hash2(x, r.iy1, 0xb0e5u) % 100 < 18) r.set(x, r.iy1, mat::Bone);
+    // Two ledges for the alchemist, high enough for the tallest guardian (31 cells) to pass
+    // beneath, low enough to reach with a jump and some levitation.
+    const int ledgeY = r.iy1 - 36;
+    for (int f = 1; f <= 2; ++f) {
+        const int lx = r.ix0 + r.width() * f / 3;
+        r.fill(lx - 10, ledgeY, lx + 10, ledgeY + 1, mat::Brick);
+    }
+    // The hoard.
+    r.fill(std::min(r.far(2), r.far(30)), r.iy1 - 3, std::max(r.far(2), r.far(30)), r.iy1, mat::Rune);
+    r.spawn(SpawnKind::Wand, r.far(16), r.iy1 - 4);
+    r.spawn(SpawnKind::Chest, r.far(7), r.iy1 - 4);
+    r.spawn(SpawnKind::Chest, r.far(25), r.iy1 - 4);
+    for (int k = 0; k < 3; ++k) {
+        const int gx = r.far(38 + k * 10);
+        for (int dy = 0; dy < 3; ++dy) r.fill(gx - 3 + dy, r.iy1 - dy, gx + 3 - dy, r.iy1 - dy, mat::GoldDust);
+    }
+    r.spawn(SpawnKind::LairGuardian, r.cx(), r.iy1);
+    r.lantern(r.ix0 + r.width() / 5);
+    r.lantern(r.cx());
+    r.lantern(r.ix1 - r.width() / 5);
+}
+
 } // namespace
 
 void vaultSize(VaultKind kind, int& w, int& h) {
@@ -229,6 +263,7 @@ void vaultSize(VaultKind kind, int& w, int& h) {
     case VaultKind::Crypt: w = 86; h = 62; return;
     case VaultKind::Treasury: w = 108; h = 42; return;
     case VaultKind::Spring: w = 96; h = 44; return;
+    case VaultKind::Lair: w = 132; h = 64; return;
     case VaultKind::Count: break;
     }
     w = h = 0;
@@ -241,7 +276,7 @@ int vaultDoorRow(const VaultPlan& plan) {
 }
 
 VaultKind pickVaultKind(BiomeId biome, Rng& rng, uint32_t usedMask) {
-    // Weights: Laboratory, Magazine, Crypt, Treasury, Spring.
+    // Weights: Laboratory, Magazine, Crypt, Treasury, Spring (Lair: never at random).
     std::array<float, static_cast<size_t>(VaultKind::Count)> w{};
     switch (biome) {
     case BiomeId::Nigredo: w = {3, 2, 3, 1, 3}; break;
@@ -272,6 +307,7 @@ void buildVault(World& world, const VaultPlan& plan, Rng& rng, std::vector<Spawn
     case VaultKind::Crypt: buildCrypt(room); break;
     case VaultKind::Treasury: buildTreasury(room); break;
     case VaultKind::Spring: buildSpring(room); break;
+    case VaultKind::Lair: buildLair(room); break;
     case VaultKind::Count: break;
     }
 }

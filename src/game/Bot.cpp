@@ -64,8 +64,11 @@ PlayerInput Bot::think(const Level& level) {
     }
     in.interactPressed = (tick_ % 20) == 0;
 
-    // Drink healing potions when hurt.
-    in.drinkPressed = pl.hp < pl.maxHp * 0.4f && level.run().flask.mat == mat::Vitae && (tick_ % 60) == 0;
+    // Drink healing potions when hurt, and water when burning, as the hints teach.
+    const MatId flask = level.run().flask.mat;
+    const bool heal = pl.hp < pl.maxHp * 0.4f && flask == mat::Vitae;
+    const bool douse = pl.status.burning > 0.5f && (flask == mat::Water || flask == mat::Brine);
+    in.drinkPressed = (heal || douse) && (tick_ % 30) == 0;
     return in;
 }
 

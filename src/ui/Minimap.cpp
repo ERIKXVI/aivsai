@@ -123,6 +123,14 @@ void Minimap::drawMarkers(const Level& level, Rectangle dest, Rectangle src, flo
         const Vector2 s = toScreen(t.pos);
         if (inside(s)) DrawCircleV(s, m * 0.6f, Color{120, 230, 255, 230});
     }
+    // A lair's guardian is known by rumour: marked from the start, so the fight can be sought.
+    for (const auto& e : level.enemies()) {
+        if (!e->guardian() || !e->alive()) continue;
+        const Vector2 g = toScreen(e->body.pos);
+        if (!inside(g)) continue;
+        const float r = m * (0.75f + 0.1f * std::sin(time * 3.0f));
+        DrawPoly(g, 3, r, 90.0f, Color{230, 70, 60, 240});
+    }
     if (!level.isSanctum() && exploredNear(level.exitPos())) {
         const Vector2 s = toScreen(level.exitPos());
         if (inside(s)) {
@@ -178,6 +186,7 @@ void Minimap::drawFull(const Level& level, float screenW, float screenH, float t
         legend(WHITE, "You");
         legend(Color{200, 140, 255, 255}, "Portal");
         legend(Color{255, 200, 90, 255}, "Vault");
+        legend(Color{230, 70, 60, 240}, "Guardian");
         legend(Color{120, 230, 255, 255}, "Circle");
     }
     ui::text("M / Esc to close", screenW * 0.5f, dest.y + dest.height + 6.0f * s, small, ui::color::kTextDim, ui::Align::Center);

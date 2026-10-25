@@ -1,5 +1,6 @@
 // Level generation: every biome, several seeds, must have a traversable main route; omens
 // follow their rules and stay traversable too.
+#include <cstdio>
 #include <array>
 #include <cstring>
 
@@ -9,6 +10,20 @@
 #include "tests/TestFramework.hpp"
 
 using namespace pm;
+
+TEST_CASE("stages I-IV hide a guardian's lair") {
+    initMaterials();
+    ThreadPool pool(4);
+    int lairs = 0, levels = 0;
+    for (uint32_t seed : {3u, 5u, 9u})
+        for (int index = 0; index < 4; ++index) {
+            const LevelLayout layout = generateLevel(biomeForDepth(index), index, seed, pool);
+            ++levels;
+            for (const SpawnPoint& s : layout.spawns) lairs += s.kind == SpawnKind::LairGuardian ? 1 : 0;
+        }
+    std::printf("    lairs placed: %d of %d stages\n", lairs, levels);
+    CHECK(lairs >= levels * 3 / 4);
+}
 
 TEST_CASE("generated levels are traversable from entrance to exit") {
     initMaterials();
