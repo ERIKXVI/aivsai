@@ -177,7 +177,7 @@ void Enemy::wake(Level& level) {
     dormant_ = false;
     aggro_ = true;
     lastSeen_ = level.player().body.pos;
-    stateTimer_ = 0.2f; // a beat to take in the teeth, then the first lunge
+    stateTimer_ = 0.5f; // a beat to take in the teeth and back away, then the first lunge
     level.audio().playAt(Sfx::ChestOpen, body.pos, 0.9f, 0.6f);
     level.audio().playAt(Sfx::Roar, body.pos, 0.6f, 1.7f);
     level.addFloatText(body.pos - Vec2{0.0f, 12.0f}, "Mimic!", 0xff7050, 1.2f);
