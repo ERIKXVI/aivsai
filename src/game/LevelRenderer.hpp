@@ -9,6 +9,7 @@
 namespace pm {
 
 class Level;
+struct Pickup;
 class SceneRenderer;
 class SpriteBank;
 class ThreadPool;
@@ -23,6 +24,7 @@ public:
 
 private:
     void drawProps(const Level& level, float time, bool emissive);
+    void drawPickup(const Level& level, const Pickup& pk, float time, bool emissive);
     void addLights(const Level& level, float alpha, float time);
 
     SceneRenderer& scene_;
