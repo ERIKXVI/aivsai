@@ -67,6 +67,7 @@ private:
 
     float fade_ = 1.0f;          ///< 1 = black
     float loadTimer_ = 0.0f;     ///< seconds spent on the loading screen
+    bool loadSkipped_ = false;   ///< the player pressed on past the motto
     bool exiting_ = false;       ///< fading out towards the next stage
     float titleTimer_ = 0.0f;
     std::string titleMain_, titleSub_, titleOmen_;

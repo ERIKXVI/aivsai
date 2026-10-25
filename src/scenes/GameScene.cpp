@@ -37,6 +37,7 @@ GameScene::~GameScene() {
 void GameScene::requestLevel() {
     mode_ = Mode::Loading;
     loadTimer_ = 0.0f;
+    loadSkipped_ = false;
     level_.reset();
     const bool sanctum = run_.inSanctum;
     const int index = run_.levelIndex;
@@ -231,11 +232,14 @@ void GameScene::frame(float dt) {
     audio.update(dt);
 
     if (mode_ == Mode::Loading) {
-        // The loading screen lingers long enough to read its motto (bot runs skip ahead).
+        // The loading screen lingers long enough to read its motto, unless the player presses
+        // on (bot runs skip ahead).
         constexpr float kMinLoadSeconds = 1.6f;
         fade_ = 1.0f;
         loadTimer_ += dt;
-        const bool lingered = loadTimer_ >= kMinLoadSeconds || app_.options().autoplay;
+        if (input::anyKeyPressed() || input::mousePressed(MOUSE_BUTTON_LEFT) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN))
+            loadSkipped_ = true;
+        const bool lingered = loadTimer_ >= kMinLoadSeconds || loadSkipped_ || app_.options().autoplay;
         if (lingered && pending_.valid() && pending_.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
             finishLoading();
         return;
