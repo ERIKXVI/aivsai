@@ -110,7 +110,13 @@ bool decodeWand(const std::string& s, Wand& w) {
 
 } // namespace
 
-RunRecord recordRun(Profile& p, const RunState& run, bool victory, const std::string& fate) {
+RunRecord recordRun(Profile& profile, const RunState& run, bool victory, const std::string& fate) {
+    RunRecord record = foldRun(profile, run, victory, fate);
+    saveProfile(profile);
+    return record;
+}
+
+RunRecord foldRun(Profile& p, const RunState& run, bool victory, const std::string& fate) {
     const Profile before = p;
     p.runs++;
     p.deepest = std::max(p.deepest, run.levelIndex + 1);
@@ -122,6 +128,8 @@ RunRecord recordRun(Profile& p, const RunState& run, bool victory, const std::st
     }
     if (run.daily) p.bestDailyDepth = std::max(p.bestDailyDepth, run.levelIndex + 1);
     p.chestsOpened += run.stats.chestsOpened;
+    p.bestKills = std::max(p.bestKills, run.stats.kills);
+    p.bestGold = std::max(p.bestGold, run.stats.goldCollected);
     // Grimoire discoveries.
     p.spellsSeen |= run.spellsSeen;
     for (const Wand& w : run.wands)
@@ -143,7 +151,6 @@ RunRecord recordRun(Profile& p, const RunState& run, bool victory, const std::st
     entry.fate = fate;
     p.history.insert(p.history.begin(), std::move(entry));
     if (p.history.size() > Profile::kHistorySize) p.history.resize(Profile::kHistorySize);
-    saveProfile(p);
 
     RunRecord record;
     const int spells = countBits(p.spellsSeen & ~before.spellsSeen), perks = countBits(p.perksSeen & ~before.perksSeen);
@@ -159,9 +166,25 @@ RunRecord recordRun(Profile& p, const RunState& run, bool victory, const std::st
     add(perks, "perk", "perks");
     const Milestones was{before.deepest, before.victories, before.chestsOpened, before.totalKills};
     const Milestones now{p.deepest, p.victories, p.chestsOpened, p.totalKills};
+    float best = -1.0f;
     for (int i = 0; i < kLoadoutCount; ++i) {
         const auto id = static_cast<LoadoutId>(i);
         if (!loadoutUnlocked(id, was) && loadoutUnlocked(id, now)) record.unlockedPaths.push_back(loadoutDef(id).name);
+        // The locked path nearest to opening is the carrot for the next run.
+        const UnlockProgress before = loadoutProgress(id, was), after = loadoutProgress(id, now);
+        if (after.target <= 0 || after.value >= after.target) continue;
+        const float fraction = static_cast<float>(after.value) / static_cast<float>(after.target);
+        if (fraction <= best) continue;
+        best = fraction;
+        record.nearestPath = PathProgress{loadoutDef(id).name, after.text, before.value, after.value, after.target};
+    }
+    // Personal bests; a first run sets every one of them, which is no news.
+    if (victory && before.victories == 0) record.records.emplace_back("Your first Great Work!");
+    if (before.runs > 0) {
+        if (run.levelIndex + 1 > before.deepest) record.records.emplace_back("Deepest descent yet");
+        if (run.stats.kills > before.bestKills && run.stats.kills > 0) record.records.emplace_back("Most creatures slain in a run");
+        if (run.stats.goldCollected > before.bestGold && run.stats.goldCollected > 0)
+            record.records.emplace_back("Most gold gathered in a run");
     }
     return record;
 }

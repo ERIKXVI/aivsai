@@ -1,6 +1,7 @@
 #pragma once
 // Monsters. Each type is a data entry (EnemyDef) plus one of a handful of behaviours.
 
+#include <optional>
 #include <vector>
 
 #include "core/Rng.hpp"
@@ -49,6 +50,8 @@ struct EnemyDef {
 };
 
 const EnemyDef& enemyDef(EnemyType type);
+/// The creature with this display name (e.g. a recorded death cause), if there is one.
+std::optional<EnemyType> enemyNamed(const char* name);
 
 /// Picks a monster appropriate for the biome / ground or air slot.
 EnemyType pickEnemy(int levelIndex, bool air, float difficulty, Rng& rng);

@@ -32,6 +32,14 @@ const LoadoutDef& loadoutDef(LoadoutId id);
 bool loadoutUnlocked(LoadoutId id, const Milestones& m);
 /// Unlock requirement with current progress, e.g. "Open 12 chests (5/12)".
 std::string loadoutRequirement(LoadoutId id, const Milestones& m);
+
+/// Progress towards a loadout's unlock: `target` is 0 for a loadout that is always open.
+struct UnlockProgress {
+    const char* text = "";
+    int value = 0;
+    int target = 0;
+};
+UnlockProgress loadoutProgress(LoadoutId id, const Milestones& m);
 /// Replaces the default kit of a fresh run with the loadout's wands, spells, flask and perks.
 void equipLoadout(RunState& run, LoadoutId id);
 

@@ -66,6 +66,12 @@ bool loadoutUnlocked(LoadoutId id, const Milestones& m) {
     return r.field == nullptr || m.*r.field >= r.target;
 }
 
+UnlockProgress loadoutProgress(LoadoutId id, const Milestones& m) {
+    const Requirement& r = kRequirements[static_cast<size_t>(id)];
+    if (r.field == nullptr) return {};
+    return {r.text, m.*r.field, r.target};
+}
+
 std::string loadoutRequirement(LoadoutId id, const Milestones& m) {
     const Requirement& r = kRequirements[static_cast<size_t>(id)];
     if (r.field == nullptr) return {};

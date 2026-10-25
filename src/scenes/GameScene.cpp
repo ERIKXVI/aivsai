@@ -75,6 +75,8 @@ void GameScene::finishLoading() {
     }
     if (app_.options().openUi == "inventory") mode_ = Mode::Inventory;
     else if (app_.options().openUi == "pause") mode_ = Mode::Paused;
+    else if (app_.options().openUi == "death") // previews the end screen: felled by an imp's firebolt
+        level_->player().applyDamage(*level_, {1.0e6f, DamageType::Fire, {}, Team::Monster, false, true, enemyDef(EnemyType::Imp).name});
     exiting_ = false;
     titleTimer_ = 4.0f;
     titleOmen_.clear();
@@ -360,7 +362,8 @@ void GameScene::render(float alpha) {
         if (mode_ != Mode::Victory) drawHud();
         if (mode_ == Mode::Playing && app_.settings().hints) hints_.draw(static_cast<float>(app_.screenWidth()), static_cast<float>(app_.screenHeight()), usingGamepad_);
         drawTitleCard();
-        if (app_.settings().hints && !run_.inSanctum && run_.levelIndex == 0 && level_->time() < 30.0f) drawControlsHint();
+        if (mode_ != Mode::Dead && app_.settings().hints && !run_.inSanctum && run_.levelIndex == 0 && level_->time() < 30.0f)
+            drawControlsHint();
     }
 
     switch (mode_) {
@@ -386,14 +389,18 @@ void GameScene::render(float alpha) {
 }
 
 void GameScene::recordProfile(bool victory) {
-    if (profileRecorded_ || app_.options().automated()) return;
+    if (profileRecorded_) return;
     profileRecorded_ = true;
     std::string fate = "Completed the Great Work";
     if (!victory) fate = level_ && !level_->player().alive() ? deathCause(level_->player()) : "Abandoned the Work";
     if (fate.empty()) fate = "Perished";
-    const RunRecord record = recordRun(app_.profile(), run_, victory, fate);
-    discoveries_ = record.discoveries;
-    unlockedPaths_ = record.unlockedPaths;
+    if (app_.options().automated()) {
+        // Bot runs and captures show what the end screen would say, but leave the profile be.
+        Profile scratch = app_.profile();
+        record_ = foldRun(scratch, run_, victory, fate);
+        return;
+    }
+    record_ = recordRun(app_.profile(), run_, victory, fate);
     discardSuspendedRun();
 }
 

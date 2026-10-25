@@ -2,6 +2,8 @@
 
 #include "game/Enemy.hpp"
 
+#include <cstring>
+
 namespace pm {
 
 namespace {
@@ -54,6 +56,13 @@ const std::vector<SpawnEntry> kAir[5] = {
 } // namespace
 
 const EnemyDef& enemyDef(EnemyType type) { return kEnemies[static_cast<int>(type)]; }
+
+std::optional<EnemyType> enemyNamed(const char* name) {
+    if (name == nullptr) return std::nullopt;
+    for (int i = 0; i < static_cast<int>(EnemyType::Count); ++i)
+        if (std::strcmp(name, kEnemies[static_cast<size_t>(i)].name) == 0) return static_cast<EnemyType>(i);
+    return std::nullopt;
+}
 
 EnemyType pickEnemy(int levelIndex, bool air, float difficulty, Rng& rng) {
     const auto& table = (air ? kAir : kGround)[clamp(levelIndex, 0, 4)];

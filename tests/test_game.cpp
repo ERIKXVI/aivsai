@@ -213,6 +213,30 @@ TEST_CASE("the death screen names the killer and offers advice") {
     CHECK(std::strstr(deathAdvice(victim), "Your own spells") != nullptr);
 }
 
+TEST_CASE("the end screen shows the nearest locked path and personal bests") {
+    Profile profile;
+    profile.runs = 3;
+    profile.deepest = 1;
+    profile.chestsOpened = 9;
+    profile.bestKills = 10;
+    RunState run = newRun(9, Difficulty::Adept, false);
+    run.levelIndex = 1;
+    run.stats.kills = 14;
+    run.stats.chestsOpened = 2;
+    const RunRecord record = foldRun(profile, run, false, "Slain by a Fire Imp");
+    // Chests 11/12 beats reaching the third stage (2/3) and slaying 14/250.
+    CHECK(record.nearestPath.has_value());
+    CHECK(record.nearestPath->name == "Geomancer");
+    CHECK(record.nearestPath->was == 9 && record.nearestPath->now == 11 && record.nearestPath->target == 12);
+    CHECK(std::find(record.records.begin(), record.records.end(), "Deepest descent yet") != record.records.end());
+    CHECK(std::find(record.records.begin(), record.records.end(), "Most creatures slain in a run") != record.records.end());
+    CHECK(profile.bestKills == 14 && profile.runs == 4 && profile.history.size() == 1);
+
+    // A very first run sets every best, which is no news.
+    Profile fresh;
+    CHECK(foldRun(fresh, run, false, "Perished").records.empty());
+}
+
 TEST_CASE("chronicle entries survive encoding and reject garbage") {
     RunHistoryEntry e;
     e.seed = 0xDEADBEEFu;

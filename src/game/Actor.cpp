@@ -95,8 +95,7 @@ std::string deathCause(const Actor& victim) {
     if (victim.lastHitCause == nullptr) return {};
     std::string cause = victim.lastHitCause;
     if (victim.lastHitSelf) return "Undone by your own " + cause;
-    for (int i = 0; i < static_cast<int>(EnemyType::Count); ++i) {
-        if (cause != enemyDef(static_cast<EnemyType>(i)).name) continue;
+    if (enemyNamed(victim.lastHitCause)) {
         if (cause.rfind("The ", 0) == 0) return "Slain by the " + cause.substr(4);
         const bool vowel = std::strchr("AEIOU", cause[0]) != nullptr;
         return std::string("Slain by ") + (vowel ? "an " : "a ") + cause;
@@ -109,9 +108,8 @@ const char* deathAdvice(const Actor& victim) {
     const char* cause = victim.lastHitCause;
     if (cause == nullptr) return nullptr;
     if (victim.lastHitSelf) return "Your own spells can hurt you: mind bounces, blast radii and the fires you start.";
-    for (int i = 0; i < static_cast<int>(EnemyType::Count); ++i) {
-        const EnemyDef& def = enemyDef(static_cast<EnemyType>(i));
-        if (std::strcmp(cause, def.name) != 0) continue;
+    if (const auto killer = enemyNamed(cause)) {
+        const EnemyDef& def = enemyDef(*killer);
         if (def.behaviour == Behaviour::Boss)
             return "The Rebis grows wilder as it weakens. Use the floating ledges and never stop moving.";
         if (def.behaviour == Behaviour::Kamikaze) return "Bomb Beetles burst when they reach you. Strike them from afar.";
