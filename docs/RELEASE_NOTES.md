@@ -12,7 +12,7 @@ switches to a window.
 - Unlockable starting paths, a Grimoire of everything you have discovered, a Daily Rite
   seed, three difficulties and an Alchemy Sandbox to experiment freely.
 - A fog-of-war map, contextual hints for new players and a death screen that tells you
-  what got you.
+  what got you and how to avoid it.
 - All art, sound and music are generated procedurally by the game.
 
 Controls: `A/D` move · `W/Space` jump (hold to levitate) · mouse aim · `LMB` cast ·

@@ -429,10 +429,12 @@ void GameScene::drawEndScreen(bool victory) {
     const float subY = sh * 0.2f + static_cast<float>(ui::fontSize(ui::scale() * 3)) + 8.0f * s;
     ui::text(sub, sw * 0.5f, subY, ui::fontSize(ui::scale()), Color{210, 200, 220, al}, ui::Align::Center);
     if (!victory && level_) {
+        const float font = static_cast<float>(ui::fontSize(ui::scale()));
         const std::string cause = deathCause(level_->player());
         if (!cause.empty())
-            ui::text(cause, sw * 0.5f, subY + static_cast<float>(ui::fontSize(ui::scale())) * 1.6f, ui::fontSize(ui::scale()),
-                     Color{255, 150, 110, al}, ui::Align::Center);
+            ui::text(cause, sw * 0.5f, subY + font * 1.6f, ui::fontSize(ui::scale()), Color{255, 150, 110, al}, ui::Align::Center);
+        if (const char* advice = deathAdvice(level_->player()))
+            ui::text(advice, sw * 0.5f, subY + font * 2.8f, ui::fontSize(ui::scale()), Color{170, 160, 185, al}, ui::Align::Center);
     }
 
     const RunStats& st = run_.stats;
@@ -447,7 +449,7 @@ void GameScene::drawEndScreen(bool victory) {
         "Chests opened: " + std::to_string(st.chestsOpened),
         TextFormat("Seed: %u%s", run_.seed, run_.daily ? " (Daily Rite)" : ""),
     };
-    float y = std::max(sh * 0.38f, subY + lineH * 3.0f);
+    float y = std::max(sh * 0.38f, subY + lineH * 3.7f);
     for (const std::string& l : lines) {
         ui::text(l, sw * 0.5f, y, ui::fontSize(ui::scale()), Color{220, 210, 200, al}, ui::Align::Center);
         y += lineH;

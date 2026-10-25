@@ -73,6 +73,7 @@ public:
     uint32_t id = 0;
     const char* lastHitCause = nullptr; ///< cause of the most recent damage taken
     bool lastHitSelf = false;           ///< ...and whether it came from the actor's own side
+    DamageType lastHitType = DamageType::Physical;
 
 protected:
     /// Burning, liquids, contact damage and status timers. Call once per tick.
@@ -86,5 +87,8 @@ protected:
 /// What killed an actor, for the death screen: "Slain by a Fire Imp", "Undone by lava",
 /// "Undone by your own Bomb". Empty if nothing was recorded.
 std::string deathCause(const Actor& victim);
+/// A one-line tip for the death screen on how to survive what killed the actor next time,
+/// or nullptr if there is nothing useful to say.
+const char* deathAdvice(const Actor& victim);
 
 } // namespace pm

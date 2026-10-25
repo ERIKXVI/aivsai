@@ -18,6 +18,7 @@ float Actor::applyDamage(Level& level, const DamageInfo& info) {
     if (info.cause) {
         lastHitCause = info.cause;
         lastHitSelf = info.source == team;
+        lastHitType = info.type;
     }
     if (!info.silent) {
         hurtFlash = 0.12f;
@@ -102,6 +103,35 @@ std::string deathCause(const Actor& victim) {
     }
     std::transform(cause.begin(), cause.end(), cause.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return "Undone by " + cause;
+}
+
+const char* deathAdvice(const Actor& victim) {
+    const char* cause = victim.lastHitCause;
+    if (cause == nullptr) return nullptr;
+    if (victim.lastHitSelf) return "Your own spells can hurt you: mind bounces, blast radii and the fires you start.";
+    for (int i = 0; i < static_cast<int>(EnemyType::Count); ++i) {
+        const EnemyDef& def = enemyDef(static_cast<EnemyType>(i));
+        if (std::strcmp(cause, def.name) != 0) continue;
+        if (def.behaviour == Behaviour::Boss)
+            return "The Rebis grows wilder as it weakens. Use the floating ledges and never stop moving.";
+        if (def.behaviour == Behaviour::Kamikaze) return "Bomb Beetles burst when they reach you. Strike them from afar.";
+        if (def.attack != SpellId::None)
+            return "Ranged creatures glow just before they fire. Sidestep, or break their line of sight.";
+        return "Keep your distance: back away while casting, and levitate out of reach.";
+    }
+    switch (victim.lastHitType) {
+    case DamageType::Fire:
+        if (std::strstr(cause, "Lava") || std::strstr(cause, "lava"))
+            return "Lava ignites whatever it touches. Pour water on it to cool it into obsidian.";
+        return "Burning? Water puts out the flames: jump in, or drink or pour a flask of water.";
+    case DamageType::Explosion: return "Gunpowder chains into great blasts. Keep fire well away from powder stores.";
+    case DamageType::Acid: return "Acid eats flesh and stone alike. Never wade through it.";
+    case DamageType::Toxic: return "Poison lingers after you leave the sludge. Carry Vitae to heal through it.";
+    case DamageType::Electric: return "Electricity arcs through water and metal. Stay dry when sparks fly.";
+    default: break;
+    }
+    if (std::strcmp(cause, "drowning") == 0) return "Watch the breath bar when submerged, and levitate up out of deep liquid.";
+    return nullptr;
 }
 
 } // namespace pm

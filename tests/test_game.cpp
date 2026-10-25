@@ -1,10 +1,13 @@
-// Game-rule tests: the spell table, wand deck casting, starting loadouts and run saves.
+// Game-rule tests: the spell table, wand deck casting, starting loadouts, run saves and the
+// death screen's cause and advice.
 
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 
 #include "app/RunRecords.hpp"
+#include "game/Actor.hpp"
+#include "game/Enemy.hpp"
 #include "game/Loadouts.hpp"
 #include "game/Run.hpp"
 #include "game/Spells.hpp"
@@ -20,6 +23,12 @@ CastShot castOnce(std::vector<SpellId> slots) {
     int pos = 0;
     return buildShot(slots, order, pos, 1);
 }
+
+/// The smallest concrete actor, for exercising Actor's shared logic.
+struct Dummy final : Actor {
+    void tick(Level&) override {}
+    void drawAlbedo(DrawContext&) const override {}
+};
 
 } // namespace
 
@@ -149,4 +158,25 @@ TEST_CASE("suspended runs survive a save and load") {
     }
     CHECK(!readRunSave(path).has_value());
     std::filesystem::remove(path);
+}
+
+TEST_CASE("the death screen names the killer and offers advice") {
+    Dummy victim;
+    victim.team = Team::Player;
+    CHECK(deathCause(victim).empty());
+    CHECK(deathAdvice(victim) == nullptr);
+
+    victim.lastHitCause = enemyDef(EnemyType::Imp).name;
+    CHECK(deathCause(victim) == "Slain by a Fire Imp");
+    CHECK(deathAdvice(victim) != nullptr);
+
+    victim.lastHitCause = "Lava";
+    victim.lastHitType = DamageType::Fire;
+    CHECK(deathCause(victim) == "Undone by lava");
+    CHECK(std::strstr(deathAdvice(victim), "obsidian") != nullptr);
+
+    victim.lastHitCause = "Bomb";
+    victim.lastHitSelf = true;
+    CHECK(deathCause(victim) == "Undone by your own Bomb");
+    CHECK(std::strstr(deathAdvice(victim), "Your own spells") != nullptr);
 }
