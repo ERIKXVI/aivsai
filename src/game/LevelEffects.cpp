@@ -68,6 +68,7 @@ void Level::launch(const ProjectileLaunch& l, Vec2 origin, float angle, Team tea
 
 void Level::explode(Vec2 c, const ExplosionSpec& s) {
     World& w = world();
+    knockLanterns(c, c, s.radius); // a blast shakes nearby lanterns from their hooks
     const int r = static_cast<int>(std::ceil(s.radius));
     const int cx = floorToInt(c.x), cy = floorToInt(c.y);
     for (int dy = -r; dy <= r; ++dy) {
@@ -525,6 +526,23 @@ void Level::updateLanterns(float dt) {
     }
     lanterns_.erase(std::remove_if(lanterns_.begin(), lanterns_.end(), [](const Lantern& l) { return l.shattered; }),
                     lanterns_.end());
+}
+
+void Level::knockLanterns(Vec2 a, Vec2 b, float radius) {
+    const Vec2 ab = b - a;
+    const float lenSq = std::max(ab.lengthSq(), 1e-6f);
+    for (Lantern& l : lanterns_) {
+        if (l.fallSpeed > 0.0f || l.shattered) continue;
+        // Test the top, middle and bottom of the lantern's body against the segment.
+        for (const float dy : {-1.0f, 2.0f, 5.0f}) {
+            const Vec2 q = l.pos + Vec2{0.0f, dy};
+            const float t = clamp(dot(q - a, ab) / lenSq, 0.0f, 1.0f);
+            if ((a + ab * t - q).lengthSq() > radius * radius) continue;
+            l.fallSpeed = 1.0f;
+            audio_.playAt(Sfx::Hit, q, 0.4f, 2.1f);
+            break;
+        }
+    }
 }
 
 void Level::updateTrees() {

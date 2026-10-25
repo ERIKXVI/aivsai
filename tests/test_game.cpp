@@ -294,6 +294,25 @@ TEST_CASE("sanctum lanterns stay hung") {
     CHECK(level.lanterns().size() == lanterns);
 }
 
+TEST_CASE("a spell through a lantern knocks it down to shatter") {
+    initMaterials();
+    ThreadPool pool(2);
+    Audio audio;
+    RunState run = newRun(11, Difficulty::Adept, false);
+    Level level(generateSanctum(1, 11u, pool), run, audio, pool);
+    const size_t lanterns = level.lanterns().size();
+    CHECK(lanterns > 0);
+    const Vec2 at = level.lanterns().front().pos;
+    // A shot well below the lantern leaves it hanging.
+    level.knockLanterns(at + Vec2{-20.0f, 20.0f}, at + Vec2{20.0f, 20.0f}, 2.5f);
+    CHECK(level.lanterns().front().fallSpeed <= 0.0f);
+    // One straight through its body drops it; it shatters on the floor below.
+    level.knockLanterns(at + Vec2{-20.0f, 2.0f}, at + Vec2{20.0f, 2.0f}, 2.5f);
+    CHECK(level.lanterns().front().fallSpeed > 0.0f);
+    for (int i = 0; i < 180; ++i) level.tick(PlayerInput{});
+    CHECK(level.lanterns().size() < lanterns);
+}
+
 TEST_CASE("stage lanterns hang from solid ceilings, not pooled steam") {
     initMaterials();
     ThreadPool pool(4);

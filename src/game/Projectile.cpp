@@ -213,6 +213,7 @@ void fireHitscan(Level& level, Projectile& p, float range) {
         if (Actor* victim = findVictim(level, p, q)) hitActor(level, p, *victim);
     }
     p.beamEnd = q;
+    if (p.team == Team::Player) level.knockLanterns(p.pos, q, 2.5f);
     Projectile effects = p;
     effects.vel = dir * 100.0f;
     impact(level, effects, q);
@@ -239,6 +240,16 @@ void updateProjectile(Level& level, Projectile& p, float dt) {
 
     steer(level, p, dt);
     if (d.flags & kGravityWell) pullIntoWell(level, p, dt);
+
+    // The alchemist's spells knock down lanterns they pass, however the march below ends.
+    struct LanternSweep {
+        Level& level;
+        const Projectile& p;
+        Vec2 from;
+        ~LanternSweep() {
+            if (p.team == Team::Player) level.knockLanterns(from, p.pos, 2.5f + p.def.radius);
+        }
+    } lanternSweep{level, p, p.pos};
 
     // March along the path in sub-cell steps.
     Vec2 delta = p.vel * dt;

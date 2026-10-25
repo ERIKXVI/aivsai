@@ -38,6 +38,8 @@ constexpr HintText kTexts[static_cast<int>(Hint::Count)] = {
      "Your satchel holds spells - press Back and place one on an empty wand slot"},
     {"Drag the glowing spell into the glowing slot - the wand casts its spells from left to right",
      "Pick up the glowing spell with A and place it in the glowing slot with A"},
+    {"Shoot a lantern down onto your foes - it shatters into burning oil",
+     "Shoot a lantern down onto your foes - it shatters into burning oil"},
 };
 
 /// True when a satchel spell could go onto a wand right now.
@@ -47,6 +49,18 @@ bool roomForSatchelSpell(const RunState& run) {
         return std::find(w.slots.begin(), w.slots.end(), SpellId::None) != w.slots.end();
     });
     return satchel && room;
+}
+
+/// True when a hanging lantern near the alchemist has a creature close beneath it.
+bool lanternOverFoe(const Level& level) {
+    const Vec2 me = level.player().center();
+    for (const Lantern& l : level.lanterns()) {
+        if (l.fallSpeed > 0.0f || (l.pos - me).lengthSq() > 60.0f * 60.0f) continue;
+        for (const auto& e : level.enemies())
+            if (e->alive() && e->team == Team::Monster && e->body.pos.y > l.pos.y && (e->body.pos - l.pos).lengthSq() < 40.0f * 40.0f)
+                return true;
+    }
+    return false;
 }
 
 /// Looks for a cell matching `pred` in a square around `center`, sampling every other cell.
@@ -134,6 +148,10 @@ void HintTracker::update(const Level& level, const RunState& run, float dt) {
     }
     if (!seen(Hint::Gold) && nearby(world, player.center(), 20, [](MatId m) { return m == mat::GoldOre; })) {
         show(Hint::Gold);
+        return;
+    }
+    if (!seen(Hint::Lantern) && lanternOverFoe(level)) {
+        show(Hint::Lantern);
         return;
     }
 }

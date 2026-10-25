@@ -155,6 +155,9 @@ public:
     void bleed(Vec2 pos, MatId blood, int amount, Vec2 dir);
     Actor* nearestHostile(Vec2 pos, Team team, float range, uint32_t excludeId = 0);
     bool lineOfSight(Vec2 a, Vec2 b) const;
+    /// Hanging lanterns within `radius` of the segment a-b are knocked loose: they drop and
+    /// shatter into burning oil where they land.
+    void knockLanterns(Vec2 a, Vec2 b, float radius);
     Enemy& spawnEnemy(EnemyType type, Vec2 pos);
     void spawnPickup(Pickup p) { pickups_.push_back(std::move(p)); }
     void dropLoot(Vec2 pos, int tier, bool chest);
