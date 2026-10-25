@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "game/Loadouts.hpp"
+#include "game/Ordeals.hpp"
 #include "game/Perks.hpp"
 #include "game/Spells.hpp"
 #include "game/Wand.hpp"
@@ -45,6 +46,7 @@ struct RunState {
     Difficulty difficulty = Difficulty::Adept;
     LoadoutId loadout = LoadoutId::Apprentice;
     int levelIndex = 0;      ///< 0..4 = biomes, then victory
+    int ordeal = 0;          ///< ordeal level the run is under (0 = none)
     bool inSanctum = false;
 
     float maxHp = 120.0f;
@@ -66,6 +68,8 @@ struct RunState {
             if (s != SpellId::None) noteSpell(s);
     }
 
+    /// True when the run is bound by `o` (an ordeal level includes every one beneath it).
+    bool under(Ordeal o) const { return ordeal >= static_cast<int>(o); }
     bool hasPerk(PerkId p) const { return perks[static_cast<size_t>(p)] > 0; }
     int perkCount(PerkId p) const { return perks[static_cast<size_t>(p)]; }
     /// Puts a spell into the first free inventory slot; false if full.
@@ -84,6 +88,6 @@ struct RunState {
     float castSpeedMul() const;
 };
 
-RunState newRun(uint32_t seed, Difficulty difficulty, bool daily, LoadoutId loadout = LoadoutId::Apprentice);
+RunState newRun(uint32_t seed, Difficulty difficulty, bool daily, LoadoutId loadout = LoadoutId::Apprentice, int ordeal = 0);
 
 } // namespace pm

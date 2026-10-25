@@ -167,6 +167,7 @@ TEST_CASE("suspended runs survive a save and load") {
     run.stats.time = 1234.5f;
     run.killsByType[3] = 9;
     run.wands[0].name = "Staff of the Rebis";
+    run.ordeal = 4;
 
     const auto path = std::filesystem::temp_directory_path() / "pm_test_run.sav";
     writeRunSave(run, path);
@@ -174,7 +175,7 @@ TEST_CASE("suspended runs survive a save and load") {
     CHECK(loaded.has_value());
     if (loaded) {
         const RunState& r = *loaded;
-        CHECK(r.seed == run.seed && r.difficulty == run.difficulty && r.loadout == run.loadout);
+        CHECK(r.seed == run.seed && r.difficulty == run.difficulty && r.loadout == run.loadout && r.ordeal == 4);
         CHECK(r.levelIndex == 3 && r.inSanctum && r.gold == 777 && r.activeWand == 1);
         CHECK(r.hp == run.hp && r.maxHp == run.maxHp);
         CHECK(r.wands.size() == run.wands.size());
@@ -511,6 +512,48 @@ TEST_CASE("stage events are announced, telegraphed, then land") {
         case StageEventKind::Count: break;
         }
     }
+}
+
+TEST_CASE("ordeals stack their rules and open one at a time") {
+    for (int i = 1; i <= kMaxOrdeal; ++i) CHECK(ordealDef(i).name[0] && ordealDef(i).rule[0]);
+    CHECK(ordealLabel(0).empty() && ordealLabel(3) == "Ordeal III" && ordealLabel(kMaxOrdeal) == "Ordeal VIII");
+    CHECK(ordealRules(2) == std::string(ordealDef(1).rule) + " " + ordealDef(2).rule);
+
+    const RunState plain = newRun(5, Difficulty::Adept, false);
+    const RunState frail = newRun(5, Difficulty::Adept, false, LoadoutId::Apprentice, static_cast<int>(Ordeal::FrailFlesh));
+    CHECK(frail.maxHp < plain.maxHp && frail.hp == frail.maxHp);
+    CHECK(newRun(5, Difficulty::Adept, false, LoadoutId::Apprentice, 99).ordeal == kMaxOrdeal);
+
+    // Foes are hardened and strike harder; the keepers are tougher still.
+    initMaterials();
+    ThreadPool pool(2);
+    Audio audio;
+    RunState run = newRun(9, Difficulty::Adept, false, LoadoutId::Apprentice, kMaxOrdeal);
+    Level level(generateSanctum(0, 9u, pool), run, audio, pool);
+    const Vec2 at = level.player().body.pos + Vec2{40.0f, -6.0f};
+    const Enemy& slime = level.spawnEnemy(EnemyType::Slime, at);
+    CHECK(std::fabs(slime.maxHp - enemyDef(EnemyType::Slime).hp * 1.25f) < 0.01f);
+    CHECK(std::fabs(slime.damageScale() - 1.25f) < 1e-4f);
+    const Enemy& toad = level.spawnEnemy(EnemyType::BlackToad, at);
+    CHECK(std::fabs(toad.maxHp - enemyDef(EnemyType::BlackToad).hp * 1.25f * 1.4f) < 0.1f);
+
+    // Completing the Work opens the next ordeal, but only from the highest one open.
+    Profile p;
+    RunState won = newRun(1, Difficulty::Adept, false);
+    won.levelIndex = 4;
+    CHECK(foldRun(p, won, true, "Completed the Great Work").unlockedOrdeal == 1);
+    CHECK(foldRun(p, won, true, "Completed the Great Work").unlockedOrdeal == 0 && p.ordealUnlocked == 1);
+    won.ordeal = 1;
+    CHECK(foldRun(p, won, true, "Completed the Great Work").unlockedOrdeal == 2 && p.ordealUnlocked == 2);
+    CHECK(p.history.front().ordeal == 1);
+
+    // The chronicle keeps the ordeal, and reads entries from before ordeals.
+    RunHistoryEntry e;
+    e.ordeal = 3;
+    e.fate = "Slain by a Mimic";
+    RunHistoryEntry back;
+    CHECK(decodeHistoryEntry(encodeHistoryEntry(e), back) && back.ordeal == 3 && back.fate == e.fate);
+    CHECK(decodeHistoryEntry("7|0|1|2|0|0|0|100|5|orbited by bats", back) && back.ordeal == 0 && back.fate == "orbited by bats");
 }
 
 TEST_CASE("stage lanterns hang from solid ceilings, not pooled steam") {

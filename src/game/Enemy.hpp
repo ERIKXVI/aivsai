@@ -105,7 +105,9 @@ public:
     bool guardian() const { return def_->guardian; }
     /// A guardian below half health fights faster and harder.
     bool enraged() const { return enraged_; }
-    float damageScale() const { return elite_ ? 1.35f : 1.0f; }
+    float damageScale() const { return (elite_ ? 1.35f : 1.0f) * strikeMul_; }
+    /// Scales how hard the creature strikes (an ordeal's Cruel Blows).
+    void setStrikeMul(float mul) { strikeMul_ = mul; }
     const EnemyDef& def() const { return *def_; }
     bool aggro() const { return aggro_; }
     /// Sends the creature hunting towards `target` (a swarm called in by a stage event).
@@ -168,6 +170,7 @@ private:
     float special_ = 0.0f;
     bool elite_ = false;
     Affix affix_ = Affix::None;
+    float strikeMul_ = 1.0f;
     // Guardian state.
     bool enraged_ = false;
     bool airborne_ = false;

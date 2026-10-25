@@ -55,6 +55,8 @@ private:
     void collapse(Level& level, int radiusX, int radiusY, bool gold);
 
     bool enabled_ = false;
+    float pace_ = 1.0f;      ///< scales the gaps between events (the Restless Mountain halves them)
+    int maxEvents_ = 0;
     float countdown_ = 0.0f; ///< seconds until the next event is due
     int fired_ = 0;
     Phase phase_ = Phase::Idle;

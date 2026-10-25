@@ -93,9 +93,9 @@ void GameScene::finishLoading() {
     stageDamageStart_ = run_.stats.damageTaken;
     if (run_.levelIndex >= 3 && !run_.inSanctum) earnFeat(FeatId::DeepDelver);
     if (run_.inSanctum) {
-        // Sanctums restore the alchemist completely.
-        run_.hp = run_.maxHp;
-        level_->player().hp = run_.maxHp;
+        // Sanctums restore the alchemist completely (under Lean Sanctums, half of what was lost).
+        run_.hp = run_.under(Ordeal::LeanSanctums) ? run_.hp + (run_.maxHp - run_.hp) * 0.5f : run_.maxHp;
+        level_->player().hp = run_.hp;
         titleMain_ = "SANCTUM";
         titleSub_ = biomeDef(BiomeId::Sanctum).subtitle;
     } else {

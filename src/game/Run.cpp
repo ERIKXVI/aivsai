@@ -87,11 +87,12 @@ float RunState::castSpeedMul() const {
     return std::pow(0.8f, static_cast<float>(perkCount(PerkId::PerpetualMotion)));
 }
 
-RunState newRun(uint32_t seed, Difficulty difficulty, bool daily, LoadoutId loadout) {
+RunState newRun(uint32_t seed, Difficulty difficulty, bool daily, LoadoutId loadout, int ordeal) {
     RunState r;
     r.seed = seed;
     r.daily = daily;
     r.difficulty = difficulty;
+    r.ordeal = clamp(ordeal, 0, kMaxOrdeal);
     r.wands.push_back(makeStarterWand(0));
     r.wands.push_back(makeStarterWand(1));
     r.inventory.fill(SpellId::None);
@@ -105,6 +106,7 @@ RunState newRun(uint32_t seed, Difficulty difficulty, bool daily, LoadoutId load
     } else if (difficulty == Difficulty::Archmage) {
         r.maxHp -= 30.0f;
     }
+    if (r.under(Ordeal::FrailFlesh)) r.maxHp = std::round(r.maxHp * 0.75f);
     r.hp = r.maxHp;
     return r;
 }

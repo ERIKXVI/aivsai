@@ -23,6 +23,7 @@ struct Settings {
     bool hints = true;  ///< contextual hints for new players
     bool matterLens = true; ///< name the matter or creature under the resting cursor
     bool highQuality = true; ///< graphics quality (false trims lighting for weak GPUs)
+    int ordeal = 0;          ///< ordeal chosen for new runs (capped by the profile's unlocks)
 };
 
 /// One finished run, remembered for the Grimoire's chronicle.
@@ -34,6 +35,7 @@ struct RunHistoryEntry {
     bool sanctum = false;  ///< ...and whether the run ended in the sanctum after it
     bool victory = false;
     bool daily = false;
+    int ordeal = 0;        ///< ordeal level the run was under
     float time = 0.0f;     ///< seconds
     int kills = 0;
     std::string fate;      ///< how it ended: "Slain by a Fire Imp", "Abandoned"...
@@ -54,6 +56,7 @@ struct Profile {
     int bestKills = 0;        ///< most creatures slain in one run
     int bestGold = 0;         ///< most gold gathered in one run (-1: unknown, from an older profile)
     uint32_t featsEarned = 0; ///< bit i set = FeatId i earned
+    int ordealUnlocked = 0;   ///< highest ordeal open to new runs (completing the Work opens the next)
     // Grimoire: what the alchemist has discovered across all runs.
     uint64_t spellsSeen = 0;          ///< bit i set = SpellId i discovered
     uint32_t perksSeen = 0;           ///< bit i set = PerkId i taken

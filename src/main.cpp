@@ -24,6 +24,7 @@ pm::LaunchOptions parseArgs(int argc, char** argv) {
         else if (std::strcmp(a, "--level") == 0) o.startLevel = std::atoi(next());
         else if (std::strcmp(a, "--wand") == 0) o.testWand = next();
         else if (std::strcmp(a, "--path") == 0) o.startLoadout = std::atoi(next());
+        else if (std::strcmp(a, "--ordeal") == 0) o.ordeal = std::atoi(next());
         else if (std::strcmp(a, "--at") == 0) {
             o.teleportX = static_cast<float>(std::atof(next()));
             o.teleportY = static_cast<float>(std::atof(next()));

@@ -10,7 +10,8 @@ namespace pm {
 
 namespace {
 
-constexpr int kMaxEvents = 3;    ///< per stage
+constexpr int kMaxEvents = 3;         ///< per stage
+constexpr int kRestlessMaxEvents = 5; ///< per stage under the Restless Mountain ordeal
 constexpr float kWarnTime = 1.6f; ///< the telegraph before an event lands
 
 bool insideVault(const Level& level, Vec2 p, float margin) {
@@ -122,7 +123,10 @@ MatId breachMatter(const Level& level, Rng& rng) {
 void StageEvents::begin(const Level& level, Rng& rng) {
     *this = StageEvents{};
     enabled_ = !level.isSanctum() && level.biome() != BiomeId::Athanor;
-    countdown_ = rng.range(50.0f, 90.0f);
+    const bool restless = level.run().under(Ordeal::RestlessMountain);
+    pace_ = restless ? 0.5f : 1.0f;
+    maxEvents_ = restless ? kRestlessMaxEvents : kMaxEvents;
+    countdown_ = rng.range(50.0f, 90.0f) * pace_;
 }
 
 StageEventKind StageEvents::pickKind(const Level& level, Rng& rng) const {
@@ -168,7 +172,7 @@ void StageEvents::tick(Level& level) {
         unfold(level);
         return;
     }
-    if (!enabled_ || fired_ >= kMaxEvents) return;
+    if (!enabled_ || fired_ >= maxEvents_) return;
     countdown_ -= kTickDt;
     if (countdown_ > 0.0f) return;
     // Hold off while the alchemist has enough on: a guardian or the Rebis, a vault, death.
@@ -203,7 +207,7 @@ bool StageEvents::start(Level& level, StageEventKind kind) {
     elapsed_ = 0.0f;
     released_ = false;
     ++fired_;
-    countdown_ = rng.range(75.0f, 130.0f);
+    countdown_ = rng.range(75.0f, 130.0f) * pace_;
     matter_ = mat::Empty;
     if (kind == StageEventKind::Breach) matter_ = breachMatter(level, rng);
     else if (kind == StageEventKind::GasSeep) matter_ = mat::Methane;

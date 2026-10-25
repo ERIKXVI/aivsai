@@ -120,7 +120,8 @@ void MenuScene::replayRun(const RunHistoryEntry& entry) {
     if (entry.loadout >= 0 && entry.loadout < kLoadoutCount && loadoutUnlocked(static_cast<LoadoutId>(entry.loadout), milestones()))
         loadout = static_cast<LoadoutId>(entry.loadout);
     const auto diff = static_cast<Difficulty>(clamp(entry.difficulty, 0, 2));
-    app_.setScene(std::make_unique<GameScene>(app_, newRun(entry.seed, diff, false, loadout)));
+    const int ordeal = std::min(entry.ordeal, app_.profile().ordealUnlocked);
+    app_.setScene(std::make_unique<GameScene>(app_, newRun(entry.seed, diff, false, loadout, ordeal)));
 }
 
 void MenuScene::startRun(bool daily, LoadoutId loadout) {
@@ -131,7 +132,9 @@ void MenuScene::startRun(bool daily, LoadoutId loadout) {
         app_.profile().lastDailySeed = static_cast<int>(seed);
         saveProfile(app_.profile());
     }
-    app_.setScene(std::make_unique<GameScene>(app_, newRun(seed, diff, daily, loadout)));
+    // The Daily Rite is the same trial for everyone: no ordeal.
+    const int ordeal = daily ? 0 : std::min(app_.settings().ordeal, app_.profile().ordealUnlocked);
+    app_.setScene(std::make_unique<GameScene>(app_, newRun(seed, diff, daily, loadout, ordeal)));
 }
 
 void MenuScene::tick() {
@@ -317,7 +320,7 @@ void MenuScene::drawLoadouts() {
 
     DrawRectangle(0, 0, app_.screenWidth(), app_.screenHeight(), Color{0, 0, 0, 150});
     const float rowH = 36.0f * s, rowGap = 4.0f * s;
-    Rectangle r{sw * 0.5f - 210.0f * s, sh * 0.5f - 130.0f * s, 420.0f * s, 260.0f * s};
+    Rectangle r{sw * 0.5f - 210.0f * s, sh * 0.5f - 143.0f * s, 420.0f * s, 286.0f * s};
     ui::panel(r);
     ui::text("CHOOSE YOUR PATH", sw * 0.5f, r.y + 8.0f * s, ui::fontSize(ui::scale() + 1), ui::color::kGold, ui::Align::Center);
 
@@ -385,6 +388,8 @@ void MenuScene::drawLoadouts() {
         }
     }
 
+    drawOrdealRow({r.x + 10.0f * s, y, r.width - 20.0f * s, 20.0f * s}, tipTitle, tipBody);
+
     const float bw = 100.0f * s, bh = 16.0f * s, by = r.y + r.height - 24.0f * s;
     if (ui::button({sw * 0.5f - bw - 4.0f * s, by, bw, bh}, "Begin") || ui::confirmPressed()) {
         startRun(false, selected);
@@ -392,6 +397,41 @@ void MenuScene::drawLoadouts() {
     }
     if (ui::button({sw * 0.5f + 4.0f * s, by, bw, bh}, "Back") || ui::backPressed()) panel_ = Panel::Main;
     if (!tipTitle.empty()) ui::tooltip(tipTitle, tipBody, ui::color::kAccent);
+}
+
+void MenuScene::drawOrdealRow(Rectangle row, std::string& tipTitle, std::string& tipBody) {
+    const float s = static_cast<float>(ui::scale());
+    const int size = ui::fontSize(ui::scale());
+    const int small = ui::fontSize(std::max(1, ui::scale() - 1));
+    const float cx = row.x + row.width * 0.5f;
+    const int unlocked = app_.profile().ordealUnlocked;
+    if (unlocked <= 0) {
+        ui::text("Ordeals open once the Great Work is complete", cx, row.y + (row.height - static_cast<float>(small)) * 0.5f, small,
+                 ui::color::kTextDim, ui::Align::Center);
+        return;
+    }
+    // Left and right (or the arrows) choose how hard; the choice is kept for later runs.
+    Settings& st = app_.settings();
+    int ordeal = std::min(st.ordeal, unlocked);
+    const float arrowW = 18.0f * s;
+    const bool less = input::keyPressed(KEY_LEFT) || input::keyPressed(KEY_A) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_LEFT);
+    const bool more = input::keyPressed(KEY_RIGHT) || input::keyPressed(KEY_D) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_RIGHT);
+    if (ui::button({row.x, row.y, arrowW, row.height}, "<") || less) ordeal = std::max(0, ordeal - 1);
+    if (ui::button({row.x + row.width - arrowW, row.y, arrowW, row.height}, ">") || more) ordeal = std::min(unlocked, ordeal + 1);
+    if (ordeal != st.ordeal) {
+        st.ordeal = ordeal;
+        saveSettings(st);
+    }
+    const std::string label = ordeal > 0 ? ordealLabel(ordeal) + ": " + ordealDef(ordeal).name : "No ordeal";
+    ui::text(label, cx, row.y + (row.height - static_cast<float>(size)) * 0.5f, size, ordeal > 0 ? Color{255, 140, 110, 255} : ui::color::kTextDim,
+             ui::Align::Center);
+    if (ui::hovered(row) && tipTitle.empty()) {
+        tipTitle = ordeal > 0 ? ordealLabel(ordeal) : "Ordeals";
+        tipBody = ordeal > 0 ? ordealRules(ordeal)
+                             : TextFormat("Each ordeal adds a rule to those beneath it. Complete the Great Work under the highest "
+                                          "open to unlock the next (%d of %d open).",
+                                          unlocked, kMaxOrdeal);
+    }
 }
 
 void MenuScene::drawHelp() {

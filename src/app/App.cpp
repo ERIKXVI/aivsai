@@ -132,7 +132,7 @@ int App::run() {
     } else if (options_.startRun) {
         uint32_t seed = options_.seed ? options_.seed : static_cast<uint32_t>(GetRandomValue(1, 0x7FFFFFFF));
         RunState run = newRun(seed, static_cast<Difficulty>(clamp(settings_.difficulty, 0, 2)), false,
-                              static_cast<LoadoutId>(clamp(options_.startLoadout, 0, kLoadoutCount - 1)));
+                              static_cast<LoadoutId>(clamp(options_.startLoadout, 0, kLoadoutCount - 1)), options_.ordeal);
         run.levelIndex = clamp(options_.startLevel, 0, 4);
         if (!options_.testWand.empty()) applyTestWand(run, options_.testWand);
         run.inSanctum = options_.startInSanctum;

@@ -8,6 +8,8 @@
 #include <map>
 #include <sstream>
 
+#include "game/Ordeals.hpp"
+
 namespace pm {
 
 namespace fs = std::filesystem;
@@ -102,8 +104,9 @@ bool parseNumber(const std::string& s, long long& out, long long lo, long long h
 std::string encodeHistoryEntry(const RunHistoryEntry& e) {
     std::ostringstream ss;
     ss << e.seed << '|' << e.loadout << '|' << e.difficulty << '|' << e.depth << '|' << (e.sanctum ? 1 : 0) << '|'
-       << (e.victory ? 1 : 0) << '|' << (e.daily ? 1 : 0) << '|' << static_cast<long long>(e.time) << '|' << e.kills << '|'
-       << e.fate;
+       << (e.victory ? 1 : 0) << '|' << (e.daily ? 1 : 0) << '|' << static_cast<long long>(e.time) << '|' << e.kills << '|';
+    if (e.ordeal > 0) ss << 'o' << e.ordeal << '|'; // older builds read it as part of the fate
+    ss << e.fate;
     return ss.str();
 }
 
@@ -129,6 +132,16 @@ bool decodeHistoryEntry(const std::string& text, RunHistoryEntry& out) {
     out.daily = v[6] != 0;
     out.time = static_cast<float>(v[7]);
     out.kills = static_cast<int>(v[8]);
+    // An ordeal tag ("o3|") may precede the fate; entries from before ordeals have none.
+    out.ordeal = 0;
+    if (pos < text.size() && text[pos] == 'o') {
+        const size_t bar = text.find('|', pos);
+        long long ordeal = 0;
+        if (bar != std::string::npos && parseNumber(text.substr(pos + 1, bar - pos - 1), ordeal, 1, kMaxOrdeal)) {
+            out.ordeal = static_cast<int>(ordeal);
+            pos = bar + 1;
+        }
+    }
     out.fate = text.substr(pos);
     return true;
 }
@@ -164,6 +177,8 @@ Settings loadSettings() {
     read(kv, "hints", s.hints);
     read(kv, "matter_lens", s.matterLens);
     read(kv, "high_quality", s.highQuality);
+    read(kv, "ordeal", s.ordeal);
+    s.ordeal = std::clamp(s.ordeal, 0, kMaxOrdeal);
     return s;
 }
 
@@ -178,7 +193,8 @@ void saveSettings(const Settings& s) {
                                         {"loadout", str(s.loadout)},
                                         {"hints", str(s.hints)},
                                         {"matter_lens", str(s.matterLens)},
-                                        {"high_quality", str(s.highQuality)}});
+                                        {"high_quality", str(s.highQuality)},
+                                        {"ordeal", str(s.ordeal)}});
 }
 
 Profile loadProfile() {
@@ -196,6 +212,10 @@ Profile loadProfile() {
     read(kv, "best_kills", p.bestKills);
     read(kv, "best_gold", p.bestGold);
     read(kv, "feats", p.featsEarned);
+    // Profiles from before ordeals: a completed Work has already earned the first.
+    p.ordealUnlocked = p.victories > 0 ? 1 : 0;
+    read(kv, "ordeal_unlocked", p.ordealUnlocked);
+    p.ordealUnlocked = std::clamp(p.ordealUnlocked, 0, kMaxOrdeal);
     read(kv, "spells_seen", p.spellsSeen);
     read(kv, "perks_seen", p.perksSeen);
     if (auto it = kv.find("creature_kills"); it != kv.end()) {
@@ -230,6 +250,7 @@ void saveProfile(const Profile& p) {
                  {"best_kills", str(p.bestKills)},
                  {"best_gold", str(p.bestGold)},
                  {"feats", str(p.featsEarned)},
+                 {"ordeal_unlocked", str(p.ordealUnlocked)},
                  {"spells_seen", str(p.spellsSeen)},
                  {"perks_seen", str(p.perksSeen)},
                  {"creature_kills", joinInts(p.creatureKills)}};

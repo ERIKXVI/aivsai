@@ -41,7 +41,8 @@ void Level::populate() {
             const EnemyDef& d = enemyDef(t);
             Vec2 pos = s.kind == SpawnKind::GroundEnemy ? Vec2{s.pos.x, s.pos.y - d.halfH} : s.pos;
             Enemy& e = spawnEnemy(t, pos);
-            const float eliteChance = 0.05f + 0.03f * static_cast<float>(layout_.levelIndex) + 0.05f * s.difficulty;
+            float eliteChance = 0.05f + 0.03f * static_cast<float>(layout_.levelIndex) + 0.05f * s.difficulty;
+            if (run_.under(Ordeal::GatheringElites)) eliteChance *= 2.0f;
             if (t != EnemyType::Worm && rng_.chance(eliteChance)) e.makeElite(rollAffix());
             break;
         }
@@ -79,7 +80,7 @@ void Level::populate() {
             if (isSanctum()) {
                 // Shop: three spells and one wand, priced for the coming depth.
                 const int shopTier = std::min(4, tier + (lucky ? 1 : 0));
-                const float priceMul = 1.0f + 0.2f * static_cast<float>(layout_.levelIndex);
+                const float priceMul = (1.0f + 0.2f * static_cast<float>(layout_.levelIndex)) * (run_.under(Ordeal::DearWares) ? 1.5f : 1.0f);
                 Pickup p;
                 if (shopIndex == 3) {
                     Wand w = makeRandomWand(shopTier, rng_);
@@ -147,9 +148,14 @@ Enemy& Level::spawnEnemy(EnemyType type, Vec2 pos) {
     if (run_.difficulty == Difficulty::Apprentice) scale *= 0.8f;
     if (run_.difficulty == Difficulty::Archmage) scale *= 1.3f;
     if (type == EnemyType::Companion || type == EnemyType::Boss) scale = 1.0f;
+    // Ordeals harden every foe (the alchemist's homunculus aside), and the keepers most of all.
+    const bool foe = type != EnemyType::Companion;
+    if (foe && run_.under(Ordeal::HardenedFoes)) scale *= 1.25f;
+    if ((enemyDef(type).guardian || type == EnemyType::Boss) && run_.under(Ordeal::WrathfulKeepers)) scale *= 1.4f;
     enemies_.push_back(std::make_unique<Enemy>(type, pos, nextId(), scale));
     Enemy& e = *enemies_.back();
     if (type == EnemyType::Companion) e.team = Team::Player;
+    if (foe && run_.under(Ordeal::CruelBlows)) e.setStrikeMul(1.25f);
     return e;
 }
 

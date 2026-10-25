@@ -148,6 +148,7 @@ RunRecord foldRun(Profile& p, const RunState& run, bool victory, const std::stri
     entry.sanctum = run.inSanctum;
     entry.victory = victory;
     entry.daily = run.daily;
+    entry.ordeal = run.ordeal;
     entry.time = run.stats.time;
     entry.kills = run.stats.kills;
     entry.fate = fate;
@@ -180,6 +181,11 @@ RunRecord foldRun(Profile& p, const RunState& run, bool victory, const std::stri
         best = fraction;
         record.nearestPath = PathProgress{loadoutDef(id).name, after.text, before.value, after.value, after.target};
     }
+    // Completing the Work under the highest ordeal open (or any ordeal, the first time) opens the next.
+    if (victory && run.ordeal >= p.ordealUnlocked && p.ordealUnlocked < kMaxOrdeal) {
+        p.ordealUnlocked = run.ordeal + 1;
+        record.unlockedOrdeal = p.ordealUnlocked;
+    }
     // Personal bests; a first run sets every one of them, which is no news.
     if (victory && before.victories == 0) record.records.emplace_back("Your first Great Work!");
     if (before.runs > 0) {
@@ -205,6 +211,7 @@ void writeRunSave(const RunState& r, const fs::path& path) {
     kv["difficulty"] = std::to_string(static_cast<int>(r.difficulty));
     kv["loadout"] = std::to_string(static_cast<int>(r.loadout));
     kv["level"] = std::to_string(r.levelIndex);
+    kv["ordeal"] = std::to_string(r.ordeal);
     kv["sanctum"] = r.inSanctum ? "1" : "0";
     kv["max_hp"] = num(r.maxHp);
     kv["hp"] = num(r.hp);
@@ -252,6 +259,8 @@ std::optional<RunState> readRunSave(const fs::path& path) {
     r.inSanctum = get("sanctum") == "1";
     r.difficulty = static_cast<Difficulty>(difficulty);
     r.loadout = static_cast<LoadoutId>(loadout);
+    // Saves from before ordeals carry none.
+    if (!get("ordeal").empty() && !parseInt(get("ordeal"), r.ordeal, 0, kMaxOrdeal)) return std::nullopt;
     r.hp = std::clamp(r.hp, 1.0f, r.maxHp);
     r.spellsSeen = static_cast<uint64_t>(spellsSeen);
     for (int i = 0; i < wandCount; ++i) {

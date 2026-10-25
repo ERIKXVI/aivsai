@@ -10,6 +10,7 @@
 #include "game/Enemy.hpp"
 #include "game/Feats.hpp"
 #include "game/Loadouts.hpp"
+#include "game/Ordeals.hpp"
 #include "game/Perks.hpp"
 #include "game/Spells.hpp"
 #include "render/ColorUtil.hpp"
@@ -261,7 +262,8 @@ void GrimoirePanel::drawChronicle(App& app, float x, float y) {
         py += rowH;
     }
     if (mouseHot || armedRow_ >= 0) {
-        const char* title = TextFormat("Seed %u", p.history[static_cast<size_t>(hot)].seed);
+        const RunHistoryEntry& he = p.history[static_cast<size_t>(hot)];
+        const char* title = he.ordeal > 0 ? TextFormat("Seed %u - %s", he.seed, ordealLabel(he.ordeal).c_str()) : TextFormat("Seed %u", he.seed);
         if (armedRow_ == hot)
             ui::tooltip(title, "Choose it again to begin: your suspended run will be abandoned.", ui::color::kDanger);
         else if (replayAbandonsRun_)

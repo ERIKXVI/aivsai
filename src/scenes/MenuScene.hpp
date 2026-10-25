@@ -5,6 +5,7 @@
 #include <array>
 #include <memory>
 #include <optional>
+#include <string>
 
 #include "app/Persistence.hpp"
 #include "app/Scene.hpp"
@@ -40,6 +41,8 @@ private:
     void drawMain();
     void drawHelp();
     void drawLoadouts();
+    /// The ordeal chooser under the paths (or a note that it opens after the first victory).
+    void drawOrdealRow(Rectangle row, std::string& tipTitle, std::string& tipBody);
 
     std::unique_ptr<World> world_;
     ParticleSystem particles_;

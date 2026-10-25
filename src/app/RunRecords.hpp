@@ -24,6 +24,7 @@ struct RunRecord {
     std::vector<std::string> unlockedPaths; ///< starting paths unlocked by this run
     std::optional<PathProgress> nearestPath; ///< the locked path closest to opening
     std::vector<std::string> records;       ///< personal bests this run set
+    int unlockedOrdeal = 0;                 ///< the ordeal this run opened, if any
 };
 
 /// Folds a finished or abandoned run into the profile (statistics, Grimoire, chronicle).

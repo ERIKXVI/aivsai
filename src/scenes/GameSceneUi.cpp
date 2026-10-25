@@ -666,6 +666,7 @@ void GameScene::drawEndScreen(bool victory) {
     const RunStats& st = run_.stats;
     const float lineH = fontH * 1.35f;
     std::string reached = run_.levelIndex <= 4 ? biomeDef(biomeForDepth(run_.levelIndex)).name : "The Athanor";
+    const std::string seedNote = run_.daily ? " (Daily Rite)" : run_.ordeal > 0 ? " (" + ordealLabel(run_.ordeal) + ")" : "";
     const std::string left[] = {
         std::string("Reached: ") + (run_.inSanctum ? "Sanctum after " : "") + reached,
         "Time: " + formatTime(st.time),
@@ -675,7 +676,7 @@ void GameScene::drawEndScreen(bool victory) {
     const std::string right[] = {
         "Spells cast: " + std::to_string(st.spellsCast),
         "Chests opened: " + std::to_string(st.chestsOpened),
-        TextFormat("Seed: %u%s", run_.seed, run_.daily ? " (Daily Rite)" : ""),
+        TextFormat("Seed: %u", run_.seed) + seedNote,
     };
     const Color statColor{220, 210, 200, al};
     float y = std::max(sh * 0.38f, subY + lineH * 3.7f);
@@ -701,6 +702,11 @@ void GameScene::drawEndScreen(bool victory) {
         ui::text("Path unlocked: the " + path, sw * 0.5f, y, font, Color{255, 210, 110, al}, ui::Align::Center);
         y += lineH;
     }
+    if (record_.unlockedOrdeal > 0) {
+        ui::text(ordealLabel(record_.unlockedOrdeal) + " unlocked: " + ordealDef(record_.unlockedOrdeal).name, sw * 0.5f, y, font,
+                 Color{255, 140, 110, al}, ui::Align::Center);
+        y += lineH;
+    }
     if (record_.nearestPath) {
         const PathProgress& np = *record_.nearestPath;
         std::string label = TextFormat("Next path, the %s: %s %d/%d", np.name.c_str(), np.requirement.c_str(), np.now, np.target);
@@ -723,7 +729,7 @@ void GameScene::drawEndScreen(bool victory) {
     float bx = sw * 0.5f - bw * 1.5f - gap;
     y += 6.0f * s;
     auto startRun = [&](uint32_t seed) {
-        RunState fresh = newRun(seed, run_.difficulty, false, run_.loadout);
+        RunState fresh = newRun(seed, run_.difficulty, false, run_.loadout, run_.daily ? 0 : run_.ordeal);
         app_.setScene(std::make_unique<GameScene>(app_, std::move(fresh)));
     };
     if (ui::button({bx, y, bw, bh}, victory ? "New Work" : "Try Again") || ui::confirmPressed() || input::keyPressed(KEY_R)) {
