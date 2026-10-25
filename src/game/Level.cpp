@@ -433,15 +433,11 @@ void Level::grantPerk(PerkId perk, const char* reason) {
     run_.hp = player_->hp;
     run_.applyPerk(perk);
     const PerkDef& def = perkDef(perk);
-    // Re-derive the player's stats (resistances, health) from the run.
+    // Re-derive the player's stats (resistances, health) from the run; moment-to-moment state
+    // (levitation, status effects, breath, i-frames) carries on.
+    player_->hp = run_.hp;
+    player_->refreshFromRun();
     const Vec2 pos = player_->body.pos;
-    const Vec2 vel = player_->body.vel;
-    const uint32_t playerId = player_->id;
-    player_ = std::make_unique<Player>(pos, run_);
-    player_->id = playerId;
-    player_->body.vel = vel;
-    player_->hp = std::min(run_.hp, run_.maxHp);
-    player_->invulnerable = 0.0f;
     audio_.play(Sfx::Perk, 0.9f);
     if (reason) addFloatText(pos - Vec2{0.0f, 24.0f}, reason, 0xe0d0ff, 1.1f);
     addFloatText(pos - Vec2{0.0f, 14.0f}, def.name, def.color, 1.4f);

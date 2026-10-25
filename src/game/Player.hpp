@@ -14,6 +14,8 @@ public:
     Player(Vec2 pos, RunState& run);
 
     void setInput(const PlayerInput& input) { input_ = input; }
+    /// Re-derives health and resistances from the run (after a perk), keeping everything else.
+    void refreshFromRun();
     void tick(Level& level) override;
     void drawAlbedo(DrawContext& ctx) const override;
     void drawEmission(DrawContext& ctx) const override;

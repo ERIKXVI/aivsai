@@ -67,6 +67,7 @@ CastShot buildShot(const std::vector<SpellId>& slots, const std::vector<int>& or
                 auto payload = std::make_shared<CastShot>(buildShot(slots, order, pos, 1));
                 shot.mana += payload->mana;
                 shot.castDelay += payload->castDelay;
+                shot.recharge += payload->recharge;
                 if (!payload->projectiles.empty()) launch.payload = std::move(payload);
             }
             shot.projectiles.push_back(std::move(launch));
@@ -120,15 +121,40 @@ CastOutcome Wand::tryCast(Rng& rng) {
     if (cooldown > 0.0f) return out;
     if (shuffle && order.size() != slots.size()) resetDeck();
 
-    int pos = deckPos;
-    CastShot shot = buildShot(slots, order, pos, spellsPerCast);
-    if (shot.projectiles.empty() && shot.mana <= 0.0f) {
-        out.status = CastStatus::Empty;
-        if (spellCount() == 0) return out;
-        // Deck exhausted without casting anything (only modifiers left): recharge.
+    // Cards left after the read head?
+    auto cardsRemain = [&] {
+        for (int i = deckPos; i < static_cast<int>(slots.size()); ++i)
+            if (slots[static_cast<size_t>(order.empty() ? i : order[static_cast<size_t>(i)])] != SpellId::None) return true;
+        return false;
+    };
+    // Back to the top of the deck after a recharge (shuffle wands reshuffle).
+    auto startRecharge = [&](float extra) {
         deckPos = 0;
         recharging = true;
-        cooldown = cooldownTotal = std::max(0.05f, rechargeTime);
+        cooldown = std::max(cooldown, std::max(0.05f, rechargeTime + extra));
+        if (shuffle) {
+            for (size_t i = order.size(); i > 1; --i) std::swap(order[i - 1], order[static_cast<size_t>(rng.rangeInt(0, static_cast<int>(i) - 1))]);
+        }
+    };
+
+    int pos = deckPos;
+    CastShot shot = buildShot(slots, order, pos, spellsPerCast);
+    if (shot.projectiles.empty()) {
+        // Only modifiers (or nothing) left before the end of the deck: recharge without casting.
+        out.status = CastStatus::Empty;
+        if (spellCount() == 0) return out;
+        startRecharge(0.0f);
+        cooldownTotal = cooldown;
+        return out;
+    }
+    if (shot.mana > manaMax) {
+        // Dearer than the wand's whole mana pool, so it can never be cast: skip past it rather
+        // than locking the deck.
+        out.status = CastStatus::NoMana;
+        deckPos = pos;
+        cooldown = std::max(0.03f, castDelay);
+        if (!cardsRemain()) startRecharge(0.0f);
+        cooldownTotal = cooldown;
         return out;
     }
     if (shot.mana > mana) {
@@ -139,19 +165,7 @@ CastOutcome Wand::tryCast(Rng& rng) {
     mana = std::min(mana, manaMax);
     deckPos = pos;
     cooldown = std::max(0.03f, castDelay + shot.castDelay);
-
-    // Exhausted? Look for any card left after the read head.
-    bool more = false;
-    for (int i = deckPos; i < static_cast<int>(slots.size()); ++i)
-        if (slots[static_cast<size_t>(order.empty() ? i : order[static_cast<size_t>(i)])] != SpellId::None) more = true;
-    if (!more) {
-        deckPos = 0;
-        recharging = true;
-        cooldown = std::max(cooldown, rechargeTime + shot.recharge);
-        if (shuffle) {
-            for (size_t i = order.size(); i > 1; --i) std::swap(order[i - 1], order[static_cast<size_t>(rng.rangeInt(0, static_cast<int>(i) - 1))]);
-        }
-    }
+    if (!cardsRemain()) startRecharge(shot.recharge);
     cooldownTotal = cooldown;
     shot.spreadDeg += spreadDeg;
     for (ProjectileLaunch& l : shot.projectiles) l.def.speed *= speedMul;

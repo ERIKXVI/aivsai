@@ -83,6 +83,7 @@ void Enemy::tick(Level& level) {
         if (lostSight_ > 7.0f && def_->behaviour != Behaviour::Boss) aggro_ = false;
     }
     if (!pl.alive()) aggro_ = false;
+    if (!aggro_) windup_ = 0.0f; // a telegraph never hangs on once the creature stands down
 
     switch (def_->behaviour) {
     case Behaviour::Hopper: tickHopper(level, toPlayer, sees); break;
@@ -324,6 +325,8 @@ void Enemy::tickTurret(Level& level, Vec2 toPlayer, bool sees) {
                 attackTimer_ = 0.18f;
             }
         }
+    } else {
+        windup_ = 0.0f; // lost sight mid wind-up: start a fresh telegraph next time
     }
     (void)toPlayer;
 }

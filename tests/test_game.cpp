@@ -279,3 +279,35 @@ TEST_CASE("key=value files survive an interrupted replace") {
     CHECK(readKeyValues(file)["runs"] == "7");
     fs::remove_all(dir, ec);
 }
+
+namespace {
+
+/// Casts until the wand is ready again (cooldowns elapse instantly in tests).
+CastOutcome castNow(Wand& w, Rng& rng) {
+    w.cooldown = 0.0f;
+    w.mana = w.manaMax;
+    return w.tryCast(rng);
+}
+
+} // namespace
+
+TEST_CASE("wands recharge past trailing modifiers and unaffordable spells") {
+    Rng rng(4);
+    // A modifier at the end of the deck casts nothing: the wand recharges instead.
+    Wand w = makeStarterWand(0);
+    w.slots = {SpellId::SparkBolt, SpellId::SparkBolt, SpellId::DamageUp, SpellId::None};
+    w.resetDeck();
+    CHECK(castNow(w, rng).status == CastStatus::Cast);
+    CHECK(castNow(w, rng).status == CastStatus::Cast);
+    CHECK(castNow(w, rng).status == CastStatus::Empty); // only Damage Up left: no phantom cast
+    CHECK(castNow(w, rng).status == CastStatus::Cast);  // recharged, back at the top
+
+    // A spell dearer than the whole mana pool is skipped instead of locking the deck.
+    Wand poor = makeStarterWand(0);
+    poor.manaMax = 100.0f;
+    poor.slots = {SpellId::SparkBolt, SpellId::HolyBomb, SpellId::None, SpellId::None};
+    poor.resetDeck();
+    CHECK(castNow(poor, rng).status == CastStatus::Cast);
+    CHECK(castNow(poor, rng).status == CastStatus::NoMana);
+    CHECK(castNow(poor, rng).status == CastStatus::Cast); // back to the Spark Bolt
+}

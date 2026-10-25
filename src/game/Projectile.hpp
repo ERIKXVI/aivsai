@@ -29,13 +29,15 @@ struct Projectile {
     bool dead = false;
 
     bool alreadyHit(uint32_t actorId) const {
-        for (int i = 0; i < hitCount; ++i)
+        const int remembered = hitCount < 8 ? hitCount : 8;
+        for (int i = 0; i < remembered; ++i)
             if (hitIds[static_cast<size_t>(i)] == actorId) return true;
         return false;
     }
     void rememberHit(uint32_t actorId) {
+        // A ring of the eight most recent victims: the oldest slot is reused each time.
         hitIds[static_cast<size_t>(hitCount % 8)] = actorId;
-        if (hitCount < 8) ++hitCount;
+        ++hitCount;
     }
 };
 

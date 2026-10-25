@@ -36,16 +36,22 @@ Player::Player(Vec2 pos, RunState& run) : run_(run) {
     body.stepHeight = 3.0f;
     team = Team::Player;
     hp = run.hp;
-    maxHp = run.maxHp;
-    if (run.hasPerk(PerkId::Fireproof)) resist[static_cast<size_t>(DamageType::Fire)] = 0.0f;
-    if (run.hasPerk(PerkId::BlastShield)) resist[static_cast<size_t>(DamageType::Explosion)] = 0.0f;
-    if (run.hasPerk(PerkId::ToxicBlood)) {
+    refreshFromRun();
+    invulnerable = 1.0f; // grace period on arrival
+}
+
+void Player::refreshFromRun() {
+    maxHp = run_.maxHp;
+    hp = std::min(hp, maxHp);
+    resist.fill(1.0f);
+    if (run_.hasPerk(PerkId::Fireproof)) resist[static_cast<size_t>(DamageType::Fire)] = 0.0f;
+    if (run_.hasPerk(PerkId::BlastShield)) resist[static_cast<size_t>(DamageType::Explosion)] = 0.0f;
+    if (run_.hasPerk(PerkId::ToxicBlood)) {
         resist[static_cast<size_t>(DamageType::Acid)] = 0.0f;
         resist[static_cast<size_t>(DamageType::Toxic)] = 0.0f;
     }
-    if (run.hasPerk(PerkId::Insulated)) resist[static_cast<size_t>(DamageType::Electric)] = 0.0f;
-    for (float& r : resist) r *= run.damageTakenMul();
-    invulnerable = 1.0f; // grace period on arrival
+    if (run_.hasPerk(PerkId::Insulated)) resist[static_cast<size_t>(DamageType::Electric)] = 0.0f;
+    for (float& r : resist) r *= run_.damageTakenMul();
 }
 
 Vec2 Player::wandTip() const {
@@ -199,6 +205,7 @@ void Player::handleWands(Level& level) {
     }
     if (outcome.status != CastStatus::Cast) return;
     wand.cooldown *= run_.castSpeedMul();
+    wand.cooldownTotal = wand.cooldown; // keeps the HUD reload bar honest
     float angle = angleOf(aimDir_);
     level.castShot(outcome.shot, wandTip(), angle, Team::Player, id, run_.damageDealtMul());
     run_.stats.spellsCast++;
@@ -304,10 +311,15 @@ void Player::handleFlask(Level& level) {
         case mat::Acid: applyDamage(level, {25.0f * fraction, DamageType::Acid, {}, Team::Monster, false, false, "a draught of acid"}); break;
         case mat::Toxic: status.poisoned = 8.0f; break;
         case mat::Blood: hp = std::min(maxHp, hp + 4.0f * fraction); break;
-        case mat::Midas:
-            run_.gold += 60;
-            level.addFloatText(body.pos, "+60 gold", 0xffd040);
+        case mat::Midas: {
+            // Paid by the amount drunk, so sipping a flask in tiny gulps earns nothing extra.
+            const int gold = static_cast<int>(std::lround(60.0f * fraction));
+            if (gold > 0) {
+                run_.gold += gold;
+                level.addFloatText(body.pos, "+" + std::to_string(gold) + " gold", 0xffd040);
+            }
             break;
+        }
         case mat::Quicksilver: status.chilled = 0.0f; break;
         default: break;
         }
@@ -352,8 +364,13 @@ void Player::collectGold(Level& level) {
 
 void Player::onDamaged(Level& level, const DamageInfo& info, float dealt) {
     run_.stats.damageTaken += dealt;
+    if (info.silent) {
+        // Damage over time (burning, poison, acid) only drips; a stream of blood every tick
+        // would also douse the alchemist's own flames.
+        if (level.rng().chance(0.05f)) level.bleed(body.pos, mat::Blood, 1, {});
+        return;
+    }
     level.bleed(body.pos, mat::Blood, std::min(12, static_cast<int>(dealt * 0.5f) + 1), info.knockback);
-    if (info.silent) return;
     invulnerable = 0.6f;
     if (dealt >= 18.0f) level.addHitStop(2);
     level.audio().play(Sfx::PlayerHurt, 0.7f, level.rng().range(0.95f, 1.05f));
