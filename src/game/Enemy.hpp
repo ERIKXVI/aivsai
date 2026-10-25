@@ -94,8 +94,8 @@ private:
     void tickCompanion(Level& level);
     void tickBoss(Level& level, Vec2 toPlayer, bool sees);
     void fireAt(Level& level, Vec2 target, SpellId spell, float spreadRad = 0.05f);
-    /// Ranged attacks are telegraphed: when `wantsToFire` a short glowing wind-up starts, and
-    /// this returns true on the tick it completes.
+    /// Ranged attacks are telegraphed: when `wantsToFire` (and the player is within view range)
+    /// a short glowing wind-up starts, and this returns true on the tick it completes.
     bool readyToFire(Level& level, bool wantsToFire);
     void contactPlayer(Level& level);
     int animFrame(float time) const;

@@ -165,7 +165,7 @@ void GameScene::drawHud() {
     if (pl.status.oiled > 0.0f) statuses += "OILED  ";
     if (pl.status.poisoned > 0.0f) statuses += "POISONED  ";
     if (pl.status.chilled > 0.0f) statuses += "CHILLED  ";
-    if (!statuses.empty()) ui::text(statuses, x, y + 2.0f * s, small, Color{255, 200, 120, 255});
+    if (!statuses.empty() && pl.alive()) ui::text(statuses, x, y + 2.0f * s, small, Color{255, 200, 120, 255});
 
     // Gold and stage.
     ui::text(TextFormat("%d gold", run_.gold), sw - 10.0f * s, 10.0f * s, size, ui::color::kGold, ui::Align::Right);

@@ -138,7 +138,8 @@ void Generator::collectSpawns(const World& world, LevelLayout& out) {
         if (ground < groundTarget && isFloor(world, x, y) && spaceAbove(world, x, y, 14, 4)) {
             out.spawns.push_back({SpawnKind::GroundEnemy, p, difficultyAt(p.y)});
             ++ground;
-        } else if (air < airTarget && spaceAbove(world, x, y, 24, 10)) {
+        } else if (air < airTarget && farFromEnds(p, 150.0f) && spaceAbove(world, x, y, 24, 10)) {
+            // Flyers close distance fast, so they start further from the entrance.
             out.spawns.push_back({SpawnKind::AirEnemy, p, difficultyAt(p.y)});
             ++air;
         }

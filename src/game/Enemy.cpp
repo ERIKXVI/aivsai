@@ -13,6 +13,9 @@ namespace {
 
 constexpr int kWormSegments = 9;
 constexpr float kWormSpacing = 5.5f;
+/// Ranged attacks only begin inside this box around the player, which stays in view even when
+/// the camera looks ahead, so nothing opens fire from off screen.
+constexpr float kEngageHalfW = 190.0f, kEngageHalfH = 110.0f;
 
 float sign(float v) { return v < 0.0f ? -1.0f : 1.0f; }
 
@@ -167,7 +170,8 @@ bool Enemy::readyToFire(Level& level, bool wantsToFire) {
         }
         return false;
     }
-    if (wantsToFire) windup_ = kWindup;
+    const Vec2 toPlayer = level.player().body.pos - body.pos;
+    if (wantsToFire && std::fabs(toPlayer.x) < kEngageHalfW && std::fabs(toPlayer.y) < kEngageHalfH) windup_ = kWindup;
     return false;
 }
 
