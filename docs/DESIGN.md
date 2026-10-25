@@ -56,7 +56,11 @@ The descent follows the four stages of the alchemical Great Work:
 - **Sanctums** between stages heal fully and offer a shop (three spells and a wand,
   priced for the depth) and a choice of perks at altars.
 - **The Athanor** is the boss arena: the Rebis has phases, summons and an enraged form.
-- **Elites** (golden aura) appear more often deeper down and always drop better loot.
+- **Elites** appear more often deeper down and always drop better loot. Each carries an
+  affix shown by its aura: *Burning* (trails fire, immune to it, drops a fire spell),
+  *Swift* (half again as fast) or *Gilded* (bleeds gold dust, treble gold).
+- **Lanterns** hang along the route; a spell through one knocks it down to shatter into
+  burning oil, so the scenery doubles as a trap.
 
 ## Progression across runs
 

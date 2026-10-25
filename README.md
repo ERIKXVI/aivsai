@@ -37,7 +37,7 @@ executable; choose *More info -> Run anyway*.
 | Pour the flask / absorb matter | Right button / hold `Q` | LT / Y |
 | Drink from the flask | `F` | X |
 | Pick up, open, buy | `E` | B |
-| Edit wands (drag & drop spells) | `Tab` | Back |
+| Edit wands (drag & drop spells) | `Tab` | Back, then D-pad + A / Y |
 | Map | `M` | D-pad down |
 | Pause | `Esc` | Start |
 | Fullscreen | `F11` or `Alt+Enter` | |
@@ -50,10 +50,18 @@ Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-p
 - **Wands** cast their spell cards in order. *Modifiers* (Damage Plus, Homing, Fire Trail...)
   affect every projectile in the same cast, *multicasts* fire several cards at once, and
   *trigger* spells release the next card where they land. 49 spells, randomly rolled wands
-  and four wand slots make every run's arsenal different.
+  and four wand slots make every run's arsenal different. An attack spell you find drops
+  straight into an empty slot of the wand in hand; the rest wait in the satchel, and the
+  wand editor (`Tab`) walks you through your first drag.
 - **The flask** absorbs any liquid or powder (`Q`) and pours it back out (right mouse): carry
   water to douse fires, acid to dissolve walls, oil to set traps. Drinking has effects too -
   Vitae heals.
+- **The matter lens:** rest the cursor on a substance or creature to learn what it is and
+  what it does.
+- **Lanterns** light the route - and can be shot down onto the creatures below, shattering
+  into burning oil.
+- **Elites** glow with an affix: *Burning* ones trail fire, *Swift* ones strike fast and
+  *Gilded* ones bleed gold.
 - **Omens** twist some stages: a *Flooded* cavern, an *Overgrown* one, a *Volatile* mine
   stocked with black powder, *Gilded* walls or a *Teeming* stage full of creatures and loot.
 - **Vaults** hide off the main route: an alchemist's laboratory with a brimming cauldron, a
@@ -64,7 +72,8 @@ Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-p
 - **Save & Quit** from the pause menu (or just close the window) and *Continue the Work*
   from the title screen later: a run resumes at the start of the stage you were on.
 - **Runs** are seeded. The *Daily Rite* gives everyone the same seed and kit for the day, and
-  three difficulties tune the challenge.
+  three difficulties tune the challenge. The death screen shows how close the next path is
+  to unlocking and any personal bests, and *Retry Seed* walks the same stages again.
 - **Paths:** milestones unlock four more starting loadouts - the *Pyromancer*, *Geomancer*,
   *Stormcaller* and *Hermeticist* - each with its own wands, flask and gifts.
 - **The Grimoire** records every spell discovered, creature slain and perk taken across all
@@ -126,7 +135,8 @@ reacting to combat intensity, with fire/water/lava ambience mixed in.
 
 - `pm_tests` - unit tests for simulation invariants (conservation, reactions, blasts,
   hanging vines), generation (route and vault reachability, determinism, omens, trees), the
-  spell table, deck casting, starting loadouts, run saves, the chronicle and death advice.
+  spell table, deck casting, auto-slotting found spells, starting loadouts, run saves, the
+  chronicle, end-screen records, death advice, lanterns, elite affixes and the matter lens.
 - `PrimaMateria --play --autoplay --turbo [--god] [--seed N] [--level N]` - an autopilot
   plays through runs headlessly as an end-to-end smoke test.
 - `pm_genpreview <dir>` renders full level maps; `pm_audiopreview <dir>` renders every sound

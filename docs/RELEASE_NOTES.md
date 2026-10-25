@@ -13,8 +13,13 @@ switches to a window.
 - Unlockable starting paths, a Grimoire of everything you have discovered with a chronicle
   of recent runs (replay any seed), a Daily Rite seed, three difficulties and an Alchemy
   Sandbox to experiment freely.
+- Found attack spells slot straight into your wand, and the wand editor guides your first
+  edit (and works with a gamepad).
+- A matter lens: rest the cursor on any substance or creature to learn what it does.
+- Lanterns you can shoot down onto foes, and elites with Burning, Swift or Gilded affixes.
 - A fog-of-war map, contextual hints for new players and a death screen that tells you
-  what got you and how to avoid it.
+  what got you, how to avoid it, how close your next starting path is and lets you retry
+  the same seed.
 - All art, sound and music are generated procedurally by the game.
 
 Controls: `A/D` move · `W/Space` jump (hold to levitate) · mouse aim · `LMB` cast ·
