@@ -263,7 +263,9 @@ void Level::updatePickups(float dt) {
         Vec2 to = pl.body.pos - p.body.pos;
         float dist = to.length();
         if (p.type == PickupType::Gold) {
-            if (greedy && dist < 70.0f && p.age > 0.3f) p.body.vel += to.normalized() * (900.0f * dt);
+            // Coins close by drift to the alchemist; Midas' Greed pulls from much further.
+            const float reach = greedy ? 70.0f : 22.0f, pull = greedy ? 900.0f : 450.0f;
+            if (dist < reach && p.age > (greedy ? 0.3f : 0.4f)) p.body.vel += to.normalized() * (pull * dt);
             if (dist < 7.0f && p.age > 0.25f) {
                 int value = greedy ? p.amount * 3 / 2 : p.amount;
                 run_.gold += value;

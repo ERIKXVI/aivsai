@@ -88,6 +88,8 @@ private:
     bool debugOverlay_ = false;
     bool usingGamepad_ = false;  ///< last input came from a gamepad (for button prompts)
     float heartbeat_ = 0.0f;     ///< seconds until the next low-health heartbeat
+    int shownGold_ = -1;         ///< gold total the HUD last saw
+    float goldPop_ = 0.0f;       ///< seconds left on the HUD gold counter's pop
 
     // Input pressed between ticks is latched so nothing is lost at high frame rates.
     bool latchJump_ = false, latchInteract_ = false, latchDrink_ = false, latchCast_ = false;

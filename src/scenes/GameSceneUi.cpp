@@ -198,7 +198,12 @@ void GameScene::drawHud() {
     if (!statuses.empty() && pl.alive()) ui::text(statuses, x, y + 2.0f * s, small, Color{255, 200, 120, 255});
 
     // Gold and stage.
-    ui::text(TextFormat("%d gold", run_.gold), sw - 10.0f * s, 10.0f * s, size, ui::color::kGold, ui::Align::Right);
+    // A fresh coin pops the counter up a size and flashes it pale gold for a moment.
+    const float pop = goldPop_ / 0.25f;
+    const int goldSize = pop > 0.5f ? ui::fontSize(ui::scale() + 1) : size;
+    const Color goldColor = ColorLerp(ui::color::kGold, Color{255, 248, 210, 255}, pop);
+    ui::text(TextFormat("%d gold", run_.gold), sw - 10.0f * s, 10.0f * s - static_cast<float>(goldSize - size) * 0.5f, goldSize, goldColor,
+             ui::Align::Right);
     std::string stage = run_.inSanctum ? "Sanctum" : std::string(stageNumeral(run_.levelIndex)) + ". " + biomeDef(level_->biome()).name;
     if (const Omen omen = level_->layout().omen; omen != Omen::None) stage += std::string(" - ") + omenDef(omen).name;
     ui::text(stage, sw - 10.0f * s, 10.0f * s + static_cast<float>(size) + 2.0f * s, small, ui::color::kTextDim, ui::Align::Right);

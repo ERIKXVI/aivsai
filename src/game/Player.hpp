@@ -27,6 +27,12 @@ public:
     Vec2 wandTip() const;
     bool facingRight() const { return facingRight_; }
     float castFlash() const { return castFlash_; }
+    /// The camera nudge (cells) from casts since the last call, scaled by their weight.
+    Vec2 takeRecoil() {
+        const Vec2 r = recoil_;
+        recoil_ = {};
+        return r;
+    }
 
 protected:
     void onDamaged(Level& level, const DamageInfo& info, float dealt) override;
@@ -52,6 +58,7 @@ private:
     uint32_t nextFlaskNotice_ = 0; ///< tick before which the "flask holds..." notice stays quiet
     float animTime_ = 0.0f;
     float castFlash_ = 0.0f;
+    Vec2 recoil_;
     float sprayAccum_ = 0.0f;
     float footstepTimer_ = 0.0f;
     float lastFallSpeed_ = 0.0f;

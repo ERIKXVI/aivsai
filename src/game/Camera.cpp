@@ -13,6 +13,7 @@ void FollowCamera::update(Vec2 target, Vec2 aim, float dt, Vec2 worldSize, Vec2 
     if (len > 55.0f) look = look * (55.0f / len);
     Vec2 desired = target + look;
     pos_ = damp(pos_, desired, 9.0f, dt);
+    kick_ = kick_ * std::exp(-19.0f * dt); // to a tenth in 0.12 s
 
     // Keep the view inside the world.
     Vec2 half = viewSize * 0.5f;
@@ -23,11 +24,18 @@ void FollowCamera::update(Vec2 target, Vec2 aim, float dt, Vec2 worldSize, Vec2 
 }
 
 Vec2 FollowCamera::position(float shake, float time, bool shakeEnabled) const {
-    if (!shakeEnabled || shake <= 0.0f) return pos_;
+    if (!shakeEnabled) return pos_;
+    if (shake <= 0.0f) return pos_ + kick_;
     float amount = shake * shake * 7.0f;
     float sx = noise::perlin(time * 22.0f, 1.3f, 77u);
     float sy = noise::perlin(time * 22.0f, 9.7f, 91u);
-    return pos_ + Vec2{sx, sy} * amount;
+    return pos_ + kick_ + Vec2{sx, sy} * amount;
+}
+
+void FollowCamera::kick(Vec2 offset) {
+    kick_ += offset;
+    const float len = kick_.length();
+    if (len > 1.5f) kick_ = kick_ * (1.5f / len);
 }
 
 } // namespace pm

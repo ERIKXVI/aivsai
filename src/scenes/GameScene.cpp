@@ -283,6 +283,10 @@ void GameScene::frame(float dt) {
         fade_ = std::max(0.0f, fade_ - dt * 1.5f);
     }
     titleTimer_ = std::max(0.0f, titleTimer_ - dt);
+    // The gold counter pops whenever gold comes in.
+    goldPop_ = std::max(0.0f, goldPop_ - dt);
+    if (shownGold_ >= 0 && run_.gold > shownGold_) goldPop_ = 0.25f;
+    shownGold_ = run_.gold;
 
     if (input::keyPressed(KEY_F3)) debugOverlay_ = !debugOverlay_;
     // A heartbeat quickens as the alchemist nears death.
@@ -338,6 +342,7 @@ void GameScene::frame(float dt) {
     const Player& pl = level_->player();
     Vec2 aim = scene_.screenToWorld(GetMousePosition());
     if (mode_ != Mode::Playing) aim = pl.body.pos;
+    camera_.kick(level_->player().takeRecoil());
     camera_.update(pl.body.pos, aim, dt, {static_cast<float>(level_->world().width()), static_cast<float>(level_->world().height())},
                    viewSize);
     const BiomeDef& b = biomeDef(level_->biome());

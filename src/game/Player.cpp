@@ -233,6 +233,7 @@ void Player::handleWands(Level& level) {
         else sfx = Sfx::CastSpark;
     }
     level.audio().play(sfx, 0.55f, level.rng().range(0.93f, 1.07f));
+    recoil_ -= aimDir_ * std::min(1.5f, 0.15f + heaviest * 0.02f);
 }
 
 void Player::handleFlask(Level& level) {

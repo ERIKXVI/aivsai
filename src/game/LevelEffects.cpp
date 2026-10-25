@@ -418,7 +418,14 @@ void Level::onEnemyKilled(Enemy& e) {
                              makeCell(d.blood == mat::Ichor ? mat::Ash : mat::Flesh, rng_.next()));
     particles_.burst(e.body.pos, 18, 110.0f, hexRgba(d.glow ? d.glow : 0xffffff), hexRgba(d.glow ? d.glow : 0x606060), 0.5f, rng_);
     audio_.playAt(Sfx::EnemyDie, e.body.pos, 0.8f, rng_.range(0.85f, 1.15f));
-    addShake(0.08f);
+    // Weighty kills land with a beat of hit-stop; small fry do not, so a sweep of kills
+    // never stutters.
+    if (e.team == Team::Monster && (e.elite() || e.maxHp >= 30.0f)) {
+        addHitStop(e.elite() ? 2 : 1);
+        addShake(0.14f);
+    } else {
+        addShake(0.08f);
+    }
 }
 
 void Level::spawnAmbience() {
