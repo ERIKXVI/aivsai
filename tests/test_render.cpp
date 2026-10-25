@@ -1,10 +1,13 @@
 // Tests for the GL-free parts of the renderer: the light budget and the emissive blocks.
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstring>
 #include <vector>
 
 #include "core/ThreadPool.hpp"
 #include "render/LightBudget.hpp"
+#include "render/Sprites.hpp"
 #include "render/WorldRenderer.hpp"
 #include "sim/World.hpp"
 #include "tests/TestFramework.hpp"
@@ -344,4 +347,29 @@ TEST_CASE("emissive blocks stay fixed to the world while the view pans and shake
             CHECK(inner[i].weight == reference[i].weight);
         }
     }
+}
+
+TEST_CASE("every sprite is registered once and drawn in the palette") {
+    constexpr int kIds = static_cast<int>(SpriteId::Count);
+    int count = 0;
+    const SpriteSource* sources = spriteSources(count);
+    CHECK(count == kIds);
+    std::array<int, kIds> seen{};
+    for (int s = 0; s < count; ++s) {
+        const SpriteSource& src = sources[s];
+        const int id = static_cast<int>(src.id);
+        CHECK(id >= 0 && id < kIds);
+        if (id < 0 || id >= kIds) continue;
+        ++seen[static_cast<size_t>(id)];
+        CHECK(src.w > 0 && src.h > 0 && src.frames > 0);
+        for (int r = 0; r < src.h * src.frames; ++r) {
+            const char* row = src.rows[r];
+            CHECK(static_cast<int>(std::strlen(row)) == src.w);
+            for (const char* c = row; *c; ++c) {
+                bool emissive = false;
+                CHECK(*c == '.' || spritePaletteColor(*c, emissive).a > 0);
+            }
+        }
+    }
+    for (int n : seen) CHECK(n == 1);
 }

@@ -3,33 +3,15 @@
 #include <vector>
 
 #include "core/ThreadPool.hpp"
+#include "sim/ChunkUpdater.hpp"
 #include "sim/World.hpp"
 #include "tests/TestFramework.hpp"
+#include "tests/TestWorld.hpp"
 
 using namespace pm;
 
-namespace {
-
-int countMat(const World& w, MatId m) {
-    int n = 0;
-    for (int y = 0; y < w.height(); ++y)
-        for (int x = 0; x < w.width(); ++x)
-            if (w.at(x, y).mat == m) ++n;
-    return n;
-}
-
-void buildBox(World& w) {
-    for (int x = 0; x < w.width(); ++x) {
-        w.place(x, w.height() - 1, mat::Bedrock);
-        w.place(x, 0, mat::Bedrock);
-    }
-    for (int y = 0; y < w.height(); ++y) {
-        w.place(0, y, mat::Bedrock);
-        w.place(w.width() - 1, y, mat::Bedrock);
-    }
-}
-
-} // namespace
+using pm::test::buildBox;
+using pm::test::countMat;
 
 TEST_CASE("the matter lens speaks only of notable matter") {
     initMaterials();
@@ -170,4 +152,11 @@ TEST_CASE("vines hang from rock and crumble when cut loose") {
     CHECK(countMat(w, mat::GlowVine) == 0);
     CHECK(countMat(w, mat::Litter) == 20);
     CHECK(countMat(w, mat::Spore) == 20);
+}
+
+TEST_CASE("liquids never flow further in a tick than the chunk updater may reach") {
+    initMaterials();
+    // A sideways flow moves up to `dispersion` cells; past kMaxReach, chunks updated in the
+    // same checkerboard phase could race.
+    for (int id = 0; id < kMaterialCount; ++id) CHECK(matDef(static_cast<MatId>(id)).dispersion <= ChunkUpdater::kMaxReach);
 }
