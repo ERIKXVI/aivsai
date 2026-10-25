@@ -68,6 +68,17 @@ The descent follows the four stages of the alchemical Great Work:
   *Swift* (half again as fast) or *Gilded* (bleeds gold dust, treble gold).
 - **Lanterns** hang along the route; a spell through one knocks it down to shatter into
   burning oil, so the scenery doubles as a trap.
+- **Mimics** take the place of some route chests (never a vault's hoard): drawn, lit and
+  lens-proof exactly like a chest, with one tell - now and then they breathe. They wake
+  when the alchemist comes close (before "open" is offered) or when harmed, and pay out
+  the chest's treasure when slain.
+- **Stage events**: up to three times a stage the mountain stirs near the alchemist. A
+  cave-in (grit trickles from the ceiling for a moment first), a breach that gushes the
+  stage's liquid from a wall (water, brine, oil, sludge or lava), seeping marsh gas, a
+  swarm out of view, or a fall of gold. The mix follows the stage and its omen; none come
+  in sanctums, the Athanor, vaults or guardian fights.
+- **Elixirs**: drinking quicksilver lends haste, ichor lends spells fury; both show on the
+  HUD as counting-down status chips and on the alchemist's body.
 
 ## Progression across runs
 
@@ -78,7 +89,13 @@ The descent follows the four stages of the alchemical Great Work:
 - **Paths** (starting loadouts) unlock through milestones and change the opening:
   Pyromancer (reach stage 3), Geomancer (open 12 chests), Stormcaller (slay 250
   creatures) and Hermeticist (complete the Great Work, rolls a powerful wand per seed).
-- **Daily Rite**: one seed per day with the Apprentice kit, so attempts are comparable.
+- **Ordeals** (after the first victory): eight stacking trials chosen when beginning the
+  Work, each adding a rule to those beneath it - foes with more health, twice the elites,
+  sanctums that heal only half, dearer shops, harder blows, a restless mountain (stage
+  events twice as often), a frailer alchemist and wrathful keepers. Completing the Work
+  under the highest ordeal open unlocks the next; the chronicle and end screen record it.
+- **Daily Rite**: one seed per day with the Apprentice kit, so attempts are comparable
+  (and never under an ordeal).
 - **Suspended runs**: every stage start saves the run; Save & Quit (or closing the window)
   resumes there later. Levels regenerate from their seed, so a resume replays the stage
   from its start rather than duplicating loot already taken.

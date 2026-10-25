@@ -12,13 +12,15 @@ switches to a window.
   with shops and 22 perks, elite creatures and a multi-phase final boss.
 - Four optional guardians - the Black Toad, the White Wraith, the Mine King and the Red
   Colossus - each keeping a lair and a hoard; slay one to claim a perk.
-- Unlockable starting paths, 23 feats to earn, a Grimoire of everything you have
+- Eight stacking Ordeals for after your first Great Work, unlockable starting paths, 24 feats to earn, a Grimoire of everything you have
   discovered with a chronicle of recent runs (replay any seed), a Daily Rite seed, three difficulties and an Alchemy
   Sandbox to experiment freely.
 - Found attack spells slot straight into your wand, and the wand editor guides your first
   edit (and works with a gamepad).
 - A matter lens: rest the cursor on any substance or creature to learn what it does.
 - Lanterns you can shoot down onto foes, and elites with Burning, Swift or Gilded affixes.
+- Mimics among the chests, elixirs to drink (quicksilver for haste, ichor for fury) and a
+  mountain that stirs: cave-ins, breaches, marsh gas, swarms and falls of gold.
 - A fog-of-war map, contextual hints for new players and a death screen that tells you
   what got you, how to avoid it, how close your next starting path is and lets you retry
   the same seed.

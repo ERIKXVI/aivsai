@@ -55,14 +55,20 @@ Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-p
   straight into an empty slot of the wand in hand; the rest wait in the satchel, and the
   wand editor (`Tab`) walks you through your first drag.
 - **The flask** absorbs any liquid or powder (`Q`) and pours it back out (right mouse): carry
-  water to douse fires, acid to dissolve walls, oil to set traps. Drinking has effects too -
-  Vitae heals.
+  water to douse fires, acid to dissolve walls, oil to set traps. Drinking has effects too:
+  Vitae heals, quicksilver lends haste and ichor lends your spells fury.
 - **The matter lens:** rest the cursor on a substance or creature to learn what it is and
   what it does.
 - **Lanterns** light the route - and can be shot down onto the creatures below, shattering
   into burning oil.
 - **Elites** glow with an affix: *Burning* ones trail fire, *Swift* ones strike fast and
   *Gilded* ones bleed gold.
+- **Mimics:** not every chest along the route is a chest. A mimic looks and glows exactly
+  like one, but now and then it breathes; test a doubtful chest with a spell from afar.
+- **The mountain stirs:** a few times a stage the ceiling caves in, a wall breaches and
+  floods the passage (with lava, deep down), marsh gas seeps from a crack, a swarm comes
+  out of the dark or a seam of gold gives way overhead - each announced and telegraphed a
+  moment before it lands.
 - **Omens** twist some stages: a *Flooded* cavern, an *Overgrown* one, a *Volatile* mine
   stocked with black powder, *Gilded* walls or a *Teeming* stage full of creatures and loot.
 - **Vaults** hide off the main route: an alchemist's laboratory with a brimming cauldron, a
@@ -80,8 +86,12 @@ Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-p
   to unlocking and any personal bests, and *Retry Seed* walks the same stages again.
 - **Paths:** milestones unlock four more starting loadouts - the *Pyromancer*, *Geomancer*,
   *Stormcaller* and *Hermeticist* - each with its own wands, flask and gifts.
+- **Ordeals:** completing the Great Work opens the first of eight stacking ordeals, chosen
+  under the paths - *Hardened Foes*, *Gathering Elites*, *Lean Sanctums*, *Dear Wares*,
+  *Cruel Blows*, *Restless Mountain*, *Frail Flesh* and *Wrathful Keepers*. Each keeps the
+  rules of those beneath it; complete the Work under the highest one open to unlock the next.
 - **The Grimoire** records every spell discovered, creature slain and perk taken across all
-  of your runs, the 23 *feats* you have earned (from *First Blood* to *Archmage*, each
+  of your runs, the 24 *feats* you have earned (from *First Blood* to *Archmage*, each
   announced the moment it is won), and its chronicle remembers how your last ten runs
   ended; choose one to replay its seed.
 - The **Alchemy Sandbox** on the title screen lets you paint every material freely.
