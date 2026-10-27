@@ -22,14 +22,17 @@ switches to a window.
   editor guides your first edit, drops a modifier in front of the spell it boosts, warns
   about a booster with nothing after it, and works with a gamepad.
 - A matter lens: rest the cursor on any substance or creature to learn what it does, and
-  prompts that say what a potion does and how to feed a transmutation circle.
+  prompts that say what a potion does, how to feed a transmutation circle, which perk each
+  altar holds, and when a drink from the flask would put out your flames or heal you.
 - Lanterns you can shoot down onto foes, and elites with Burning, Swift or Gilded affixes.
 - The world is a weapon: creatures slain by fire, lava, acid, blasts or cave-ins are named
   as they fall and chain into reactions that pay extra gold.
 - Rare finds: vaults, guardians' hoards and the odd chest hold spells from deeper down
   (Lightning, Black Hole, Lava Orb...) that glint gold.
 - Hits land: knockback that carries, flinches that break a foe's wind-up, crits that
-  punch, creatures that burst into their own pixels and blasts that scorch the rock.
+  punch, light that pops where a spell strikes, creatures that burst into their own pixels
+  and blasts that scorch the rock. The alchemist squashes on landing, kicks up the ground
+  they walk on, and the camera looks ahead down a long fall.
 - Mimics among the chests, elixirs to drink (quicksilver for haste, ichor for fury) and a
   mountain that stirs: cave-ins, breaches, marsh gas, swarms and falls of gold.
 - A compass that follows the route, a map that marks the portal from the start,
