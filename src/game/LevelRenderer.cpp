@@ -81,7 +81,8 @@ void LevelRenderer::render(const Level& level, Vec2 camera, float alpha, float t
     lp.tintR = b.tint[0];
     lp.tintG = b.tint[1];
     lp.tintB = b.tint[2];
-    lp.saturation = b.saturation;
+    lp.saturation = b.saturation * (1.0f - 0.8f * deathFade_);
+    lp.exposure = 1.0f - 0.3f * deathFade_;
     const Rgba air = hexRgba(b.fogColor);
     lp.airR = static_cast<float>(air.r) / 255.0f;
     lp.airG = static_cast<float>(air.g) / 255.0f;

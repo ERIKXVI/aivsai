@@ -430,27 +430,31 @@ void Level::shatter(const Enemy& e) {
     constexpr size_t kMaxShards = 600;
     const Enemy::SpritePose pose = e.pose(time_);
     const Vec2 away = (e.body.pos - player_->body.pos).normalized();
-    // One sprite's pixels around `centre`, at most `budget` of them.
-    auto burst = [&](const SpriteFrame& frame, Vec2 topLeft, float s, bool flip, Vec2 centre, size_t budget) {
-        if (frame.pixels.empty() || budget == 0) return;
-        const size_t stride = frame.pixels.size() / budget + 1;
-        for (size_t i = 0; i < frame.pixels.size(); i += stride) {
-            const SpritePixel& px = frame.pixels[i];
-            const float lx = static_cast<float>(flip ? frame.w - 1 - px.x : px.x);
-            const Vec2 at = topLeft + Vec2{(lx + 0.5f) * s, (static_cast<float>(px.y) + 0.5f) * s};
-            const Vec2 vel = away * fxRng_.range(40.0f, 110.0f) + (at - centre) * fxRng_.range(3.0f, 8.0f) +
-                             Vec2{fxRng_.range(-25.0f, 25.0f), fxRng_.range(-90.0f, -30.0f)};
-            const Rgba col{static_cast<uint8_t>(px.color.r * pose.tint.r / 255), static_cast<uint8_t>(px.color.g * pose.tint.g / 255),
-                           static_cast<uint8_t>(px.color.b * pose.tint.b / 255), 255};
-            particles_.addVisual(at, vel, col, px.emissive ? col : Rgba{0, 0, 0, 0}, fxRng_.range(0.6f, 1.4f), 1.0f, partflag::kFade);
-        }
-    };
+    const Rgba tint{pose.tint.r, pose.tint.g, pose.tint.b, 255};
     // A worm's body breaks apart segment by segment along with its head, sharing the budget.
-    const size_t parts = 1 + e.segments.size();
-    burst(spriteFrame(pose.sprite, pose.frame), pose.topLeft, static_cast<float>(pose.scale), pose.flip, e.body.pos, kMaxShards / parts);
+    const size_t budget = kMaxShards / (1 + e.segments.size());
+    shatterPixels(spriteFrame(pose.sprite, pose.frame), pose.topLeft, static_cast<float>(pose.scale), pose.flip, e.body.pos, tint, away,
+                  budget);
     const SpriteFrame& segment = spriteFrame(SpriteId::WormBody, 0);
     for (const Vec2& c : e.segments)
-        burst(segment, c - Vec2{static_cast<float>(segment.w) * 0.5f, static_cast<float>(segment.h) * 0.5f}, 1.0f, false, c, kMaxShards / parts);
+        shatterPixels(segment, c - Vec2{static_cast<float>(segment.w) * 0.5f, static_cast<float>(segment.h) * 0.5f}, 1.0f, false, c, tint,
+                      away, budget);
+}
+
+void Level::shatterPixels(const SpriteFrame& frame, Vec2 topLeft, float scale, bool flip, Vec2 centre, Rgba tint, Vec2 away,
+                          size_t budget) {
+    if (frame.pixels.empty() || budget == 0) return;
+    const size_t stride = frame.pixels.size() / budget + 1;
+    for (size_t i = 0; i < frame.pixels.size(); i += stride) {
+        const SpritePixel& px = frame.pixels[i];
+        const float lx = static_cast<float>(flip ? frame.w - 1 - px.x : px.x);
+        const Vec2 at = topLeft + Vec2{(lx + 0.5f) * scale, (static_cast<float>(px.y) + 0.5f) * scale};
+        const Vec2 vel = away * fxRng_.range(40.0f, 110.0f) + (at - centre) * fxRng_.range(3.0f, 8.0f) +
+                         Vec2{fxRng_.range(-25.0f, 25.0f), fxRng_.range(-90.0f, -30.0f)};
+        const Rgba col{static_cast<uint8_t>(px.color.r * tint.r / 255), static_cast<uint8_t>(px.color.g * tint.g / 255),
+                       static_cast<uint8_t>(px.color.b * tint.b / 255), 255};
+        particles_.addVisual(at, vel, col, px.emissive ? col : Rgba{0, 0, 0, 0}, fxRng_.range(0.6f, 1.4f), 1.0f, partflag::kFade);
+    }
 }
 
 void Level::creditAlchemy(const Enemy& e) {

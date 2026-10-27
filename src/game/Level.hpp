@@ -26,6 +26,7 @@
 namespace pm {
 
 class ThreadPool;
+struct SpriteFrame;
 
 struct ExplosionSpec {
     float radius = 10.0f;
@@ -212,6 +213,10 @@ public:
 private:
     void populate();
     Affix rollAffix();
+    /// Bursts up to `budget` of a sprite frame's pixels (drawn at `topLeft`, `scale`, `flip`,
+    /// tinted) outward from `centre` and along `away`. Cosmetic randomness only.
+    void shatterPixels(const SpriteFrame& frame, Vec2 topLeft, float scale, bool flip, Vec2 centre, Rgba tint, Vec2 away,
+                       size_t budget);
     void updateEntities(const PlayerInput& input, float dt);
     void handleSimEvents();
     void updatePickups(float dt);

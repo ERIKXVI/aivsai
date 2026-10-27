@@ -522,11 +522,13 @@ void GameScene::render(float alpha) {
             a = std::min(1.0f, tickAccumulator_ + alpha * slowMo_);
         Vec2 cam = camera_.position(level_->shake(), time_, app_.settings().screenShake);
         levelRenderer_.setHighQuality(app_.settings().highQuality);
+        levelRenderer_.setDeathFade(mode_ == Mode::Dead ? clamp(endTimer_ / kDeathScreenDelay, 0.0f, 1.0f) : 0.0f);
         levelRenderer_.render(*level_, cam, a, time_, app_.screenWidth(), app_.screenHeight());
         if (mode_ != Mode::Dead && mode_ != Mode::Victory) drawWorldOverlays(a);
         if (mode_ == Mode::Playing) drawCompass(a);
         if (showReticle()) drawReticle(a);
-        if (mode_ != Mode::Victory) drawHud();
+        // The end screen covers the HUD: an empty health bar adds nothing under it.
+        if (mode_ != Mode::Victory && !(mode_ == Mode::Dead && endTimer_ > kDeathScreenDelay)) drawHud();
         // The lens names a thing for a few seconds, then lets it be.
         if (mode_ == Mode::Playing && !lens_.title.empty() && lens_.same < 4.0f) ui::tooltip(lens_.title, lens_.body, lens_.color);
         if (mode_ == Mode::Playing && app_.settings().hints) hints_.draw(static_cast<float>(app_.screenWidth()), static_cast<float>(app_.screenHeight()), usingGamepad_);

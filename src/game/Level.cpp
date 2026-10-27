@@ -6,6 +6,7 @@
 
 #include "core/Profiler.hpp"
 #include "core/Timing.hpp"
+#include "render/Sprites.hpp"
 
 namespace pm {
 
@@ -639,6 +640,11 @@ void Level::onPlayerDeath() {
     audio_.play(Sfx::PlayerDie, 0.9f);
     bleed(player_->body.pos, mat::Blood, 60, {0.0f, -80.0f});
     particles_.burst(player_->body.pos, 40, 140.0f, {180, 140, 255, 255}, {120, 80, 255, 255}, 1.0f, rng_, 0.2f);
+    // The alchemist's matter comes apart like any creature's, rising as it goes.
+    const SpriteFrame& frame = spriteFrame(SpriteId::PlayerIdle, 0);
+    const Body& b = player_->body;
+    const Vec2 topLeft{b.pos.x - static_cast<float>(frame.w) * 0.5f, b.pos.y + b.halfH - static_cast<float>(frame.h)};
+    shatterPixels(frame, topLeft, 1.0f, !player_->facingRight(), b.pos, Rgba{255, 255, 255, 255}, Vec2{0.0f, -1.0f}, 400);
     addShake(0.7f);
     event_ = LevelEvent::PlayerDied;
 }

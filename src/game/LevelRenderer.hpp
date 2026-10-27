@@ -21,6 +21,8 @@ public:
 
     void render(const Level& level, Vec2 camera, float alpha, float time, int screenW, int screenH);
     void setHighQuality(bool high) { highQuality_ = high; }
+    /// 0..1: the world drains of colour and light as the alchemist dies.
+    void setDeathFade(float k) { deathFade_ = k; }
 
 private:
     void drawProps(const Level& level, float alpha, float time, bool emissive);
@@ -33,6 +35,7 @@ private:
     Background background_;
     Sky sky_;
     bool highQuality_ = true;
+    float deathFade_ = 0.0f;
 };
 
 } // namespace pm
