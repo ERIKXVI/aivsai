@@ -173,6 +173,9 @@ public:
     void addFloatText(Vec2 pos, const std::string& text, uint32_t color, float scale = 1.0f);
     /// A slain creature bursts into the pixels of its sprite.
     void shatter(const Enemy& e);
+    /// A creature the world slew (fire, lava, acid, a blast, a cave-in, another creature) is named
+    /// on screen, counted, chained with other such kills and paid a little gold.
+    void creditAlchemy(const Enemy& e);
     /// A damage number over actor `owner`. Hits landing within a moment of the last one add up
     /// into the same number, which pops, instead of stacking a column of small ones.
     void addDamageNumber(uint32_t owner, Vec2 pos, float amount, bool crit);
@@ -243,6 +246,9 @@ private:
     StageEvents events_;
     int hitStop_ = 0;
     uint32_t lastCritPunch_ = 0; ///< tick of the last critical-hit freeze
+    int alchemyChain_ = 0;          ///< world kills in the current chain reaction
+    uint32_t alchemyChainTick_ = 0; ///< tick of the chain's latest kill
+    int alchemyBonuses_ = 0;        ///< bonus gold drops paid this stage
     bool heldSinceTick_ = false; ///< a hit-stop tick was consumed and the level has not stepped since
     PlayerInput input_;
     float time_ = 0.0f;

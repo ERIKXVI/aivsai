@@ -852,6 +852,7 @@ void GameScene::drawEndScreen(bool victory) {
     const std::string right[] = {
         "Spells cast: " + std::to_string(st.spellsCast),
         "Chests opened: " + std::to_string(st.chestsOpened),
+        "Alchemical kills: " + std::to_string(st.alchemicalKills),
         TextFormat("Seed: %u", run_.seed) + seedNote,
     };
     const Color statColor{220, 210, 200, al};

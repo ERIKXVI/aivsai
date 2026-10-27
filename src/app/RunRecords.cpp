@@ -225,7 +225,8 @@ void writeRunSave(const RunState& r, const fs::path& path) {
     kv["perks"] = list(r.perks);
     kv["stats"] = num(r.stats.time) + "," + std::to_string(r.stats.kills) + "," + std::to_string(r.stats.goldCollected) + "," +
                   std::to_string(r.stats.spellsCast) + "," + std::to_string(r.stats.deepest) + "," +
-                  std::to_string(r.stats.chestsOpened) + "," + num(r.stats.damageDealt) + "," + num(r.stats.damageTaken);
+                  std::to_string(r.stats.chestsOpened) + "," + num(r.stats.damageDealt) + "," + num(r.stats.damageTaken) + "," +
+                  std::to_string(r.stats.alchemicalKills);
     kv["spells_seen"] = std::to_string(r.spellsSeen);
     kv["kills_by_type"] = list(r.killsByType);
     kv["essences"] = std::to_string(r.essences);
@@ -280,10 +281,12 @@ std::optional<RunState> readRunSave(const fs::path& path) {
         if (!parseInt(perks[i], r.perks[i], 0, 255)) return std::nullopt;
 
     const std::vector<std::string> stats = split(get("stats"), ',');
-    if (stats.size() != 8 || !parseFloat(stats[0], r.stats.time) || !parseInt(stats[1], r.stats.kills, 0, 1 << 30) ||
+    // Saves from before alchemical kills were counted carry eight fields.
+    if ((stats.size() != 8 && stats.size() != 9) || !parseFloat(stats[0], r.stats.time) || !parseInt(stats[1], r.stats.kills, 0, 1 << 30) ||
         !parseInt(stats[2], r.stats.goldCollected, 0, 1 << 30) || !parseInt(stats[3], r.stats.spellsCast, 0, 1 << 30) ||
         !parseInt(stats[4], r.stats.deepest, 0, 99) || !parseInt(stats[5], r.stats.chestsOpened, 0, 1 << 30) ||
-        !parseFloat(stats[6], r.stats.damageDealt) || !parseFloat(stats[7], r.stats.damageTaken))
+        !parseFloat(stats[6], r.stats.damageDealt) || !parseFloat(stats[7], r.stats.damageTaken) ||
+        (stats.size() == 9 && !parseInt(stats[8], r.stats.alchemicalKills, 0, 1 << 30)))
         return std::nullopt;
 
     const std::vector<std::string> kills = split(get("kills_by_type"), ',');

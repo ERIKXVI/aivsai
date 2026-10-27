@@ -33,6 +33,7 @@ enum class FeatId : uint8_t {
     Polymath,
     Mimic,
     Quintessence,
+    ChainReaction,
     Count
 };
 

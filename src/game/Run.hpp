@@ -44,6 +44,7 @@ struct RunStats {
     int chestsOpened = 0;
     float damageDealt = 0.0f;
     float damageTaken = 0.0f;
+    int alchemicalKills = 0; ///< creatures the world slew: fire, lava, acid, blasts, cave-ins, other creatures
 };
 
 static_assert(kSpellCount <= 64, "RunState::spellsSeen is a 64-bit mask (bit i = SpellId i)");

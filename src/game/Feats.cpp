@@ -33,6 +33,7 @@ constexpr FeatDef kFeats[] = {
     {"Polymath", "Discover 25 spells."},
     {"Not a Chest", "Slay a mimic."},
     {"Quintessence", "Complete the Great Work holding all four guardians' essences."},
+    {"Chain Reaction", "Let fire, lava, acid or a blast slay three creatures in one chain."},
 };
 static_assert(std::size(kFeats) == kFeatCount, "a FeatDef for every FeatId");
 

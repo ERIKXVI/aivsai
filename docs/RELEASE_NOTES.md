@@ -13,7 +13,7 @@ switches to a window.
 - Four optional guardians - the Black Toad, the White Wraith, the Mine King and the Red
   Colossus - each keeping a lair and a hoard; slay one to claim a perk and its essence, and
   gather all four in one run for the Quintessence ending.
-- Eight stacking Ordeals for after your first Great Work, unlockable starting paths, 25 feats to earn, a Grimoire of everything you have
+- Eight stacking Ordeals for after your first Great Work, unlockable starting paths, 26 feats to earn, a Grimoire of everything you have
   discovered with a chronicle of recent runs (replay any seed), a Daily Rite seed, three difficulties and an Alchemy
   Sandbox to experiment freely.
 - Found attack spells slot straight into your wand, and the wand editor guides your first

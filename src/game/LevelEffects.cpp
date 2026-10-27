@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <bit>
 #include <cmath>
+#include <cstring>
+#include <optional>
 
 #include "core/Timing.hpp"
 #include "game/Level.hpp"
@@ -13,6 +15,37 @@ namespace pm {
 namespace {
 
 constexpr float kDegToRad = kPi / 180.0f;
+
+/// A kill the world made rather than a spell: a label for the moment and its colour.
+struct AlchemyKill {
+    const char* label;
+    uint32_t color;
+};
+
+/// Reads how a creature died from the last hit it took. A spell's own damage is an ordinary kill;
+/// fire, lava, acid, blasts the alchemist did not cast, cave-ins and other creatures are not.
+std::optional<AlchemyKill> alchemyOf(const Actor& victim) {
+    const char* cause = victim.lastHitCause;
+    if (cause == nullptr) return std::nullopt;
+    for (int i = 1; i < kSpellCount; ++i)
+        if (std::strcmp(cause, spellDef(static_cast<SpellId>(i)).name) == 0) return std::nullopt;
+    if (enemyNamed(cause)) return AlchemyKill{"Friendly fire!", 0xffa0e0};
+    if (std::strcmp(cause, "a cave-in") == 0) return AlchemyKill{"Crushed!", 0xd0b890};
+    switch (victim.lastHitType) {
+    case DamageType::Fire:
+        return std::strstr(cause, "Lava") ? AlchemyKill{"Melted!", 0xff7a3a} : AlchemyKill{"Immolated!", 0xffa040};
+    case DamageType::Explosion: return AlchemyKill{"Blasted!", 0xffd080};
+    case DamageType::Electric: return AlchemyKill{"Electrocuted!", 0xa8d4ff};
+    case DamageType::Acid: return AlchemyKill{"Dissolved!", 0xa8ff60};
+    case DamageType::Toxic: return AlchemyKill{"Poisoned!", 0x90e060};
+    case DamageType::Ice: return AlchemyKill{"Frozen!", 0xc0f0ff};
+    default: return AlchemyKill{"Crushed!", 0xd0b890};
+    }
+}
+
+constexpr uint32_t kChainText = 0xFFFFFFFFu; ///< FloatText owner of the chain-reaction counter
+constexpr uint32_t kChainWindow = 30;        ///< ticks within which world kills join one chain
+constexpr int kAlchemyBonusesPerStage = 12;  ///< bonus gold drops a stage pays for world kills
 
 } // namespace
 
@@ -410,9 +443,44 @@ void Level::shatter(const Enemy& e) {
     }
 }
 
+void Level::creditAlchemy(const Enemy& e) {
+    const std::optional<AlchemyKill> kind = alchemyOf(e);
+    if (!kind) return;
+    run_.stats.alchemicalKills++;
+    // Kills close together run into one chain reaction with a single growing counter.
+    alchemyChain_ = ticks_ - alchemyChainTick_ <= kChainWindow && alchemyChain_ > 0 ? alchemyChain_ + 1 : 1;
+    alchemyChainTick_ = ticks_;
+    if (alchemyChain_ >= 3) earnFeat(FeatId::ChainReaction);
+    const Vec2 at = e.body.pos - Vec2{0.0f, e.body.halfH + 14.0f};
+    if (alchemyChain_ == 1) {
+        addFloatText(at, kind->label, kind->color, 1.1f);
+    } else {
+        FloatText* chain = nullptr;
+        for (FloatText& t : floatTexts_)
+            if (t.owner == kChainText) chain = &t;
+        if (!chain) {
+            addFloatText(at, "", 0xffd870, 1.2f);
+            chain = &floatTexts_.back();
+            chain->owner = kChainText;
+        }
+        chain->text = "Chain reaction x" + std::to_string(alchemyChain_);
+        chain->life = 1.4f;
+        chain->pop = 1.0f;
+        chain->pos = at;
+    }
+    audio_.playAt(Sfx::Coin, e.body.pos, 0.45f, 1.3f + 0.08f * static_cast<float>(std::min(alchemyChain_, 6)));
+    // The world's work pays a little extra gold, within a limit per stage.
+    if (alchemyBonuses_ < kAlchemyBonusesPerStage) {
+        ++alchemyBonuses_;
+        const int tier = std::min(4, layout_.levelIndex);
+        pickups_.push_back(makeGold(e.body.pos, 4 * (tier + 1), {fxRng_.range(-50.0f, 50.0f), fxRng_.range(-150.0f, -90.0f)}));
+    }
+}
+
 void Level::onEnemyKilled(Enemy& e) {
     const EnemyDef& d = e.def();
     if (e.team == Team::Monster) {
+        creditAlchemy(e);
         run_.stats.kills++;
         run_.killsByType[static_cast<size_t>(e.type())]++;
         earnFeat(FeatId::FirstBlood);

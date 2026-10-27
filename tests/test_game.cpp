@@ -183,6 +183,7 @@ TEST_CASE("suspended runs survive a save and load") {
     run.wands[0].name = "Staff of the Rebis";
     run.ordeal = 4;
     run.essences = 0b0101;
+    run.stats.alchemicalKills = 6;
 
     const auto path = std::filesystem::temp_directory_path() / "pm_test_run.sav";
     writeRunSave(run, path);
@@ -201,8 +202,19 @@ TEST_CASE("suspended runs survive a save and load") {
     CHECK(r.inventory == run.inventory);
     CHECK(r.flask.mat == mat::Vitae && r.flask.amount == 333);
     CHECK(r.perks == run.perks);
-    CHECK(r.stats.kills == 57 && r.stats.time == run.stats.time);
+    CHECK(r.stats.kills == 57 && r.stats.time == run.stats.time && r.stats.alchemicalKills == 6);
     CHECK(r.killsByType == run.killsByType && r.spellsSeen == run.spellsSeen);
+
+    // A save from before alchemical kills were counted (eight stats) still loads.
+    {
+        KeyValues kv = readKeyValues(path);
+        std::string& stats = kv["stats"];
+        stats.erase(stats.rfind(','));
+        writeKeyValues(path, kv);
+    }
+    const std::optional<RunState> older = readRunSave(path);
+    REQUIRE(older.has_value());
+    CHECK(older->stats.kills == 57 && older->stats.alchemicalKills == 0);
 
     // A damaged file is rejected rather than half-loaded.
     {
@@ -694,4 +706,34 @@ TEST_CASE("the first sanctum's shop stocks the coming depth") {
         CHECK(wares == 4);
     }
     CHECK(deeper);
+}
+
+TEST_CASE("kills the world makes are counted, chained and paid") {
+    initMaterials();
+    ThreadPool pool(2);
+    Audio audio;
+    RunState run = newRun(12, Difficulty::Adept, false);
+    Level level(generateSanctum(0, 12u, pool), run, audio, pool);
+    const Vec2 near = level.player().body.pos + Vec2{30.0f, -10.0f};
+    auto kill = [&](const DamageInfo& blow) {
+        Enemy& e = level.spawnEnemy(EnemyType::Slime, near);
+        e.applyDamage(level, blow);
+    };
+    const size_t goldBefore = std::count_if(level.pickups().begin(), level.pickups().end(),
+                                            [](const Pickup& p) { return p.type == PickupType::Gold; });
+    // A spell's own blow is an ordinary kill.
+    kill({1.0e6f, DamageType::Fire, {}, Team::Player, false, false, spellDef(SpellId::Fireball).name});
+    CHECK(run.stats.alchemicalKills == 0);
+    // Flames, lava and a gunpowder blast are the world's doing; three at once make a chain.
+    kill({1.0e6f, DamageType::Fire, {}, Team::Monster, false, true, "flames"});
+    kill({1.0e6f, DamageType::Fire, {}, Team::Monster, false, true, "Lava"});
+    kill({1.0e6f, DamageType::Explosion, {}, Team::Monster, false, false, "a gunpowder blast"});
+    CHECK(run.stats.alchemicalKills == 3);
+    const std::vector<FeatId> earned = level.takeFeats();
+    CHECK(std::find(earned.begin(), earned.end(), FeatId::ChainReaction) != earned.end());
+    const size_t goldAfter = std::count_if(level.pickups().begin(), level.pickups().end(),
+                                           [](const Pickup& p) { return p.type == PickupType::Gold; });
+    CHECK(goldAfter >= goldBefore + 3);
+    CHECK(std::any_of(level.floatTexts().begin(), level.floatTexts().end(),
+                      [](const FloatText& t) { return t.text == "Chain reaction x3"; }));
 }

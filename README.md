@@ -62,6 +62,10 @@ Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-p
   what it does.
 - **Lanterns** light the route - and can be shot down onto the creatures below, shattering
   into burning oil.
+- **The world is a weapon:** a creature slain by fire, lava, acid, a blast it walked into,
+  a cave-in or another creature is named as it falls (*Immolated!*, *Melted!*,
+  *Blasted!*...), pays a little extra gold, and kills close together run into a *chain
+  reaction*.
 - **Elites** glow with an affix: *Burning* ones trail fire, *Swift* ones strike fast and
   *Gilded* ones bleed gold.
 - **Mimics:** not every chest along the route is a chest. A mimic looks and glows exactly
@@ -99,7 +103,7 @@ Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-p
   *Cruel Blows*, *Restless Mountain*, *Frail Flesh* and *Wrathful Keepers*. Each keeps the
   rules of those beneath it; complete the Work under the highest one open to unlock the next.
 - **The Grimoire** records every spell discovered, creature slain and perk taken across all
-  of your runs, the 25 *feats* you have earned (from *First Blood* to *Archmage*, each
+  of your runs, the 26 *feats* you have earned (from *First Blood* to *Archmage*, each
   announced the moment it is won), and its chronicle remembers how your last ten runs
   ended; choose one to replay its seed.
 - The **Alchemy Sandbox** on the title screen lets you paint every material freely.

@@ -71,6 +71,11 @@ The descent follows the four stages of the alchemical Great Work:
   stocked and priced one tier deeper than the stage just cleared) and a choice of perks at
   altars.
 - **The Athanor** is the boss arena: the Rebis has phases, summons and an enraged form.
+- **Alchemical kills**: every hit records its cause, so a creature slain by the world
+  rather than a spell's own blow (flames, lava, acid, a gunpowder blast, a cave-in,
+  another creature) is named as it falls, counted in the run's stats, paid a little gold
+  (a dozen times per stage) and chained with world kills that follow within half a second
+  (Level::creditAlchemy). Three in one chain earn the *Chain Reaction* feat.
 - **Elites** appear more often deeper down and always drop better loot. Each carries an
   affix shown by its aura: *Burning* (trails fire, immune to it, drops a fire spell),
   *Swift* (half again as fast) or *Gilded* (bleeds gold dust, treble gold).
