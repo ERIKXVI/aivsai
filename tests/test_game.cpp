@@ -1,5 +1,6 @@
-// Game-rule tests: the spell table, wand deck casting, starting loadouts, run saves and the
-// death screen's cause and advice.
+// Game-rule tests: spells and wand decks, loadouts and their unlocks, run saves, records and the end and death screens,
+// and rules played out in a Level: lanterns, guardians, elites and the boss, feats, elixirs, mimics, stage events,
+// ordeals, loot tables and shops, and kill credit.
 
 #include <algorithm>
 #include <cmath>

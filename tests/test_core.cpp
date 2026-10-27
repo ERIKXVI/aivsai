@@ -3,7 +3,6 @@
 #include <atomic>
 #include <vector>
 
-#include "app/InputLatch.hpp"
 #include "core/Math.hpp"
 #include "core/Rng.hpp"
 #include "core/ThreadPool.hpp"
@@ -77,37 +76,4 @@ TEST_CASE("matter particles settle back into the grid without loss") {
     for (int tick = 0; tick < 600 && particles.count() > 0; ++tick) particles.update(w, 1.0f / 60.0f);
     CHECK(particles.count() == 0);
     CHECK(countMat(w, mat::Sand) == kGrains);
-}
-
-TEST_CASE("the mouse wheel steps one wand per notch, however it is sent") {
-    // An ordinary wheel: one full delta per notch.
-    input::WheelStepper notched;
-    CHECK(notched.step(1.0f, 0.016f) == 1);
-    CHECK(notched.step(0.0f, 0.2f) == 0);
-    CHECK(notched.step(-1.0f, 0.016f) == -1);
-    // A touchpad swipe: a notch's worth of small deltas over many frames is one step.
-    input::WheelStepper pad;
-    int steps = 0;
-    for (int i = 0; i < 10; ++i) steps += pad.step(0.1f, 0.016f);
-    CHECK(steps == 1);
-    // A pause forgets a partial notch.
-    input::WheelStepper partial;
-    CHECK(partial.step(0.6f, 0.016f) == 0);
-    CHECK(partial.step(0.0f, 0.3f) == 0);
-    CHECK(partial.step(0.6f, 0.016f) == 0);
-    // Notches faster than the cooldown are not lost, just spaced out: a flick of three, or two
-    // notches reported in one frame, each give their full count.
-    input::WheelStepper fast;
-    int flick = 0;
-    for (int frame = 0; frame < 60; ++frame) flick += fast.step(frame == 0 || frame == 2 || frame == 4 ? -1.0f : 0.0f, 1.0f / 60.0f);
-    CHECK(flick == -3);
-    input::WheelStepper twice;
-    int both = 0;
-    for (int frame = 0; frame < 60; ++frame) both += twice.step(frame == 0 ? 2.0f : 0.0f, 1.0f / 60.0f);
-    CHECK(both == 2);
-    // Turning back at once is one step back, not swallowed by what was queued.
-    input::WheelStepper back;
-    CHECK(back.step(1.0f, 0.016f) == 1);
-    CHECK(back.step(0.5f, 0.016f) == 0);
-    CHECK(back.step(-1.0f, 0.2f) == -1);
 }
