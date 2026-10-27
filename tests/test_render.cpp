@@ -11,6 +11,7 @@
 #include "render/WorldRenderer.hpp"
 #include "sim/World.hpp"
 #include "tests/TestFramework.hpp"
+#include "ui/Ui.hpp"
 
 using namespace pm;
 
@@ -371,4 +372,18 @@ TEST_CASE("every sprite is registered once and drawn in the palette") {
         }
     }
     for (int n : seen) CHECK(n == 1);
+}
+
+TEST_CASE("a health bar's damage chip holds, drains, and snaps up on a heal") {
+    ui::BarTrail trail;
+    trail.update(1.0f, 0.016f);
+    CHECK(trail.shown == 1.0f);
+    trail.update(0.6f, 0.016f); // a hit: the chip stays where the bar was
+    CHECK(trail.shown == 1.0f);
+    trail.update(0.6f, 0.2f); // still holding
+    CHECK(trail.shown == 1.0f);
+    for (int i = 0; i < 30; ++i) trail.update(0.6f, 0.05f);
+    CHECK(std::fabs(trail.shown - 0.6f) < 1e-4f); // drained down to the bar, never below it
+    trail.update(0.9f, 0.016f); // a heal snaps the chip up with the bar
+    CHECK(trail.shown == 0.9f);
 }
