@@ -78,6 +78,16 @@ CastVoice castVoice(const CastShot& shot) {
     return v;
 }
 
+/// Dust kicked up from the ground under `feet`, in the ground's own colour (a neutral grey over
+/// liquid or air).
+Rgba groundDust(const World& world, Vec2 feet) {
+    const MatId m = world.matAt(floorToInt(feet.x), floorToInt(feet.y + 0.6f));
+    const Phase phase = phaseOf(m);
+    if (phase != Phase::Solid && phase != Phase::Powder) return {120, 110, 100, 200};
+    const Rgba c = materialColor(m);
+    return {c.r, c.g, c.b, 170};
+}
+
 /// The light the alchemist carries, at strength `k`; it always gets a slot.
 PointLight lampLight(Vec2 p, float k) { return PointLight{{p.x, p.y - 3.0f}, 2.6f * k, 2.2f * k, 1.75f * k, 150.0f, 3.0f, 100.0f}; }
 
@@ -209,6 +219,13 @@ void Player::move(Level& level, const Environment& env) {
         jumpBuffer_ = 0.0f;
         jumpedThisPress_ = true;
         level.audio().play(Sfx::Jump, 0.5f, level.rng().range(0.95f, 1.05f));
+        // A puff of the ground pushed off from.
+        const Vec2 feet{body.pos.x, body.pos.y + body.halfH};
+        const Rgba dust = groundDust(level.world(), feet);
+        Rng& fx = level.fxRng();
+        for (int i = 0; i < 3; ++i)
+            level.particles().addVisual(feet - Vec2{fx.range(-3.0f, 3.0f), 0.5f}, {fx.range(-20.0f, 20.0f), fx.range(-12.0f, -4.0f)}, dust,
+                                        {0, 0, 0, 0}, fx.range(0.3f, 0.45f), 0.3f, partflag::kFade);
     }
 
     const float levMax = std::max(0.1f, run_.levitationMax);
@@ -250,12 +267,18 @@ void Player::move(Level& level, const Environment& env) {
     footsteps(level, dt);
     if (body.onGround && !grounded && lastFallSpeed_ > 150.0f) {
         level.audio().play(Sfx::Land, std::min(1.0f, lastFallSpeed_ / 400.0f));
-        for (int i = 0; i < 4; ++i) {
-            Rng& rng = level.rng();
-            level.particles().addVisual({body.pos.x + rng.range(-3.0f, 3.0f), body.pos.y + body.halfH - 0.5f},
-                                        {rng.range(-40.0f, 40.0f), rng.range(-30.0f, -5.0f)}, {120, 110, 100, 200},
-                                        {0, 0, 0, 0}, 0.35f, 0.8f);
+        // Ground-coloured dust thrown to both sides, more the harder the fall, and a dip of the
+        // view (cosmetic randomness).
+        const Vec2 feet{body.pos.x, body.pos.y + body.halfH};
+        const Rgba dust = groundDust(level.world(), feet);
+        Rng& fx = level.fxRng();
+        const int motes = clamp(static_cast<int>(lastFallSpeed_ / 40.0f), 4, 10);
+        for (int i = 0; i < motes; ++i) {
+            const float side = i % 2 == 0 ? 1.0f : -1.0f;
+            const Vec2 at{feet.x + fx.range(-3.0f, 3.0f), feet.y - 0.5f};
+            level.particles().addVisual(at, {side * fx.range(20.0f, 50.0f), fx.range(-30.0f, -5.0f)}, dust, {0, 0, 0, 0}, 0.35f, 0.8f);
         }
+        recoil_.y += std::min(1.2f, (lastFallSpeed_ - 150.0f) / 200.0f);
     }
 }
 
@@ -268,6 +291,14 @@ void Player::footsteps(Level& level, float dt) {
             const MaterialDef& under = matDef(level.world().matAt(floorToInt(body.pos.x), floorToInt(body.pos.y + body.halfH + 0.6f)));
             const float pitch = under.phase == Phase::Powder || under.hardness < 50 ? 0.8f : (under.hardness >= 140 ? 1.25f : 1.0f);
             level.audio().play(Sfx::Step, 0.22f, pitch * level.fxRng().range(0.92f, 1.08f));
+            // Two motes of the ground scuffed up behind the step.
+            const Vec2 feet{body.pos.x, body.pos.y + body.halfH};
+            const Rgba dust = groundDust(level.world(), feet);
+            const float dir = body.vel.x > 0.0f ? 1.0f : -1.0f;
+            Rng& fx = level.fxRng();
+            for (int i = 0; i < 2; ++i)
+                level.particles().addVisual({feet.x - dir * 2.0f, feet.y - 0.5f}, {-dir * fx.range(10.0f, 25.0f), fx.range(-18.0f, -6.0f)},
+                                            dust, {0, 0, 0, 0}, fx.range(0.3f, 0.45f), 0.3f, partflag::kFade);
         }
     } else if (body.onGround) {
         footstepTimer_ = 0.0f; // the first step lands as soon as the alchemist sets off (not after a step down)
@@ -291,9 +322,11 @@ void Player::splash(Level& level, MatId liquid) {
     const float k = std::min(1.0f, body.vel.y / 250.0f);
     const int n = clamp(static_cast<int>(body.vel.y / 25.0f), 6, 18);
     Rng& fx = level.fxRng();
-    for (int i = 0; i < n; ++i)
-        level.particles().addVisual({body.pos.x + fx.range(-4.0f, 4.0f), surfaceY - 0.5f}, {fx.range(-55.0f, 55.0f), -fx.range(60.0f, 150.0f) * k},
-                                    Rgba{col.r, col.g, col.b, 230}, glow, fx.range(0.45f, 0.8f), 0.9f);
+    for (int i = 0; i < n; ++i) {
+        const Vec2 at{body.pos.x + fx.range(-4.0f, 4.0f), surfaceY - 0.5f};
+        level.particles().addVisual(at, {fx.range(-55.0f, 55.0f), -fx.range(60.0f, 150.0f) * k}, Rgba{col.r, col.g, col.b, 230}, glow,
+                                    fx.range(0.45f, 0.8f), 0.9f);
+    }
 }
 
 void Player::handleWands(Level& level) {
