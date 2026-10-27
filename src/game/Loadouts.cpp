@@ -24,13 +24,14 @@ struct Requirement {
     const char* text;
     int Milestones::*field;
     int target;
+    bool counted = true; ///< progress shown as n/target; false: a yes/no goal (reaching a stage)
 };
 
 constexpr Requirement kRequirements[] = {
     {"", nullptr, 0},
     // Paced so a first session opens one or two paths: an unlock at the end of a run is the
     // best reason to start another.
-    {"Reach the second stage", &Milestones::deepest, 2},
+    {"Reach the second stage, Albedo", &Milestones::deepest, 2, false},
     {"Open chests", &Milestones::chestsOpened, 8},
     {"Slay creatures", &Milestones::totalKills, 100},
     {"Slay a stage guardian", &Milestones::guardiansSlain, 1},
@@ -73,6 +74,9 @@ bool loadoutUnlocked(LoadoutId id, const Milestones& m) {
 UnlockProgress loadoutProgress(LoadoutId id, const Milestones& m) {
     const Requirement& r = kRequirements[static_cast<size_t>(id)];
     if (r.field == nullptr) return {};
+    // A depth counts the stage a run starts on, so "1/2" after a first-stage death would read as
+    // progress that was never made: such goals are simply met or not.
+    if (!r.counted) return {r.text, m.*r.field >= r.target ? 1 : 0, 1};
     return {r.text, m.*r.field, r.target};
 }
 
@@ -80,7 +84,7 @@ std::string loadoutRequirement(LoadoutId id, const Milestones& m) {
     const Requirement& r = kRequirements[static_cast<size_t>(id)];
     if (r.field == nullptr) return {};
     char buf[96];
-    if (r.target > 1) std::snprintf(buf, sizeof(buf), "%s (%d/%d)", r.text, std::min(m.*r.field, r.target), r.target);
+    if (r.counted && r.target > 1) std::snprintf(buf, sizeof(buf), "%s (%d/%d)", r.text, std::min(m.*r.field, r.target), r.target);
     else std::snprintf(buf, sizeof(buf), "%s", r.text);
     return buf;
 }

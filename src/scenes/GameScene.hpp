@@ -114,6 +114,7 @@ private:
     float titleTimer_ = 0.0f;
     std::string titleMain_, titleSub_, titleOmen_;
     float endTimer_ = 0.0f;
+    bool endInputArmed_ = false; ///< the end screen's pad and Enter shortcuts are live
     float time_ = 0.0f;
     float slowMo_ = 1.0f;
     float tickAccumulator_ = 0.0f;

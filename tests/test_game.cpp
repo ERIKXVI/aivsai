@@ -741,3 +741,14 @@ TEST_CASE("kills the world makes are counted, chained and paid") {
     CHECK(std::any_of(level.floatTexts().begin(), level.floatTexts().end(),
                       [](const FloatText& t) { return t.text == "Chain reaction x3"; }));
 }
+
+TEST_CASE("reaching a stage is a goal met or not, never a count") {
+    Milestones m; // a first run that ended on stage I still counts as having reached stage I
+    m.deepest = 1;
+    const UnlockProgress p = loadoutProgress(LoadoutId::Pyromancer, m);
+    CHECK(p.value == 0 && p.target == 1);
+    CHECK(loadoutRequirement(LoadoutId::Pyromancer, m).find('/') == std::string::npos);
+    m.deepest = 2;
+    CHECK(loadoutProgress(LoadoutId::Pyromancer, m).value == 1);
+    CHECK(loadoutUnlocked(LoadoutId::Pyromancer, m));
+}

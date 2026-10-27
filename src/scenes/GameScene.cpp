@@ -135,6 +135,7 @@ void GameScene::advanceStage() {
     } else if (run_.levelIndex >= kFinalStage) {
         mode_ = Mode::Victory;
         endTimer_ = 0.0f;
+        endInputArmed_ = false;
         titleTimer_ = 0.0f;
         recordProfile(true);
         return;
@@ -325,6 +326,7 @@ void GameScene::stepLevel() {
         mode_ = Mode::Dead;
         exiting_ = false;
         endTimer_ = 0.0f;
+        endInputArmed_ = false;
         titleTimer_ = 0.0f;
         eventNotice_ = {};
         slowMo_ = 0.35f;
@@ -375,7 +377,9 @@ void GameScene::frame(float dt) {
     } else {
         fade_ = std::max(0.0f, fade_ - dt * 1.5f);
     }
-    titleTimer_ = std::max(0.0f, titleTimer_ - dt);
+    // Title cards and notices wait while a menu covers them, so a quick look at How to Play in
+    // the first seconds of a stage does not cost the player the stage's name or its omen.
+    if (mode_ == Mode::Playing) titleTimer_ = std::max(0.0f, titleTimer_ - dt);
     updateFeats(dt);
     // A guardian is announced with a title card the first time it notices the alchemist.
     if (mode_ == Mode::Playing) {
@@ -392,7 +396,7 @@ void GameScene::frame(float dt) {
         eventNotice_ = std::move(n);
         eventNoticeTime_ = 0.0f;
     }
-    eventNoticeTime_ += dt;
+    if (mode_ == Mode::Playing) eventNoticeTime_ += dt;
     // The gold counter pops whenever gold comes in.
     goldPop_ = std::max(0.0f, goldPop_ - dt);
     if (shownGold_ >= 0 && run_.gold > shownGold_) goldPop_ = kGoldPopSeconds;
@@ -485,6 +489,11 @@ void GameScene::watchFrameRate() {
         return;
     }
     const float frame = GetFrameTime();
+    // A stall (a dragged window, a hitch, a laptop waking) says nothing about the GPU, and when the
+    // simulation itself is the slow part, fewer lights would not help.
+    constexpr float kStall = 0.1f;
+    constexpr double kSimBoundMs = 8.0;
+    if (frame > kStall || Profiler::instance().average(ProfileSection::Tick) > kSimBoundMs) return;
     frameAvg_ = frameAvg_ <= 0.0f ? frame : frameAvg_ * 0.95f + frame * 0.05f;
     slowFor_ = frameAvg_ > kSlowFrame ? slowFor_ + frame : 0.0f;
     if (slowFor_ < kPatience) return;
@@ -521,10 +530,12 @@ void GameScene::render(float alpha) {
         // The lens names a thing for a few seconds, then lets it be.
         if (mode_ == Mode::Playing && !lens_.title.empty() && lens_.same < 4.0f) ui::tooltip(lens_.title, lens_.body, lens_.color);
         if (mode_ == Mode::Playing && app_.settings().hints) hints_.draw(static_cast<float>(app_.screenWidth()), static_cast<float>(app_.screenHeight()), usingGamepad_);
-        drawTitleCard();
-        drawEventNotice();
-        if (mode_ != Mode::Dead && app_.settings().hints && !run_.inSanctum && run_.levelIndex == 0 && level_->time() < 30.0f)
-            drawControlsHint();
+        // Banners belong to play: under a menu they would ghost through its dimming.
+        if (mode_ == Mode::Playing) {
+            drawTitleCard();
+            drawEventNotice();
+            if (app_.settings().hints && !run_.inSanctum && run_.levelIndex == 0 && level_->time() < 30.0f) drawControlsHint();
+        }
     }
 
     switch (mode_) {

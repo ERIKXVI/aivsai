@@ -170,8 +170,10 @@ void GameScene::drawEndScreen(bool victory) {
     }
     if (record_.nearestPath) {
         const PathProgress& np = *record_.nearestPath;
-        std::string label = TextFormat("Next path, the %s: %s %d/%d", np.name.c_str(), np.requirement.c_str(), np.now, np.target);
-        if (np.now > np.was) label += TextFormat("  (+%d this run)", np.now - np.was);
+        // A yes/no goal (target 1) reads as the goal alone; counted ones show how far along they are.
+        std::string label = np.target > 1 ? TextFormat("Next path, the %s: %s %d/%d", np.name.c_str(), np.requirement.c_str(), np.now, np.target)
+                                          : TextFormat("Next path, the %s: %s", np.name.c_str(), np.requirement.c_str());
+        if (np.target > 1 && np.now > np.was) label += TextFormat("  (+%d this run)", np.now - np.was);
         ui::text(label, sw * 0.5f, y, font, Color{200, 190, 170, al}, ui::Align::Center);
         y += fontH * 1.25f;
         // The bar: earlier progress dim, this run's gain bright.
@@ -185,6 +187,15 @@ void GameScene::drawEndScreen(bool victory) {
         y += bar.height + lineH * 0.5f;
     }
     if (a < 1.0f) return;
+    // The pad's face buttons double as jump, interact, absorb and drink: a player still mashing
+    // them from the fight must not skip this screen unread. Its pad and Enter shortcuts wake a
+    // moment after the fade, once those buttons have been let go.
+    const bool settled = endTimer_ > (victory ? 0.5f : kDeathScreenDelay) + 1.1f;
+    const bool held = IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN) || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT) ||
+                      IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_UP) || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT) ||
+                      IsKeyDown(KEY_ENTER);
+    if (settled && !held) endInputArmed_ = true;
+    const bool armed = endInputArmed_;
 
     const float bw = 100.0f * s, bh = 18.0f * s, gap = 6.0f * s;
     float bx = sw * 0.5f - bw * 1.5f - gap;
@@ -194,12 +205,12 @@ void GameScene::drawEndScreen(bool victory) {
         app_.setScene(std::make_unique<GameScene>(app_, std::move(fresh)));
     };
     const char* again = victory ? (usingGamepad_ ? "New Work (A)" : "New Work (R)") : (usingGamepad_ ? "Try Again (A)" : "Try Again (R)");
-    if (ui::button({bx, y, bw, bh}, again) || ui::confirmPressed() || input::keyPressed(KEY_R)) {
+    if (ui::button({bx, y, bw, bh}, again) || (armed && ui::confirmPressed()) || input::keyPressed(KEY_R)) {
         startRun(randomRunSeed());
         return;
     }
     bx += bw + gap;
-    const bool retryKey = input::keyPressed(KEY_T) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_UP);
+    const bool retryKey = input::keyPressed(KEY_T) || (armed && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_UP));
     if (ui::button({bx, y, bw, bh}, usingGamepad_ ? "Retry Seed (Y)" : "Retry Seed (T)") || retryKey) {
         startRun(run_.seed); // the same stages and treasures, outside the Daily Rite
         return;
@@ -207,7 +218,7 @@ void GameScene::drawEndScreen(bool victory) {
     if (ui::hovered({bx, y, bw, bh}))
         ui::tooltip("Retry Seed", "Walk the same stages again: the same layout, wands and treasures.", ui::color::kAccent);
     bx += bw + gap;
-    if (ui::button({bx, y, bw, bh}, "Main Menu") || ui::backPressed()) {
+    if (ui::button({bx, y, bw, bh}, "Main Menu") || (armed && ui::backPressed())) {
         app_.setScene(std::make_unique<MenuScene>(app_));
         return;
     }
@@ -218,7 +229,7 @@ void GameScene::drawEndScreen(bool victory) {
                             !prof.history[0].victory && !prof.history[1].victory;
     if (struggling) {
         const Rectangle easier{sw * 0.5f - bw, y + bh + gap, bw * 2.0f, bh};
-        const bool easierKey = input::keyPressed(KEY_P) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT);
+        const bool easierKey = input::keyPressed(KEY_P) || (armed && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT));
         if (ui::button(easier, usingGamepad_ ? "Try as Apprentice (X)" : "Try as Apprentice (P)") || easierKey) {
             app_.settings().difficulty = static_cast<int>(Difficulty::Apprentice);
             if (!app_.options().automated()) saveSettings(app_.settings());
