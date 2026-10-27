@@ -28,6 +28,7 @@ constexpr float kHitStagger = 0.08f; ///< every hit suspends steering this long 
 constexpr float kFlinchStagger = 0.22f, kEliteFlinchStagger = 0.12f; ///< a heavy blow's flinch
 constexpr float kPoiseTime = 0.7f;      ///< after a flinch, no other can interrupt for this long
 constexpr float kHeavyHitShare = 0.12f; ///< of max health: a blow this big is heavy whatever its type
+constexpr int kBossScale = 2;           ///< the Rebis is drawn at twice its sprite's size
 
 /// Colour of a creature's wind-up sparks, brightening and light: its own glow, or warm white.
 Color windupColor(const EnemyDef& def) { return def.glow ? hexColor(def.glow) : Color{255, 240, 200, 255}; }
@@ -706,17 +707,19 @@ Enemy::SpritePose Enemy::pose(float time) const {
     const Vec2 p = body.pos;
     const Color tint = enemyTint(type_);
     if (type_ == EnemyType::Boss) {
-        constexpr int kScale = 2; // as drawBoss
         const SpriteFrame& f = spriteFrame(SpriteId::Boss, 0);
-        return {SpriteId::Boss, 0, {p.x - static_cast<float>(f.w * kScale) * 0.5f, p.y - static_cast<float>(f.h * kScale) * 0.5f},
-                kScale, false, tint};
+        return {SpriteId::Boss, 0, {p.x - static_cast<float>(f.w * kBossScale) * 0.5f, p.y - static_cast<float>(f.h * kBossScale) * 0.5f},
+                kBossScale, false, tint};
     }
     const int frame = animFrame(time);
     const SpriteFrame& f = spriteFrame(def_->sprite, frame);
     const int sc = def_->scale;
     const float w = static_cast<float>(f.w * sc), h = static_cast<float>(f.h * sc);
-    const float top = flying || !segments.empty() ? p.y - h * 0.5f : p.y + body.halfH - h; // as drawAlbedo
-    return {def_->sprite, frame, {p.x - w * 0.5f, top}, sc, !facingRight_, tint};
+    return {def_->sprite, frame, spriteTopLeft(p, w, h), sc, !facingRight_, tint};
+}
+
+Vec2 Enemy::spriteTopLeft(Vec2 p, float w, float h) const {
+    return {p.x - w * 0.5f, flying || !segments.empty() ? p.y - h * 0.5f : p.y + body.halfH - h};
 }
 
 float Enemy::knockbackTaken() const {
@@ -800,8 +803,7 @@ void Enemy::drawAlbedo(DrawContext& ctx) const {
     const int frame = animFrame(ctx.time);
     const int sc = def_->scale;
     const float w = static_cast<float>(info.w * sc), h = static_cast<float>(info.h * sc);
-    float top = flying || !segments.empty() ? p.y - h * 0.5f : p.y + body.halfH - h;
-    Vector2 lp = ctx.scene.layerPos({p.x - w * 0.5f, top});
+    const Vector2 lp = ctx.scene.layerPos(spriteTopLeft(p, w, h));
     const bool flip = !facingRight_;
     // Giants (guardians) are drawn scaled; everything else at the sprite's own size.
     auto draw = [&](Color c, bool silhouette) {
@@ -835,28 +837,26 @@ void Enemy::drawAlbedo(DrawContext& ctx) const {
 }
 
 void Enemy::drawBoss(DrawContext& ctx, Vec2 p, Color tint) const {
-    constexpr int kScale = 2;
     const SpriteInfo& info = ctx.sprites.info(SpriteId::Boss);
     // A slow bob makes the giant feel alive.
-    Vec2 topLeft{p.x - info.w * kScale * 0.5f, p.y - info.h * kScale * 0.5f + std::sin(ctx.time * 1.7f) * 1.5f};
+    Vec2 topLeft{p.x - info.w * kBossScale * 0.5f, p.y - info.h * kBossScale * 0.5f + std::sin(ctx.time * 1.7f) * 1.5f};
     Vector2 lp = ctx.scene.layerPos(topLeft);
-    ctx.sprites.drawScaled(SpriteId::Boss, 0, lp, kScale, false, tint);
-    if (hurtFlash > 0.0f) ctx.sprites.drawScaled(SpriteId::Boss, 0, lp, kScale, false, Color{255, 255, 255, 45}, false, true);
+    ctx.sprites.drawScaled(SpriteId::Boss, 0, lp, kBossScale, false, tint);
+    if (hurtFlash > 0.0f) ctx.sprites.drawScaled(SpriteId::Boss, 0, lp, kBossScale, false, Color{255, 255, 255, 45}, false, true);
     // The philosopher's stone pulses at the Rebis' heart.
     const SpriteInfo& ci = ctx.sprites.info(SpriteId::BossCore);
-    Vector2 cp = ctx.scene.layerPos({p.x - ci.w * 0.5f, topLeft.y + info.h * kScale * 0.5f - ci.h * 0.5f + 2.0f});
+    Vector2 cp = ctx.scene.layerPos({p.x - ci.w * 0.5f, topLeft.y + info.h * kBossScale * 0.5f - ci.h * 0.5f + 2.0f});
     ctx.sprites.draw(SpriteId::BossCore, 0, cp, false);
 }
 
 void Enemy::drawEmission(DrawContext& ctx) const {
     const Vec2 p = body.interpolated(ctx.alpha);
     if (type_ == EnemyType::Boss) {
-        constexpr int kScale = 2;
         const SpriteInfo& info = ctx.sprites.info(SpriteId::Boss);
-        Vec2 topLeft{p.x - info.w * kScale * 0.5f, p.y - info.h * kScale * 0.5f + std::sin(ctx.time * 1.7f) * 1.5f};
-        ctx.sprites.drawScaled(SpriteId::Boss, 0, ctx.scene.layerPos(topLeft), kScale, false, WHITE, true);
+        Vec2 topLeft{p.x - info.w * kBossScale * 0.5f, p.y - info.h * kBossScale * 0.5f + std::sin(ctx.time * 1.7f) * 1.5f};
+        ctx.sprites.drawScaled(SpriteId::Boss, 0, ctx.scene.layerPos(topLeft), kBossScale, false, WHITE, true);
         const SpriteInfo& ci = ctx.sprites.info(SpriteId::BossCore);
-        Vector2 cp = ctx.scene.layerPos({p.x - ci.w * 0.5f, topLeft.y + info.h * kScale * 0.5f - ci.h * 0.5f + 2.0f});
+        Vector2 cp = ctx.scene.layerPos({p.x - ci.w * 0.5f, topLeft.y + info.h * kBossScale * 0.5f - ci.h * 0.5f + 2.0f});
         float pulse = 0.6f + 0.4f * std::sin(ctx.time * 4.0f);
         ctx.sprites.drawEmissive(SpriteId::BossCore, 0, cp, false, Color{255, 255, 255, static_cast<unsigned char>(255 * pulse)});
         return;
@@ -865,8 +865,7 @@ void Enemy::drawEmission(DrawContext& ctx) const {
     const SpriteInfo& info = ctx.sprites.info(def_->sprite);
     const int sc = def_->scale;
     const float w = static_cast<float>(info.w * sc), h = static_cast<float>(info.h * sc);
-    float top = flying || !segments.empty() ? p.y - h * 0.5f : p.y + body.halfH - h;
-    Vector2 lp = ctx.scene.layerPos({p.x - w * 0.5f, top});
+    const Vector2 lp = ctx.scene.layerPos(spriteTopLeft(p, w, h));
     if (sc > 1) ctx.sprites.drawScaled(def_->sprite, animFrame(ctx.time), lp, sc, !facingRight_, WHITE, true);
     else ctx.sprites.drawEmissive(def_->sprite, animFrame(ctx.time), lp, !facingRight_);
 }

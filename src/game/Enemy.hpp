@@ -180,6 +180,9 @@ private:
     /// telegraphed attack, and poise then guards against a stun-lock.
     void reactToHit(Level& level, const DamageInfo& info, float dealt);
     int animFrame(float time) const;
+    /// Top-left (world cells) of a w x h sprite drawn at body position `p`: centred on flyers and
+    /// worms, standing on the floor otherwise.
+    Vec2 spriteTopLeft(Vec2 p, float w, float h) const;
     void drawBoss(DrawContext& ctx, Vec2 p, Color tint) const;
 
     EnemyType type_;
