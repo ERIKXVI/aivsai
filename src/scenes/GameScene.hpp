@@ -34,7 +34,7 @@ public:
     void onSuspend() override;
 
 private:
-    enum class Mode { Loading, Playing, Inventory, Map, Paused, Settings, Dead, Victory };
+    enum class Mode { Loading, Playing, Inventory, Map, Paused, Settings, Help, Dead, Victory };
 
     // Durations shared by the update half (GameScene.cpp) and the drawing half (GameSceneUi.cpp).
     static constexpr float kTitleCardSeconds = 4.0f;  ///< how long a stage/guardian title card shows
@@ -90,6 +90,8 @@ private:
     Bot bot_;
     HintTracker hints_;
     ui::NavList pauseNav_;
+    bool confirmAbandon_ = false; ///< Abandon Run pressed once: the next press ends the run
+    bool confirmQuit_ = false;    ///< Quit Game pressed once: the next press closes the game
     Minimap minimap_;
     RouteGuide guide_; ///< where the compass points along the stage's route
     Mode mode_ = Mode::Loading;

@@ -40,7 +40,6 @@ private:
     void abandonSuspendedRun();
     Milestones milestones() const;
     void drawMain();
-    void drawHelp();
     void drawLoadouts();
     /// The ordeal chooser under the paths (or a note that it opens after the first victory).
     void drawOrdealRow(Rectangle row, std::string& tipTitle, std::string& tipBody);
@@ -57,6 +56,7 @@ private:
     /// Spells on each kit's signature wand, built once (empty for random kits).
     std::array<std::vector<SpellId>, kLoadoutCount> kitPreview_;
     bool confirmDaily_ = false;         ///< Daily Rite pressed once with a run suspended
+    bool usingGamepad_ = false;         ///< the last input came from a gamepad (the help shows its buttons)
     float time_ = 0.0f;
     float nextEvent_ = 2.0f;
     int titleTop_ = 0, titleBottom_ = 0;

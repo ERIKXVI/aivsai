@@ -364,12 +364,18 @@ void GameScene::drawControlsHint() const {
     float a = clamp(std::min((t - 1.0f) * 2.0f, (30.0f - t) / 2.0f), 0.0f, 1.0f);
     if (a <= 0.0f) return;
     static constexpr const char* kKeyboard[] = {"A/D move   W/Space jump - hold to levitate", "Mouse aim   LMB cast   1-4 / wheel switch wand",
-                                                "Wand 2 digs through rock   Tab edit wands", "E interact   M map   Follow the arrow to the portal"};
+                                                "Wand 2 digs through rock   Tab edit wands", "Q absorb   RMB pour   F drink from the flask",
+                                                "E interact   M map   Follow the arrow to the portal", "Esc pauses - How to Play lists every control"};
     static constexpr const char* kGamepad[] = {"Left stick move   A jump - hold to levitate", "Right stick aim   RT cast   LB / RB switch wand",
-                                               "Wand 2 digs through rock   Back edit wands", "B interact   D-pad down map   Follow the arrow"};
+                                               "Wand 2 digs through rock   Back edit wands", "Y absorb   LT pour   X drink from the flask",
+                                               "B interact   D-pad down map   Follow the arrow", "Start pauses - How to Play lists every control"};
+    static_assert(std::size(kKeyboard) == std::size(kGamepad));
     const auto& lines = usingGamepad_ ? kGamepad : kKeyboard;
     float x = 10.0f * s, y = 60.0f * s;
-    Rectangle r{x - 4.0f * s, y - 4.0f * s, 170.0f * s, (static_cast<float>(small) * 1.3f) * 4.0f + 8.0f * s};
+    float widest = 0.0f;
+    for (const char* l : lines) widest = std::max(widest, static_cast<float>(ui::measure(l, small)));
+    Rectangle r{x - 4.0f * s, y - 4.0f * s, widest + 8.0f * s,
+                (static_cast<float>(small) * 1.3f) * static_cast<float>(std::size(lines)) + 8.0f * s};
     unsigned char al = static_cast<unsigned char>(200.0f * a);
     DrawRectangleRec(r, Color{10, 8, 16, static_cast<unsigned char>(160.0f * a)});
     for (const char* l : lines) {
@@ -637,7 +643,7 @@ void GameScene::drawPauseMenu() {
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
     const float s = static_cast<float>(ui::scale());
     ui::dimScreen(150);
-    Rectangle panelR{sw * 0.5f - 80.0f * s, sh * 0.5f - 72.0f * s, 160.0f * s, 144.0f * s};
+    Rectangle panelR{sw * 0.5f - 85.0f * s, sh * 0.5f - 95.0f * s, 170.0f * s, 190.0f * s};
     ui::panel(panelR);
     ui::text("PAUSED", sw * 0.5f, panelR.y + 8.0f * s, ui::fontSize(ui::scale() + 1), ui::color::kGold, ui::Align::Center);
     // The run's seed (and ordeal, hover for its rules) at the foot of the panel.
@@ -648,23 +654,51 @@ void GameScene::drawPauseMenu() {
     ui::text(footer, sw * 0.5f, footY, small, ui::color::kTextDim, ui::Align::Center);
     if (run_.ordeal > 0 && ui::hovered({panelR.x, footY, panelR.width, static_cast<float>(small)}))
         ui::tooltip(ordealLabel(run_.ordeal), ordealRules(run_.ordeal), Color{255, 140, 110, 255});
-    float bw = 130.0f * s, bh = 18.0f * s, x = sw * 0.5f - bw * 0.5f, y = panelR.y + 30.0f * s;
-    pauseNav_.update(4);
+    float bw = 140.0f * s, bh = 18.0f * s, x = sw * 0.5f - bw * 0.5f, y = panelR.y + 30.0f * s;
+    // The destructive entries sit at the bottom and the focus does not wrap onto them.
+    pauseNav_.update(6, false);
     int index = 0;
+    Rectangle last{};
     auto item = [&](const char* label) {
-        const bool pressed = ui::button({x, y, bw, bh}, label, true, pauseNav_.focused(index)) || pauseNav_.activated(index);
+        last = {x, y, bw, bh};
+        const bool pressed = ui::button(last, label, true, pauseNav_.focused(index)) || pauseNav_.activated(index);
         ++index;
         y += bh + 5.0f * s;
         return pressed;
     };
+    // Whether the entry just drawn is under the mouse or the keyboard / pad focus.
+    auto hot = [&] { return ui::hovered(last) || pauseNav_.focused(index - 1); };
+
     if (item("Resume")) mode_ = Mode::Playing;
+    if (item("How to Play")) mode_ = Mode::Help;
     if (item("Settings")) mode_ = Mode::Settings;
-    if (item("Abandon Run")) {
-        recordProfile(false);
+    // The run was saved when this stage began, so the title screen offers to continue it.
+    if (item("Return to Title")) {
         app_.setScene(std::make_unique<MenuScene>(app_));
+        return;
     }
-    // Quitting keeps the run suspended at the start of this stage.
-    if (item("Save & Quit")) app_.requestQuit();
+    if (ui::hovered(last))
+        ui::tooltip("Return to Title", "The run is kept: Continue the Work resumes it at the start of this stage.", ui::color::kGold);
+    // Ending the run or closing the game takes a second press.
+    if (item(confirmAbandon_ ? "Abandon the run?" : "Abandon Run")) {
+        if (!confirmAbandon_) {
+            confirmAbandon_ = true;
+        } else {
+            recordProfile(false);
+            app_.setScene(std::make_unique<MenuScene>(app_));
+            return;
+        }
+    }
+    if (!hot()) confirmAbandon_ = false;
+    if (confirmAbandon_ && ui::hovered(last))
+        ui::tooltip("Abandon Run", "Press again to end this run; it is recorded as lost.", ui::color::kDanger);
+    if (item(confirmQuit_ ? "Quit the game?" : "Quit Game")) {
+        if (!confirmQuit_) confirmQuit_ = true;
+        else app_.requestQuit(); // the run stays suspended at the start of this stage
+    }
+    if (!hot()) confirmQuit_ = false;
+    if (ui::hovered(last))
+        ui::tooltip("Quit Game", "Closes the game. The run is kept for Continue the Work.", ui::color::kGold);
 }
 
 void GameScene::drawEndScreen(bool victory) {

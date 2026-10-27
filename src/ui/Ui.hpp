@@ -60,8 +60,9 @@ bool button(Rectangle r, const std::string& label, bool enabled = true, bool foc
 /// moving the mouse hands control back to it.
 class NavList {
 public:
-    /// Call once per frame before drawing the list.
-    void update(int count);
+    /// Call once per frame before drawing the list. Without `wrap`, the focus stops at either end
+    /// (for lists whose last entry is destructive).
+    void update(int count, bool wrap = true);
     bool focused(int index) const { return active_ && index == index_; }
     /// True when the focused entry was activated this frame.
     bool activated(int index) const { return focused(index) && confirm_; }

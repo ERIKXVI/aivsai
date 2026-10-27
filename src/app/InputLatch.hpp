@@ -20,5 +20,9 @@ bool keyPressed(int key);
 bool anyKeyPressed();
 /// Hides `key`'s press from the rest of this frame, once a global shortcut has used it.
 void consumeKey(int key);
+/// Which device the player is using, for button prompts: a key, a click or a mouse movement
+/// means keyboard and mouse; a gamepad button or a deflected stick means the gamepad.
+/// Returns `wasGamepad` when nothing was touched this frame.
+bool usingGamepad(bool wasGamepad);
 
 } // namespace pm::input

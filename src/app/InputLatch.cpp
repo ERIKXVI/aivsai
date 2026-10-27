@@ -1,6 +1,7 @@
 #include "app/InputLatch.hpp"
 
 #include <array>
+#include <cmath>
 
 #include "GLFW/glfw3.h"
 #include "raylib.h"
@@ -64,6 +65,18 @@ bool anyKeyPressed() { return g_anyKey; }
 void consumeKey(int key) {
     if (key > 0 && key < kKeys) g_consumed[static_cast<size_t>(key)] = true;
     g_anyKey = false;
+}
+
+bool usingGamepad(bool wasGamepad) {
+    const Vector2 mouseDelta = GetMouseDelta();
+    if (anyKeyPressed() || mousePressed(MOUSE_BUTTON_LEFT) || mouseDelta.x * mouseDelta.x + mouseDelta.y * mouseDelta.y > 4.0f)
+        return false;
+    if (!IsGamepadAvailable(0)) return wasGamepad;
+    const float lx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X), ly = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y),
+                rx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X), ry = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y);
+    if (std::fabs(lx) > 0.4f || std::fabs(ly) > 0.4f || rx * rx + ry * ry > 0.2f || GetGamepadButtonPressed() != GAMEPAD_BUTTON_UNKNOWN)
+        return true;
+    return wasGamepad;
 }
 
 } // namespace pm::input

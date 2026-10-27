@@ -155,7 +155,7 @@ bool button(Rectangle r, const std::string& label, bool enabled, bool focused) {
     return clicked;
 }
 
-void NavList::update(int count) {
+void NavList::update(int count, bool wrap) {
     confirm_ = false;
     if (count <= 0) return;
     const Vector2 delta = GetMouseDelta();
@@ -163,7 +163,7 @@ void NavList::update(int count) {
     const bool up = navUpPressed();
     const bool down = navDownPressed();
     if (up || down) {
-        if (active_) index_ = (index_ + (down ? 1 : -1) + count) % count;
+        if (active_) index_ = wrap ? (index_ + (down ? 1 : -1) + count) % count : std::clamp(index_ + (down ? 1 : -1), 0, count - 1);
         active_ = true;
         if (g_audio) g_audio->play(Sfx::UiHover, 0.5f);
     }

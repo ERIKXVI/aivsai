@@ -12,6 +12,7 @@
 #include "core/Profiler.hpp"
 #include "core/Timing.hpp"
 #include "gen/LevelGenerator.hpp"
+#include "ui/HelpPanel.hpp"
 #include "ui/SettingsPanel.hpp"
 #include "ui/Ui.hpp"
 
@@ -120,6 +121,7 @@ void GameScene::applyLaunchOptions() {
     }
     if (app_.options().openUi == "inventory") mode_ = Mode::Inventory;
     else if (app_.options().openUi == "pause") mode_ = Mode::Paused;
+    else if (app_.options().openUi == "help") mode_ = Mode::Help;
     else if (app_.options().openUi == "elixir") level_->player().status.hasted = level_->player().status.fury = 60.0f;
     else if (app_.options().openUi == "death" && !std::exchange(g_deathPreviewShown, true)) // the end screen, once
         level_->player().applyDamage(*level_, {1.0e6f, DamageType::Fire, {}, Team::Monster, false, true, enemyDef(EnemyType::Imp).name});
@@ -162,15 +164,7 @@ void GameScene::latchInput() {
 
 void GameScene::noteInputDevice() {
     // Button prompts follow whichever device was used last.
-    const Vector2 mouseDelta = GetMouseDelta();
-    if (input::anyKeyPressed() || input::mousePressed(MOUSE_BUTTON_LEFT) || mouseDelta.x * mouseDelta.x + mouseDelta.y * mouseDelta.y > 4.0f) {
-        usingGamepad_ = false;
-    } else if (IsGamepadAvailable(0)) {
-        const float lx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X), ly = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y),
-                    rx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X), ry = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y);
-        if (std::fabs(lx) > 0.4f || std::fabs(ly) > 0.4f || rx * rx + ry * ry > 0.2f || GetGamepadButtonPressed() != GAMEPAD_BUTTON_UNKNOWN)
-            usingGamepad_ = true;
-    }
+    usingGamepad_ = input::usingGamepad(usingGamepad_);
 }
 
 void GameScene::updateLens(float dt) {
@@ -425,6 +419,7 @@ void GameScene::updateModeInput(float dt) {
     // Alt-tabbing away pauses the run.
     if (mode_ == Mode::Playing && !IsWindowFocused() && !app_.options().automated()) mode_ = Mode::Paused;
     if (mode_ == Mode::Playing) {
+        confirmAbandon_ = confirmQuit_ = false; // the pause menu opens unarmed
         latchInput();
         if (input::keyPressed(KEY_ESCAPE) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT)) mode_ = Mode::Paused;
         else if (input::keyPressed(KEY_TAB) || input::keyPressed(KEY_I) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT)) {
@@ -493,6 +488,9 @@ void GameScene::render(float alpha) {
     case Mode::Settings:
         ui::dimScreen(150);
         if (drawSettingsPanel(app_)) mode_ = Mode::Paused;
+        break;
+    case Mode::Help:
+        if (drawHelpPanel(app_, usingGamepad_)) mode_ = Mode::Paused;
         break;
     case Mode::Dead:
         if (endTimer_ > kDeathScreenDelay) drawEndScreen(false);

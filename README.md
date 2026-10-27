@@ -85,8 +85,10 @@ Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-p
 - **Sanctums** between stages fully heal you and offer a shop stocked from the coming
   depth and a choice of perks
   (22 perks, from *Salamander Skin* to a homunculus companion).
-- **Save & Quit** from the pause menu (or just close the window) and *Continue the Work*
-  from the title screen later: a run resumes at the start of the stage you were on.
+- **Leave any time:** *Return to Title* or *Quit Game* from the pause menu (or just close
+  the window) and *Continue the Work* from the title screen later: a run resumes at the
+  start of the stage you were on. The pause menu also has *How to Play*, with every
+  control for the keyboard or the gamepad, whichever you used last.
 - **Runs** are seeded. The *Daily Rite* gives everyone the same seed and kit for the day, and
   three difficulties tune the challenge. The death screen shows how close the next path is
   to unlocking and any personal bests, and *Retry Seed* walks the same stages again.

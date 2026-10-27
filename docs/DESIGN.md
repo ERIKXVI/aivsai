@@ -104,8 +104,9 @@ The descent follows the four stages of the alchemical Great Work:
   under the highest ordeal open unlocks the next; the chronicle and end screen record it.
 - **Daily Rite**: one seed per day with the Apprentice kit, so attempts are comparable
   (and never under an ordeal).
-- **Suspended runs**: every stage start saves the run; Save & Quit (or closing the window)
-  resumes there later. Levels regenerate from their seed, so a resume replays the stage
+- **Suspended runs**: every stage start saves the run; Return to Title, Quit Game (or
+  closing the window) resume there later. Abandon Run and Quit Game ask for a second press,
+  and the pause menu's focus does not wrap onto them. Levels regenerate from their seed, so a resume replays the stage
   from its start rather than duplicating loot already taken.
 
 ## Onboarding
