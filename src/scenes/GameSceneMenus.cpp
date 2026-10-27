@@ -296,10 +296,10 @@ void GameScene::drawEndActions(bool victory, float y) {
         if (ui::hovered(offer)) ui::tooltip(def.name, def.description, ui::color::kGold);
         return;
     }
-    // Two quick falls in a row on stage I, never having won: offer the gentler road.
+    // Two falls in a row before the third stage, never having won: offer the gentler road.
     const Profile& prof = app_.profile();
     const bool struggling = !victory && prof.victories == 0 && run_.difficulty != Difficulty::Apprentice && run_.ordeal == 0 &&
-                            !run_.daily && prof.history.size() >= 2 && prof.history[0].depth == 0 && prof.history[1].depth == 0 &&
+                            !run_.daily && prof.history.size() >= 2 && prof.history[0].depth <= 1 && prof.history[1].depth <= 1 &&
                             !prof.history[0].victory && !prof.history[1].victory;
     if (struggling) {
         const Rectangle easier{sw * 0.5f - bw, y + bh + gap, bw * 2.0f, bh};

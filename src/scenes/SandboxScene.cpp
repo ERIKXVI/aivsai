@@ -179,7 +179,7 @@ Rectangle SandboxScene::drawPalette() {
     const float swatch = 12.0f * s, gap = 2.0f * s;
     const float panelW = kColumns * (swatch + gap) + 14.0f * s;
     Rectangle panel{6.0f * s, 6.0f * s, panelW, static_cast<float>(app_.screenHeight()) - 12.0f * s};
-    ui::panel(panel, Color{16, 12, 22, 215});
+    ui::panel(panel, Color{16, 12, 22, 248}); // opaque enough to hide the world's edge behind it
     float x0 = panel.x + 8.0f * s, y = panel.y + 6.0f * s;
     ui::text("ALCHEMY", panel.x + panel.width * 0.5f, y, size, ui::color::kGold, ui::Align::Center);
     y += static_cast<float>(size) + 6.0f * s;
@@ -229,7 +229,11 @@ Rectangle SandboxScene::drawPalette() {
     y += bh + 3.0f * s;
     if (ui::button({x0, y, fullW, bh}, "Main Menu")) app_.setScene(std::make_unique<MenuScene>(app_));
 
-    if (hovered != mat::Empty) ui::tooltip(matDef(hovered).name, "", ui::color::kText);
+    // What each matter does, titled in its own colour as the matter lens does in play.
+    if (hovered != mat::Empty) {
+        const Rgba c = materialColor(hovered);
+        ui::tooltip(matDef(hovered).name, matDescription(hovered), ColorBrightness(Color{c.r, c.g, c.b, 255}, 0.35f));
+    }
     return panel;
 }
 
