@@ -52,13 +52,23 @@ void drawSpellCard(Rectangle card, SpellId shown) {
     }
     ui::text("The art of wands", cx, cy, small, ui::color::kGold);
     cy += static_cast<float>(small) + 6.0f * s;
-    static constexpr const char* kRules[] = {
-        "Spells cast from left to right; when the deck runs out the wand recharges.",
-        "Green modifiers boost the projectile that follows them.",
-        "Gold multicasts fire the next spells together.",
-        "Triggers release the next spell where they land.",
+    // Each rule beside a card of the kind it describes.
+    struct Rule {
+        SpellId sample;
+        const char* text;
     };
-    for (const char* rule : kRules) cy += ui::textWrapped(rule, cx, cy, cw, small, ui::color::kTextDim) + 5.0f * s;
+    static constexpr Rule kRules[] = {
+        {SpellId::SparkBolt, "Spells cast from left to right; when the deck runs out the wand recharges."},
+        {SpellId::DamageUp, "Green modifiers boost the projectile that follows them."},
+        {SpellId::DoubleCast, "Gold multicasts fire the next spells together."},
+        {SpellId::SparkTrigger, "Triggers (the pink dot) cast the next spell where they land."},
+    };
+    const float icon = 12.0f * s;
+    for (const Rule& rule : kRules) {
+        ui::spellIcon(rule.sample, {cx, cy, icon, icon});
+        const float h = ui::textWrapped(rule.text, cx + icon + 4.0f * s, cy, cw - icon - 4.0f * s, small, ui::color::kTextDim);
+        cy += std::max(icon, h) + 5.0f * s;
+    }
 }
 
 } // namespace
@@ -180,9 +190,16 @@ void GameScene::drawInventory() {
         ui::text(w.name, x, y, small, static_cast<int>(wi) == run_.activeWand ? ui::color::kText : ui::color::kTextDim);
         ui::text(TextFormat("delay %.2fs  recharge %.2fs", w.castDelay, w.rechargeTime), x, y + static_cast<float>(small) + 1.0f * s,
                  small, statColor);
-        ui::text(TextFormat("mana %d (+%d/s)%s%s", static_cast<int>(w.manaMax), static_cast<int>(w.manaCharge), w.shuffle ? "  shuffle" : "",
-                            w.spellsPerCast > 1 ? "  multicast" : ""),
-                 x, y + (static_cast<float>(small) + 1.0f * s) * 2.0f, small, statColor);
+        const float statLine = static_cast<float>(small) + 1.0f * s;
+        ui::text(TextFormat("mana %d (+%d/s)", static_cast<int>(w.manaMax), static_cast<int>(w.manaCharge)), x, y + statLine * 2.0f, small,
+                 statColor);
+        // The deck's quirks on a line of their own, so they never run into the slots.
+        float fx = x;
+        if (w.shuffle) {
+            ui::text("shuffle", fx, y + statLine * 3.0f, small, statColor);
+            fx += static_cast<float>(ui::measure("shuffle  ", small));
+        }
+        if (w.spellsPerCast > 1) ui::text("multicast", fx, y + statLine * 3.0f, small, ui::color::kAccent);
         if (!pad && ui::hovered({nameR.x, nameR.y, nameR.width, slot * 1.6f})) {
             wandTipTitle = w.name;
             wandTip = TextFormat("Spread %.1f deg. Spells per cast %d. Capacity %d.%s", w.spreadDeg, w.spellsPerCast, w.capacity,
@@ -246,12 +263,14 @@ void GameScene::drawInventory() {
     float px = panelR.x + 10.0f * s + static_cast<float>(kSatchelCols) * (slot + gap) + 14.0f * s;
     ui::text("Perks", px, y - static_cast<float>(small) - 2.0f * s, small, ui::color::kTextDim);
     float py = y;
+    bool anyPerk = false;
     for (int p = 0; p < kPerkCount; ++p) {
         const int n = run_.perkCount(static_cast<PerkId>(p));
         if (n == 0) continue;
         const PerkDef& d = perkDef(static_cast<PerkId>(p));
         const std::string label = n > 1 ? std::string(d.name) + " x" + std::to_string(n) : d.name;
         ui::text(label, px, py, small, hexColor(d.color));
+        anyPerk = true;
         if (!pad && ui::hovered({px, py, 100.0f * s, static_cast<float>(small)})) {
             wandTipTitle = d.name;
             wandTip = d.description;
@@ -259,6 +278,9 @@ void GameScene::drawInventory() {
         py += static_cast<float>(small) * 1.2f;
         if (py > panelR.y + panelR.height - 14.0f * s) break;
     }
+    if (!anyPerk)
+        ui::textWrapped("None yet - sanctum altars, transmutation circles and guardians grant them", px, py,
+                        panelR.x + panelR.width - 146.0f * s - px, small, ui::color::kTextDim);
     ui::text(TextFormat("Kills %d   Gold %d   Time %s", run_.stats.kills, run_.gold,
                         ui::formatClock(run_.stats.time).c_str()),
              panelR.x + panelR.width - 10.0f * s, panelR.y + panelR.height - static_cast<float>(small) - 6.0f * s, small,
