@@ -52,9 +52,10 @@ Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-p
 - **Wands** cast their spell cards in order. *Modifiers* (Damage Plus, Homing, Fire Trail...)
   affect every projectile in the same cast, *multicasts* fire several cards at once, and
   *trigger* spells release the next card where they land. 50 spells, randomly rolled wands
-  and four wand slots make every run's arsenal different. An attack spell you find drops
-  straight into an empty slot of the wand in hand; the rest wait in the satchel, and the
-  wand editor (`Tab`) walks you through your first drag.
+  and four wand slots make every run's arsenal different. A spell's card says what it does
+  and where it will go: an attack spell drops straight into an empty slot of the wand in
+  hand, the rest wait in the satchel (a HUD badge counts them). The wand editor (`Tab`)
+  walks you through your first drag; a modifier dropped onto a spell goes in front of it.
 - **The flask** absorbs any liquid or powder (`Q`) and pours it back out (right mouse): carry
   water to douse fires, acid to dissolve walls, oil to set traps. Drinking has effects too:
   Vitae heals, quicksilver lends haste and ichor lends your spells fury.
@@ -94,8 +95,9 @@ Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-p
   start of the stage you were on. The pause menu also has *How to Play*, with every
   control for the keyboard or the gamepad, whichever you used last.
 - **Runs** are seeded. The *Daily Rite* gives everyone the same seed and kit for the day, and
-  three difficulties tune the challenge. The death screen shows how close the next path is
-  to unlocking and any personal bests, and *Retry Seed* walks the same stages again.
+  three difficulties tune the challenge. The death screen shows how far down you got and
+  which stages lie below, how close the next path is to unlocking and any personal bests,
+  and *Retry Seed* walks the same stages again.
 - **Paths:** milestones unlock four more starting loadouts - the *Pyromancer*, *Geomancer*,
   *Stormcaller* and *Hermeticist* - each with its own wands, flask and gifts.
 - **Ordeals:** completing the Great Work opens the first of eight stacking ordeals, chosen

@@ -16,8 +16,10 @@ switches to a window.
 - Eight stacking Ordeals for after your first Great Work, unlockable starting paths, 26 feats to earn, a Grimoire of everything you have
   discovered with a chronicle of recent runs (replay any seed), a Daily Rite seed, three difficulties and an Alchemy
   Sandbox to experiment freely.
-- Found attack spells slot straight into your wand, and the wand editor guides your first
-  edit (and works with a gamepad).
+- Found attack spells slot straight into your wand; every spell's card says what it does
+  and where it will go, and a HUD badge counts the spells waiting in your satchel. The wand
+  editor guides your first edit, drops a modifier in front of the spell it boosts, warns
+  about a booster with nothing after it, and works with a gamepad.
 - A matter lens: rest the cursor on any substance or creature to learn what it does.
 - Lanterns you can shoot down onto foes, and elites with Burning, Swift or Gilded affixes.
 - The world is a weapon: creatures slain by fire, lava, acid, blasts or cave-ins are named
@@ -30,8 +32,8 @@ switches to a window.
   mountain that stirs: cave-ins, breaches, marsh gas, swarms and falls of gold.
 - A compass that follows the route, a map that marks the portal from the start,
   contextual hints for new players, How to Play in the pause menu, and a death screen
-  that tells you what got you, how to avoid it, how close your next starting path is and
-  lets you retry the same seed (or try again as an Apprentice).
+  that tells you what got you, how to avoid it, how far down you got, how close your next
+  starting path is and lets you retry the same seed (or try again as an Apprentice).
 - All art, sound and music are generated procedurally by the game.
 
 Controls: `A/D` move · `W/Space` jump (hold to levitate) · mouse aim · `LMB` cast ·
