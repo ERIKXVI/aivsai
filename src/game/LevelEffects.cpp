@@ -568,6 +568,9 @@ void Level::onEnemyKilled(Enemy& e) {
         particles_.addMatter(e.body.pos + rng_.inCircle(3.0f), {rng_.range(-90.0f, 90.0f), rng_.range(-140.0f, -40.0f)},
                              makeCell(d.blood == mat::Ichor ? mat::Ash : mat::Flesh, rng_.next()));
     particles_.burst(e.body.pos, 18, 110.0f, hexRgba(d.glow ? d.glow : 0xffffff), hexRgba(d.glow ? d.glow : 0x606060), 0.5f, rng_);
+    // A glowing creature's own light flares as it dies rather than going out with it (the keepers
+    // and the Rebis have flashes of their own).
+    if (d.glow && !d.guardian && e.type() != EnemyType::Boss) addFlash(e.body.pos, d.glow, 1.3f, 40.0f * static_cast<float>(d.scale), 0.3f);
     shatter(e);
     audio_.playAt(Sfx::EnemyDie, e.body.pos, 0.8f, rng_.range(0.85f, 1.15f));
     // Weighty kills land with a beat of hit-stop; small fry do not, so a sweep of kills

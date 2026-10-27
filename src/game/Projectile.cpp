@@ -68,6 +68,9 @@ void impact(Level& level, Projectile& p, Vec2 at) {
         Rgba c = hexRgba(d.color);
         level.particles().burst(at, 10, 110.0f, c, scaled(c, 0.8f), 0.22f, level.fxRng(), 0.3f,
                                 partflag::kFade | partflag::kDieOnHit | partflag::kStreak);
+        // The bolt's light pops on what it struck instead of switching off with it (hitscan beams
+        // flash where they end already, and diggers strike rock all along their tunnel).
+        if (!(d.flags & (projflag::kHitscan | projflag::kDigs))) level.addFlash(at, d.color, 1.8f, std::max(16.0f, d.lightRadius), 0.12f);
     }
     p.dead = true;
 }
