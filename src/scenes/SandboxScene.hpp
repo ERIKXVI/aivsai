@@ -42,7 +42,7 @@ private:
     float zoom_ = 1.0f;
     MatId brush_ = mat::Sand;
     int brushRadius_ = 6;
-    input::WheelStepper wheel_; ///< mouse wheel to brush-size steps
+    input::WheelStepper wheel_{0.0f, 40.0f}; ///< mouse wheel to brush-size steps: one per notch, unthrottled
     float simMs_ = 0.0f;
     bool paused_ = false;
     bool pointerOverUi_ = false;

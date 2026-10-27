@@ -201,6 +201,7 @@ int App::run() {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
             last = GetTime();
             wasMinimized = true;
+            input::noteAway();
             continue;
         }
         if (wasMinimized) {

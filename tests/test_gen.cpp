@@ -53,8 +53,11 @@ TEST_CASE("generated levels are traversable from entrance to exit") {
                 if (!open) std::printf("    sealed vault: seed %u level %d at %.0f,%.0f\n", seed, level, v.x, v.y);
                 CHECK(open);
             }
-            // A transmutation circle never sits in a natural pool: the liquid would fill the basin
-            // (the box Level::updateTransmuters counts) and leave no room for the alchemist's offering.
+            // A transmutation circle never sits in a natural pool: once the world runs, the liquid would
+            // fill the basin (the box Level::updateTransmuters counts) and leave no room for the
+            // alchemist's offering.
+            layout.world->wakeAll();
+            for (int t = 0; t < 300; ++t) layout.world->step(pool);
             for (const SpawnPoint& s : layout.spawns) {
                 if (s.kind != SpawnKind::Transmuter) continue;
                 ++transmuters;

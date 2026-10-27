@@ -13,6 +13,9 @@ void installLatch();
 /// brings the window back into focus is swallowed, and the mouse buttons stay quiet until it
 /// is let go, so it cannot press whatever button lies under the cursor.
 void beginFrame();
+/// The window is away (minimised) and frames are skipped: the next beginFrame counts as a refocus,
+/// so the press that brings the window back is not taken as input.
+void noteAway();
 /// True if `button` went down since the previous frame, however briefly.
 bool mousePressed(int button);
 /// True while `button` is held, except for the click that refocused the window.
@@ -58,7 +61,12 @@ public:
     /// a notch down, 0 otherwise.
     int step(float delta, float dt);
 
+    WheelStepper() = default;
+    /// A stepper with its own pace, e.g. no cooldown for a long range such as a brush size.
+    WheelStepper(float cooldown, float maxQueued) : cooldownTime_(cooldown), maxQueued_(maxQueued) {}
+
 private:
+    float cooldownTime_ = kCooldown, maxQueued_ = kMaxQueued;
     float accum_ = 0.0f, idle_ = 0.0f, cooldown_ = 0.0f;
 };
 

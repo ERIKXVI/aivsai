@@ -45,6 +45,8 @@ void installLatch() {
     if (window != nullptr) g_previous = glfwSetMouseButtonCallback(window, onMouseButton);
 }
 
+void noteAway() { g_wasFocused = false; }
+
 void beginFrame() {
     g_buttons = g_latchedButtons;
     // A press reported a poll after the focus event still counts as the refocusing click, hence
@@ -154,7 +156,7 @@ int WheelStepper::step(float delta, float dt) {
     cooldown_ = std::max(0.0f, cooldown_ - dt);
     if (delta != 0.0f) {
         if (delta * accum_ < 0.0f) accum_ = 0.0f; // turning back drops what was queued
-        accum_ = std::clamp(accum_ + delta, -kMaxQueued, kMaxQueued);
+        accum_ = std::clamp(accum_ + delta, -maxQueued_, maxQueued_);
         idle_ = 0.0f;
     } else if ((idle_ += dt) > kForget) {
         accum_ = std::trunc(accum_); // whole notches still come out, a partial one is forgotten
@@ -162,7 +164,7 @@ int WheelStepper::step(float delta, float dt) {
     if (std::fabs(accum_) < 0.99f || cooldown_ > 0.0f) return 0;
     const int dir = accum_ > 0.0f ? 1 : -1;
     accum_ -= static_cast<float>(dir);
-    cooldown_ = kCooldown;
+    cooldown_ = cooldownTime_;
     return dir;
 }
 

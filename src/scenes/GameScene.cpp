@@ -112,7 +112,11 @@ void GameScene::finishLoading() {
     // Every stage start is a resume point.
     if (!app_.options().previewOnly()) saveSuspendedRun(run_);
     // A pause asked for on the way here opens now (not over a screen a launch option opened, nor in bot runs).
-    if (std::exchange(pauseOnArrival_, false) && mode_ == Mode::Playing && !app_.options().automated()) mode_ = Mode::Paused;
+    if (std::exchange(pauseOnArrival_, false) && mode_ == Mode::Playing && !app_.options().automated()) {
+        mode_ = Mode::Paused;
+        confirmAbandon_ = confirmQuit_ = false; // opened afresh, nothing armed from the menu left in the fade
+        pauseNav_ = ui::NavList{};
+    }
 }
 
 void GameScene::showTitleCard(std::string title, std::string subtitle, std::string omen) {
@@ -384,12 +388,16 @@ void GameScene::frame(float dt) {
         fade_ = 1.0f;
         loadTimer_ += dt;
         // Esc or Start asks for the pause menu on arrival; it does not hurry the motto along.
+        bool pressed = true;
         if (input::keyPressed(KEY_ESCAPE) || input::padPressed(GAMEPAD_BUTTON_MIDDLE_RIGHT)) pauseOnArrival_ = true;
         else if (input::anyKeyPressed() || input::mousePressed(MOUSE_BUTTON_LEFT) ||
                  input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_DOWN))
             loadSkipped_ = true;
+        else pressed = false;
         const bool lingered = loadTimer_ >= kMinLoadSeconds || loadSkipped_ || app_.options().autoplay;
-        if (lingered && pending_.valid() && pending_.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+        // A pause menu opening on arrival must not take this frame's press: arrive a frame later.
+        if (lingered && !(pressed && pauseOnArrival_) && pending_.valid() &&
+            pending_.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
             finishLoading();
         return;
     }

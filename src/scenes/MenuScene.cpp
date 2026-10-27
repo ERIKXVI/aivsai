@@ -425,12 +425,18 @@ void MenuScene::drawLoadouts() {
         }
         if (unlocked && hover && input::mousePressed(MOUSE_BUTTON_LEFT)) {
             if (isSelected) {
-                startRun(false, id);
-                return;
+                // Like the Begin button, abandoning a suspended run takes a second press.
+                if (suspended_ && !confirmBegin_) {
+                    confirmBegin_ = true;
+                } else {
+                    startRun(false, id);
+                    return;
+                }
+            } else {
+                st.loadout = i;
+                saveSettings(st);
+                confirmBegin_ = false;
             }
-            st.loadout = i;
-            saveSettings(st);
-            confirmBegin_ = false;
         }
         y += rowH + rowGap;
     }
