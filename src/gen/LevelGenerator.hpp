@@ -23,8 +23,8 @@ struct OmenDef {
 };
 
 const OmenDef& omenDef(Omen omen);
-/// The omen of a stage, decided by its level seed. The first stage only draws gentle omens
-/// and less often; the Athanor never has one.
+/// The omen of a stage, decided by its level seed. The first stage draws only gentle omens (as
+/// often as deeper stages draw any); the Athanor never has one.
 Omen omenFor(int levelIndex, uint32_t levelSeed);
 
 enum class SpawnKind : uint8_t { GroundEnemy, AirEnemy, Chest, Potion, Spell, Lantern, Altar, Transmuter, Wand, Guardian, LairGuardian,

@@ -84,7 +84,7 @@ bool insertSpell(std::vector<SpellId>& slots, int at, SpellId s);
 SpellId trailingBooster(const std::vector<SpellId>& slots);
 
 Wand makeStarterWand(int index);
-/// Random wand appropriate for a depth tier (0..4), pre-loaded with a few spells.
+/// Random wand appropriate for a depth tier (0..kMaxTier), pre-loaded with a few spells.
 Wand makeRandomWand(int tier, Rng& rng);
 /// Random spell appropriate for a depth tier.
 SpellId randomSpell(int tier, Rng& rng);

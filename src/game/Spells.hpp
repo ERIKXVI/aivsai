@@ -103,6 +103,8 @@ struct ModifierDef {
     bool zeroGravity = false;
 };
 
+inline constexpr int kMaxTier = 4; ///< the deepest spell, wand and loot tier
+
 struct SpellDef {
     const char* name;
     const char* description;
@@ -110,7 +112,7 @@ struct SpellDef {
     float mana;
     float castDelay;    ///< seconds added to the wand's cast delay
     float recharge;     ///< seconds added to the wand's recharge time
-    int tier;           ///< 0..4 — how deep it starts appearing
+    int tier;           ///< 0..kMaxTier — how deep it starts appearing
     int price;
     int multicast;      ///< cards drawn by a multicast spell
     float spread;       ///< extra spread for multicast fans (degrees)

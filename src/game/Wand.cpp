@@ -260,7 +260,7 @@ SpellId randomFind(int tier, Rng& rng) {
 }
 
 SpellId randomRareSpell(int tier, Rng& rng) {
-    const int lo = std::clamp(tier + 1, 2, 4), hi = std::max(3, std::min(4, tier + 2));
+    const int lo = std::clamp(tier + 1, 2, kMaxTier), hi = std::max(3, std::min(kMaxTier, tier + 2));
     float weights[kSpellCount] = {};
     for (int i = 1; i < kSpellCount; ++i) {
         const SpellDef& d = spellDef(static_cast<SpellId>(i));

@@ -32,7 +32,7 @@ Level::~Level() = default;
 Affix Level::rollAffix() { return static_cast<Affix>(rng_.rangeInt(1, static_cast<int>(Affix::Count) - 1)); }
 
 void Level::populate() {
-    const int tier = std::min(4, layout_.levelIndex);
+    const int tier = std::min(kMaxTier, layout_.levelIndex);
     const bool lucky = run_.hasPerk(PerkId::LuckyDay);
     int shopIndex = 0;
     int guardians = 0;
@@ -74,7 +74,7 @@ void Level::populate() {
         }
         case SpawnKind::Wand: {
             const bool hoard = lair && lair->contains(s.pos);
-            Wand w = makeRandomWand(std::min(4, tier + (hoard ? 2 : 1)), rng_);
+            Wand w = makeRandomWand(std::min(kMaxTier, tier + (hoard ? 2 : 1)), rng_);
             if (hoard) {
                 // Beating a keeper always pays a showpiece, set in the hoard wand's first free slot.
                 const auto slot = std::find(w.slots.begin(), w.slots.end(), SpellId::None);
@@ -103,7 +103,7 @@ void Level::populate() {
             if (isSanctum()) {
                 // Shop: three spells and one wand from the coming depth (a sanctum shares the index
                 // of the stage just cleared), priced for it.
-                const int shopTier = std::min(4, tier + 1 + (lucky ? 1 : 0));
+                const int shopTier = std::min(kMaxTier, tier + 1 + (lucky ? 1 : 0));
                 const float priceMul = (1.0f + 0.2f * static_cast<float>(layout_.levelIndex)) * (run_.under(Ordeal::DearWares) ? 1.5f : 1.0f);
                 Pickup p;
                 if (shopIndex == 3) {
@@ -462,7 +462,7 @@ void Level::interact() {
         p.opened = true;
         run_.stats.chestsOpened++;
         audio_.play(Sfx::ChestOpen, 0.8f);
-        dropLoot(at - Vec2{0.0f, 4.0f}, std::min(4, layout_.levelIndex), true);
+        dropLoot(at - Vec2{0.0f, 4.0f}, std::min(kMaxTier, layout_.levelIndex), true);
         addFlash(at, 0xffd070, 2.0f, 60.0f, 0.5f);
         break;
     case PickupType::PerkAltar: {

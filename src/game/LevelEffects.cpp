@@ -408,7 +408,7 @@ void Level::dropLoot(Vec2 pos, int tier, bool chest) {
     }
     if (!chest) return;
     int rolls = lucky ? 2 : 1;
-    const int lootTier = std::min(4, tier + (lucky ? 1 : 0));
+    const int lootTier = std::min(kMaxTier, tier + (lucky ? 1 : 0));
     for (int i = 0; i < rolls; ++i) {
         float r = rng_.uniform();
         Pickup p;
@@ -481,7 +481,7 @@ void Level::creditAlchemy(const Enemy& e) {
     // The world's work pays a little extra gold, within a limit per stage.
     if (alchemyBonuses_ < kAlchemyBonusesPerStage) {
         ++alchemyBonuses_;
-        const int tier = std::min(4, layout_.levelIndex);
+        const int tier = std::min(kMaxTier, layout_.levelIndex);
         pickups_.push_back(makeGold(e.body.pos, 4 * (tier + 1), {fxRng_.range(-50.0f, 50.0f), fxRng_.range(-150.0f, -90.0f)}));
     }
 }
@@ -502,7 +502,7 @@ void Level::onEnemyKilled(Enemy& e) {
         case EnemyType::Mimic:
             // The treasure it posed as is real.
             earnFeat(FeatId::Mimic);
-            dropLoot(e.body.pos - Vec2{0.0f, 4.0f}, std::min(4, layout_.levelIndex), true);
+            dropLoot(e.body.pos - Vec2{0.0f, 4.0f}, std::min(kMaxTier, layout_.levelIndex), true);
             break;
         default: break;
         }
@@ -542,7 +542,7 @@ void Level::onEnemyKilled(Enemy& e) {
         if (e.elite()) {
             // Elites carry treasure: a spell or a potion, plus extra gold. A Burning elite
             // always carries fire.
-            const int tier = std::min(4, layout_.levelIndex + 1);
+            const int tier = std::min(kMaxTier, layout_.levelIndex + 1);
             static constexpr SpellId kFireSpells[] = {SpellId::FireBolt, SpellId::Fireball, SpellId::Incendiary, SpellId::FireTrail};
             Pickup loot = e.affix() == Affix::Burning
                               ? makeSpellPickup(e.body.pos, rng_.pick(kFireSpells))
