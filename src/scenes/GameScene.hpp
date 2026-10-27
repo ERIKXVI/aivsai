@@ -83,6 +83,9 @@ private:
     void drawInventory();
     void drawPauseMenu();
     void drawEndScreen(bool victory);
+    /// The death screen's descent strip at `y`: the five stages, filled as far as the alchemist
+    /// got, with a caption naming what lies below. Returns the y under it.
+    float drawDescent(float y, unsigned char alpha) const;
     void drawTitleCard() const;
     /// Height of the title card's text block, in pixels.
     float titleCardHeight() const;

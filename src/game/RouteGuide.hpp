@@ -21,6 +21,8 @@ public:
     Vec2 target(Vec2 pos) const;
 
     float progress() const { return progress_; }
+    /// The route's whole length, from spawn to portal (0 before the first reset).
+    float length() const { return arc_.empty() ? 0.0f : arc_.back(); }
 
     static constexpr float kOnRoute = 48.0f;   ///< cells from the route's skeleton that still count as on it
     static constexpr float kLookahead = 64.0f; ///< how far ahead along the route the arrow aims

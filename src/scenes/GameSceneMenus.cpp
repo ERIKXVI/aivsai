@@ -81,6 +81,41 @@ void GameScene::drawPauseMenu() {
         ui::tooltipBeside(last, "Quit Game", "Closes the game. The run is kept for Continue the Work.", ui::color::kGold);
 }
 
+float GameScene::drawDescent(float y, unsigned char alpha) const {
+    const float sw = static_cast<float>(app_.screenWidth()), s = static_cast<float>(ui::scale());
+    const int small = ui::smallFontSize();
+    // One section per stage; the fill runs through the stages cleared and part way through the
+    // one the alchemist fell in (a sanctum counts its stage as cleared).
+    const float stageFrac = run_.inSanctum ? 1.0f : (guide_.length() > 0.0f ? clamp(guide_.progress() / guide_.length(), 0.0f, 1.0f) : 0.0f);
+    const float fill = (static_cast<float>(run_.levelIndex) + stageFrac) / static_cast<float>(kStageCount);
+    const Rectangle bar{sw * 0.5f - 150.0f * s, y, 300.0f * s, 3.0f * s};
+    const float section = bar.width / static_cast<float>(kStageCount);
+    DrawRectangleRec(bar, Color{40, 34, 52, alpha});
+    DrawRectangleRec({bar.x, bar.y, bar.width * fill, bar.height}, Color{255, 210, 110, alpha});
+    for (int i = 0; i < kStageCount; ++i) {
+        const float x = bar.x + section * static_cast<float>(i);
+        if (i > 0) DrawRectangleRec({x - 0.5f * s, bar.y - 2.0f * s, 1.0f * s, bar.height + 4.0f * s}, Color{120, 100, 140, alpha});
+        // Every stage is named, the ones still unseen in a dim hand: the way down is the lure.
+        const bool reached = i <= run_.levelIndex;
+        const Color c = i == run_.levelIndex ? Color{255, 210, 110, alpha} : reached ? Color{200, 190, 170, alpha} : Color{110, 100, 125, alpha};
+        ui::text(TextFormat("%s %s", stageNumeral(i), biomeDef(biomeForDepth(i)).name), x + section * 0.5f, bar.y + bar.height + 3.0f * s,
+                 small, c, ui::Align::Center);
+    }
+    y = bar.y + bar.height + 5.0f * s + static_cast<float>(small);
+    const std::string here = biomeDef(biomeForDepth(run_.levelIndex)).name;
+    std::string caption = run_.inSanctum      ? "Fell in the sanctum after " + here
+                          : stageFrac < 0.05f ? "Fell at the threshold of " + here
+                                              : TextFormat("%d%% of the way through %s", static_cast<int>(stageFrac * 100.0f), here.c_str());
+    if (run_.levelIndex < kFinalStage) {
+        const BiomeDef& next = biomeDef(biomeForDepth(run_.levelIndex + 1));
+        caption += std::string(" - next: ") + next.name + " - " + next.subtitle;
+    } else {
+        caption += " - the Stone lies at its heart";
+    }
+    ui::text(caption, sw * 0.5f, y, small, Color{170, 160, 185, alpha}, ui::Align::Center);
+    return y + static_cast<float>(small) + 6.0f * s;
+}
+
 void GameScene::drawEndScreen(bool victory) {
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
     const float s = static_cast<float>(ui::scale());
@@ -147,6 +182,7 @@ void GameScene::drawEndScreen(bool victory) {
     for (size_t i = 0; i < std::size(right); ++i)
         ui::text(right[i], sw * 0.5f + gutter, y + lineH * static_cast<float>(i), font, statColor);
     y += lineH * static_cast<float>(std::size(left)) + lineH * 0.3f;
+    if (!victory) y = drawDescent(y, al);
 
     // Lasting progress: personal bests, new Grimoire entries, unlocked paths and the next one.
     if (!record_.records.empty()) {
