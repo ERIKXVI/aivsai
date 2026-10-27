@@ -22,7 +22,7 @@ float Actor::applyDamage(Level& level, const DamageInfo& info) {
     }
     if (!info.silent) {
         hurtFlash = 0.12f;
-        body.vel += info.knockback;
+        body.vel += info.knockback * knockbackTaken();
     }
     onDamaged(level, info, dealt);
     if (hp <= 0.0f) {

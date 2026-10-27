@@ -81,6 +81,8 @@ protected:
     /// Burning, liquids, contact damage and status timers. Call once per tick.
     void updateStatus(Level& level, const Environment& env);
     virtual void onDamaged(Level& level, const DamageInfo& info, float dealt) { (void)level, (void)info, (void)dealt; }
+    /// How much of a hit's knockback this actor takes (heavy creatures shrug most of it off).
+    virtual float knockbackTaken() const { return 1.0f; }
     virtual void onKilled(Level& level, const DamageInfo& info) { (void)level, (void)info; }
     /// Scale applied to burn damage (players burn more slowly than monsters).
     virtual float burnDps() const { return 10.0f; }

@@ -79,7 +79,7 @@ struct ProjectileDef {
     float trailRate = 0.0f;      ///< cells per tick
     float digRadius = 0.0f;
     uint8_t digPower = 0;        ///< max hardness carved
-    float knockback = 40.0f;
+    float knockback = 80.0f;
     float lightRadius = 30.0f;
     uint32_t color = 0xffffff;
     uint32_t flags = 0;

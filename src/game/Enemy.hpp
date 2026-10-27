@@ -137,6 +137,7 @@ public:
 protected:
     void onDamaged(Level& level, const DamageInfo& info, float dealt) override;
     void onKilled(Level& level, const DamageInfo& info) override;
+    float knockbackTaken() const override;
     float burnDps() const override { return 12.0f; }
 
 private:
@@ -188,6 +189,13 @@ private:
     float guardTimer_ = 0.0f; ///< the colossus' fire between slams
     int broods_ = 0;          ///< slime broods the toad has spawned
     bool dormant_ = false;    ///< a mimic not yet revealed
+    // The Rebis' called lightning: where it will strike, and how long until it does.
+    static constexpr float kStrikeWarning = 0.75f;
+    std::vector<Vec2> strikes_;
+    float strikeTimer_ = 0.0f;
+    // Hit reactions.
+    float stagger_ = 0.0f;    ///< seconds the behaviour is suspended so a hit's knockback carries
+    float poise_ = 0.0f;      ///< after a flinch, seconds before another can interrupt it
 };
 
 } // namespace pm

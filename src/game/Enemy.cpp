@@ -127,7 +127,12 @@ void Enemy::tick(Level& level) {
                            mat::Fire);
     }
 
-    switch (def_->behaviour) {
+    stagger_ = std::max(0.0f, stagger_ - dt);
+    poise_ = std::max(0.0f, poise_ - dt);
+    // Reeling from a hit, a creature does not steer: the knockback carries (flyers drift to a halt).
+    if (stagger_ > 0.0f) {
+        if (flying) body.vel *= 0.9f;
+    } else switch (def_->behaviour) {
     case Behaviour::Hopper: tickHopper(level, toPlayer, sees); break;
     case Behaviour::Walker: tickWalker(level, toPlayer, sees); break;
     case Behaviour::Flyer: tickFlyer(level, toPlayer, sees); break;
@@ -575,6 +580,27 @@ void Enemy::tickBoss(Level& level, Vec2 toPlayer, bool /*sees*/) {
     if (body.hitWall) body.vel.x *= -0.5f;
     if (body.hitCeiling || body.onGround) body.vel.y *= -0.5f;
 
+    // Called lightning: the columns crackle for a moment, then the bolts fall exactly there.
+    if (strikeTimer_ > 0.0f) {
+        strikeTimer_ -= dt;
+        for (const Vec2& top : strikes_) {
+            for (int k = 0; k < 3; ++k) {
+                const Vec2 at = top + Vec2{rng.range(-1.5f, 1.5f), rng.range(0.0f, 140.0f)};
+                level.particles().addVisual(at, {0.0f, rng.range(20.0f, 60.0f)}, {210, 225, 255, 210}, {150, 180, 255, 0}, 0.14f, 0.0f,
+                                            partflag::kFade | partflag::kNoGravity);
+            }
+        }
+        if (strikeTimer_ <= 0.0f) {
+            strikeTimer_ = 0.0f;
+            ProjectileLaunch l;
+            l.spell = SpellId::Lightning;
+            l.def = spellDef(SpellId::Lightning).proj;
+            l.def.damage = 18.0f;
+            for (const Vec2& top : strikes_) level.launch(l, top, kPi * 0.5f, team, id, 1.0f);
+            strikes_.clear();
+        }
+    }
+
     if (attackTimer_ > 0.0f || !pl.alive()) return;
     const float dmgMul = 1.0f;
     int pattern = rng.rangeInt(0, phase_ + 1);
@@ -616,15 +642,11 @@ void Enemy::tickBoss(Level& level, Vec2 toPlayer, bool /*sees*/) {
         break;
     }
     default: {
-        // Lightning strikes around the player and lava drops.
-        ProjectileLaunch l;
-        l.spell = SpellId::Lightning;
-        l.def = spellDef(SpellId::Lightning).proj;
-        l.def.damage = 18.0f;
-        for (int i = 0; i < 3; ++i) {
-            Vec2 from = pl.body.pos + Vec2{rng.range(-50.0f, 50.0f), -120.0f};
-            level.launch(l, from, kPi * 0.5f + rng.range(-0.2f, 0.2f), team, id, dmgMul);
-        }
+        // Lightning called down around the player (telegraphed, see above) and lava drops.
+        strikes_.clear();
+        for (int i = 0; i < 3; ++i) strikes_.push_back(pl.body.pos + Vec2{rng.range(-50.0f, 50.0f), -120.0f});
+        strikeTimer_ = kStrikeWarning;
+        level.audio().play(Sfx::CastLightning, 0.5f, 0.6f);
         level.spawnBlob(pl.body.pos + Vec2{rng.range(-40.0f, 40.0f), -100.0f}, mat::Lava, 10, {0.0f, 30.0f});
         attackTimer_ = 3.0f;
         break;
@@ -647,10 +669,28 @@ void Enemy::onDamaged(Level& level, const DamageInfo& info, float dealt) {
     level.bleed(body.pos, def_->blood, std::min(10, 2 + static_cast<int>(dealt / 4.0f)), info.knockback);
     if (affix_ == Affix::Gilded) level.bleed(body.pos, mat::GoldDust, std::min(8, 1 + static_cast<int>(dealt / 6.0f)), info.knockback);
     level.audio().playAt(Sfx::EnemyHurt, body.pos, 0.45f, level.rng().range(0.85f, 1.2f));
-    std::string text = std::to_string(static_cast<int>(std::ceil(dealt)));
-    level.addFloatText(body.pos + Vec2{level.rng().range(-3.0f, 3.0f), -body.halfH - 4.0f}, info.crit ? text + "!" : text,
-                       info.crit ? 0xffe040 : 0xffffff, info.crit ? 1.3f : 1.0f);
-    if (flying || def_->behaviour == Behaviour::Burrower) body.vel += info.knockback * 0.5f;
+    level.addDamageNumber(id, body.pos + Vec2{level.rng().range(-3.0f, 3.0f), -body.halfH - 4.0f}, dealt, info.crit);
+    if (flying || def_->behaviour == Behaviour::Burrower) body.vel += info.knockback * 0.5f * knockbackTaken();
+    // Hit reactions: the knockback carries a moment before the creature recovers. A heavy blow
+    // makes it flinch and lose a telegraphed attack, and poise then guards against a stun-lock.
+    const Behaviour b = def_->behaviour;
+    if (def_->guardian || b == Behaviour::Boss || b == Behaviour::Burrower) return;
+    stagger_ = std::max(stagger_, 0.08f);
+    const bool heavy = info.crit || info.type == DamageType::Explosion || info.type == DamageType::Electric || dealt >= maxHp * 0.12f;
+    if (heavy && poise_ <= 0.0f) {
+        stagger_ = std::max(stagger_, elite_ ? 0.12f : 0.22f);
+        poise_ = 0.7f;
+        if (windup_ > 0.0f) {
+            windup_ = 0.0f;
+            level.addFloatText(body.pos - Vec2{0.0f, body.halfH + 10.0f}, "Interrupted", 0xb8c8ff, 0.7f);
+        }
+    }
+}
+
+float Enemy::knockbackTaken() const {
+    if (def_->guardian || def_->behaviour == Behaviour::Boss) return 0.15f;
+    if (def_->behaviour == Behaviour::Brute) return 0.4f;
+    return elite_ ? 0.7f : 1.0f;
 }
 
 void Enemy::onKilled(Level& level, const DamageInfo&) {

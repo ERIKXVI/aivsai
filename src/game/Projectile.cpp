@@ -84,6 +84,7 @@ void hitActor(Level& level, Projectile& p, Actor& a) {
     }
     Vec2 kb = p.vel.lengthSq() > 1.0f ? p.vel.normalized() * d.knockback : Vec2{};
     if (dmg > 0.0f) a.applyDamage(level, {dmg, d.damageType, kb, p.team, crit, false, projectileCause(level, p)});
+    if (crit && p.team == Team::Player) level.critPunch(a.body.pos);
     if (((d.flags & kIncendiary) || d.damageType == DamageType::Fire) && a.status.wet <= 0.0f) a.status.burning = std::max(a.status.burning, 3.0f);
     if (d.flags & kFreezing) a.status.chilled = 2.5f;
     if (d.flags & kElectric) a.status.shocked = 0.4f;

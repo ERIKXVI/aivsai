@@ -105,7 +105,8 @@ void GameScene::drawWorldOverlays(float alpha) const {
     for (const FloatText& t : level_->floatTexts()) {
         Vector2 sp = scene_.worldToScreen(t.pos);
         float k = clamp(t.life / 0.4f, 0.0f, 1.0f);
-        int size = ui::fontSize(std::max(1, static_cast<int>(std::round(static_cast<float>(s) * t.scale))));
+        const float popScale = t.scale * (1.0f + 0.5f * t.pop); // a number that just grew swells for a moment
+        int size = ui::fontSize(std::max(1, static_cast<int>(std::round(static_cast<float>(s) * popScale))));
         ui::text(t.text, sp.x, sp.y, size, hexColor(t.color, static_cast<uint8_t>(255 * k)), ui::Align::Center);
     }
     // Transmutation circles explain themselves when the alchemist comes close.

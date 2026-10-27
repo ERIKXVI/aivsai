@@ -51,6 +51,10 @@ struct FloatText {
     uint32_t color;
     float life;
     float scale;
+    uint32_t owner = 0; ///< for damage numbers: the actor hit (0: plain text)
+    float value = 0.0f; ///< ...the damage summed so far
+    bool crit = false;  ///< ...and whether any of it was critical
+    float pop = 0.0f;   ///< 1 right after it grew, easing to 0: drawn larger
 };
 
 struct Shockwave {
@@ -123,6 +127,9 @@ public:
         return true;
     }
     void addHitStop(int ticks) { hitStop_ = std::min(4, std::max(hitStop_, ticks)); }
+    /// A critical hit lands: a one-tick freeze (at most every fifth of a second, so critical
+    /// wands do not stutter), a small flash and a bright ring.
+    void critPunch(Vec2 pos);
     /// True from a hit-stop until the level steps again, so rendering holds the frozen frame
     /// instead of interpolating back towards the previous tick when the last frozen tick ends.
     bool hitStopActive() const { return hitStop_ > 0 || heldSinceTick_; }
@@ -162,6 +169,9 @@ public:
     void addFlash(Vec2 pos, uint32_t color, float intensity, float radius, float duration);
     void addShake(float amount) { shake_ = std::min(1.0f, shake_ + amount); }
     void addFloatText(Vec2 pos, const std::string& text, uint32_t color, float scale = 1.0f);
+    /// A damage number over actor `owner`. Hits landing within a moment of the last one add up
+    /// into the same number, which pops, instead of stacking a column of small ones.
+    void addDamageNumber(uint32_t owner, Vec2 pos, float amount, bool crit);
     void damageRadius(Vec2 pos, float radius, float damage, DamageType type, Team team, float knockback,
                       bool hurtsOwnTeam, const char* cause = nullptr);
     /// Name of the creature with this id (for death causes), or nullptr.
@@ -228,6 +238,7 @@ private:
     std::vector<Shockwave> shockwaves_;
     StageEvents events_;
     int hitStop_ = 0;
+    uint32_t lastCritPunch_ = 0; ///< tick of the last critical-hit freeze
     bool heldSinceTick_ = false; ///< a hit-stop tick was consumed and the level has not stepped since
     PlayerInput input_;
     float time_ = 0.0f;

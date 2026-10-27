@@ -481,6 +481,7 @@ void Level::updateEffects(float dt) {
     for (FloatText& t : floatTexts_) {
         t.life -= dt;
         t.pos.y -= 18.0f * dt;
+        t.pop = std::max(0.0f, t.pop - dt / 0.12f);
     }
     floatTexts_.erase(std::remove_if(floatTexts_.begin(), floatTexts_.end(), [](const FloatText& t) { return t.life <= 0.0f; }),
                       floatTexts_.end());
@@ -510,6 +511,40 @@ void Level::addFlash(Vec2 pos, uint32_t color, float intensity, float radius, fl
 void Level::addFloatText(Vec2 pos, const std::string& text, uint32_t color, float scale) {
     if (floatTexts_.size() > 60) floatTexts_.erase(floatTexts_.begin());
     floatTexts_.push_back({pos, text, color, 1.1f, scale});
+}
+
+void Level::critPunch(Vec2 pos) {
+    constexpr uint32_t kSpacing = 12; // ticks between freezes
+    if (ticks_ - lastCritPunch_ >= kSpacing || lastCritPunch_ == 0) {
+        addHitStop(1);
+        lastCritPunch_ = ticks_;
+    }
+    addFlash(pos, 0xfff0b0, 1.0f, 18.0f, 0.12f);
+    audio_.playAt(Sfx::Hit, pos, 0.5f, 1.6f);
+}
+
+void Level::addDamageNumber(uint32_t owner, Vec2 pos, float amount, bool crit) {
+    constexpr float kLife = 1.1f, kMergeWindow = 0.4f;
+    auto label = [](const FloatText& t) { return std::to_string(static_cast<int>(std::ceil(t.value))) + (t.crit ? "!" : ""); };
+    for (FloatText& t : floatTexts_) {
+        if (t.owner != owner || t.life < kLife - kMergeWindow) continue;
+        t.value += amount;
+        t.crit = t.crit || crit;
+        t.text = label(t);
+        t.color = t.crit ? 0xffe040 : 0xffffff;
+        t.scale = t.crit ? 1.3f : 1.0f;
+        t.life = kLife;
+        t.pop = 1.0f;
+        t.pos.x = pos.x;
+        return;
+    }
+    addFloatText(pos, "", crit ? 0xffe040 : 0xffffff, crit ? 1.3f : 1.0f);
+    FloatText& t = floatTexts_.back();
+    t.owner = owner;
+    t.value = amount;
+    t.crit = crit;
+    t.text = label(t);
+    t.pop = 1.0f;
 }
 
 PerkId Level::rollPerk(const std::vector<PerkId>& exclude) {
