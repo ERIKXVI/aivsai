@@ -64,45 +64,81 @@ void GameScene::drawWorldOverlays(float alpha) const {
         int size = ui::fontSize(std::max(1, static_cast<int>(std::round(static_cast<float>(s) * popScale))));
         ui::text(t.text, sp.x, sp.y, size, hexColor(t.color, static_cast<uint8_t>(255 * k)), ui::Align::Center);
     }
+    const float fs = static_cast<float>(s);
+    const int small = ui::smallFontSize();
+    // World prompts sit on a dark plate so they read over lit rock and lantern glow.
+    auto plate = [&](float cx, float top, float w, float h) {
+        DrawRectangleRec({cx - w * 0.5f - 4.0f * fs, top - 2.0f * fs, w + 8.0f * fs, h + 4.0f * fs}, Color{10, 8, 16, 190});
+    };
     // Transmutation circles explain themselves when the alchemist comes close.
     for (const Transmuter& t : level_->transmuters()) {
         if ((t.pos - level_->player().body.pos).length() > 110.0f) continue;
         Vector2 sp = scene_.worldToScreen(t.pos - Vec2{0.0f, 36.0f});
-        const int small = ui::smallFontSize();
         if (t.complete) {
             ui::text("The circle is spent", sp.x, sp.y, small, ui::color::kTextDim, ui::Align::Center);
             continue;
         }
+        const std::string pour = std::string("Pour in ") + matDef(t.wants).name + " to receive a perk";
+        plate(sp.x, sp.y, static_cast<float>(std::max(ui::measure("Transmutation Circle", ui::fontSize(s)), ui::measure(pour, small))),
+              static_cast<float>(ui::fontSize(s) + small) + 6.0f + 3.0f * fs);
         ui::text("Transmutation Circle", sp.x, sp.y, ui::fontSize(s), Color{200, 170, 255, 255}, ui::Align::Center);
-        ui::text(std::string("Pour in ") + matDef(t.wants).name + " to receive a perk", sp.x,
-                 sp.y + static_cast<float>(ui::fontSize(s)) + 2.0f, small, ui::color::kText, ui::Align::Center);
+        ui::text(pour, sp.x, sp.y + static_cast<float>(ui::fontSize(s)) + 2.0f, small, ui::color::kText, ui::Align::Center);
         const float w = 50.0f * s, h = 3.0f * s;
         Rgba m = materialColor(t.wants);
         ui::bar({sp.x - w * 0.5f, sp.y + static_cast<float>(ui::fontSize(s) + small) + 6.0f, w, h},
                 static_cast<float>(t.progress) / static_cast<float>(t.required), Color{m.r, m.g, m.b, 255});
     }
 
-    // Interaction prompt.
-    if (mode_ == Mode::Playing && level_->player().alive()) {
-        if (const Pickup* p = level_->focusedPickup()) {
-            Vector2 sp = scene_.worldToScreen({p->body.pos.x, p->body.pos.y - 16.0f});
-            std::string label = (usingGamepad_ ? "[B] " : "[E] ") + p->label();
-            if (p->rare) label += " - a rare find";
-            const Color labelColor = p->price > 0 && run_.gold < p->price ? ui::color::kDanger
-                                     : p->rare                            ? ui::color::kGold
-                                                                          : ui::color::kText;
-            ui::text(label, sp.x, sp.y, ui::fontSize(s), labelColor, ui::Align::Center);
-            if (p->type == PickupType::Spell) {
-                ui::text(spellDef(p->spell).description, sp.x, sp.y + 12.0f * s, ui::smallFontSize(),
-                         ui::color::kTextDim, ui::Align::Center);
-            } else if (p->type == PickupType::PerkAltar) {
-                ui::text(perkDef(p->perk).description, sp.x, sp.y + 12.0f * s, ui::smallFontSize(),
-                         ui::color::kTextDim, ui::Align::Center);
-            } else if (p->type == PickupType::Wand && p->wand) {
-                drawWandCard(*p->wand, sp.x, sp.y - 3.0f * s); // above the prompt, clear of the wand itself
-            }
-        }
+    if (mode_ != Mode::Playing || !level_->player().alive()) return;
+    const Pickup* focused = level_->focusedPickup();
+    // Price tags under the shop's wares, gold when affordable.
+    for (const Pickup& p : level_->pickups()) {
+        if (p.price <= 0 || &p == focused || (p.body.pos - level_->player().body.pos).length() > 160.0f) continue;
+        const Vector2 tp = scene_.worldToScreen({p.body.pos.x, p.body.pos.y + 14.0f});
+        ui::text(TextFormat("%d", p.price), tp.x, tp.y, small, run_.gold >= p.price ? ui::color::kGold : ui::color::kDanger,
+                 ui::Align::Center);
     }
+
+    // Interaction prompt: the label, and for a spell what it is, what it does and where it goes.
+    if (!focused) return;
+    const Pickup& p = *focused;
+    const Vector2 sp = scene_.worldToScreen({p.body.pos.x, p.body.pos.y - 16.0f});
+    std::string label = (usingGamepad_ ? "[B] " : "[E] ") + p.label();
+    if (p.rare) label += " - a rare find";
+    const Color labelColor = p.price > 0 && run_.gold < p.price ? ui::color::kDanger : (p.rare ? ui::color::kGold : ui::color::kText);
+    struct Line {
+        std::string text;
+        Color color;
+    };
+    std::vector<Line> lines;
+    if (p.type == PickupType::Spell) {
+        const SpellDef& d = spellDef(p.spell);
+        static constexpr const char* kTypeLines[] = {"Projectile", "Modifier - boosts the spell after it",
+                                                     "Multicast - casts the next spells together"};
+        lines.push_back({kTypeLines[static_cast<int>(d.type)], ui::spellTypeColor(p.spell)});
+        lines.push_back({spellStats(p.spell), ui::color::kTextDim});
+        lines.push_back({d.description, ui::color::kText});
+        const Wand* wand = run_.currentWand();
+        if (run_.canAutoSlot(p.spell) && wand) lines.push_back({"Goes into " + wand->name, ui::color::kAccent});
+        else lines.push_back({usingGamepad_ ? "Goes to your satchel - Back to place it" : "Goes to your satchel - Tab to place it", ui::color::kTextDim});
+    } else if (p.type == PickupType::PerkAltar) {
+        lines.push_back({perkDef(p.perk).description, ui::color::kText});
+    }
+    const int size = ui::fontSize(s);
+    const float lineH = static_cast<float>(small) + 2.0f * fs;
+    int widest = ui::measure(label, size);
+    for (const Line& l : lines) widest = std::max(widest, ui::measure(l.text, small));
+    // The card grows upwards from the label's place, clear of the wares beside it.
+    const float details = lines.empty() ? 0.0f : 3.0f * fs + lineH * static_cast<float>(lines.size());
+    const float top = sp.y - details;
+    plate(sp.x, top, static_cast<float>(widest), static_cast<float>(size) + details);
+    ui::text(label, sp.x, top, size, labelColor, ui::Align::Center);
+    float y = top + static_cast<float>(size) + 3.0f * fs;
+    for (const Line& l : lines) {
+        ui::text(l.text, sp.x, y, small, l.color, ui::Align::Center);
+        y += lineH;
+    }
+    if (p.type == PickupType::Wand && p.wand) drawWandCard(*p.wand, sp.x, sp.y - 3.0f * fs); // above the prompt, clear of the wand itself
 }
 
 void GameScene::drawWandCard(const Wand& w, float cx, float bottom) const {
@@ -233,7 +269,7 @@ void GameScene::drawHud() const {
     // Health, mana, levitation, breath.
     float x = 10.0f * s, y = 10.0f * s;
     float barW = 110.0f * s;
-    ui::bar({x, y, barW, 7.0f * s}, pl.hp / pl.maxHp, ui::color::kHealth);
+    ui::bar({x, y, barW, 7.0f * s}, pl.hp / pl.maxHp, ui::color::kHealth, ui::color::kBarBack, hpTrail_.shown);
     ui::text(TextFormat("%d / %d", static_cast<int>(std::ceil(pl.hp)), static_cast<int>(pl.maxHp)), x + 3.0f * s,
              y + 3.5f * s - static_cast<float>(small) * 0.5f, small, WHITE);
     y += 9.0f * s;
@@ -344,10 +380,12 @@ void GameScene::drawHud() const {
 
     // Boss (or guardian) health.
     if (const Enemy* boss = level_->bossBarTarget()) {
-        float bw = sw * 0.5f;
-        Rectangle r{(sw - bw) * 0.5f, 14.0f * s, bw, 6.0f * s};
-        ui::text(boss->def().name, sw * 0.5f, r.y - static_cast<float>(small) - 2.0f, small, Color{255, 220, 140, 255}, ui::Align::Center);
-        ui::bar(r, boss->hp / boss->maxHp, Color{220, 160, 40, 255});
+        const float bw = sw * 0.5f;
+        const Rectangle r{(sw - bw) * 0.5f, 8.0f * s + static_cast<float>(size), bw, 6.0f * s};
+        ui::text(boss->def().name, sw * 0.5f, r.y - static_cast<float>(size) - 3.0f * s, size, ui::color::kGold, ui::Align::Center);
+        ui::panel({r.x - 2.0f * s, r.y - 2.0f * s, r.width + 4.0f * s, r.height + 4.0f * s}, Color{12, 10, 18, 220});
+        ui::bar(r, boss->hp / boss->maxHp, Color{220, 160, 40, 255}, ui::color::kBarBack,
+                boss->id == bossTrailId_ ? bossTrail_.shown : -1.0f);
     }
 }
 

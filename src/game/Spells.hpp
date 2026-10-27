@@ -122,6 +122,8 @@ struct SpellDef {
 const SpellDef& spellDef(SpellId id);
 /// Description plus mana, damage and delay figures, for tooltips.
 std::string spellDetails(SpellId id);
+/// Just the figures: "Damage 22 (Fire)  Mana 10  Blast 30  Delay +0.10s".
+std::string spellStats(SpellId id);
 const char* damageTypeName(DamageType t);
 
 } // namespace pm

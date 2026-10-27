@@ -25,6 +25,7 @@ constexpr Color kAccent{170, 130, 255, 255};
 constexpr Color kHealth{214, 52, 64, 255};
 constexpr Color kMana{80, 150, 255, 255};
 constexpr Color kDanger{255, 90, 80, 255};
+constexpr Color kBarBack{30, 24, 36, 230};
 } // namespace color
 
 /// Integer UI scale derived from the window size (720p -> 2, 1080p -> 3).
@@ -48,7 +49,17 @@ float wrappedHeight(const std::string& text, float width, int size);
 std::string formatClock(float seconds);
 
 void panel(Rectangle r, Color fill = color::kPanel, Color border = color::kPanelBorder);
-void bar(Rectangle r, float fraction, Color fill, Color back = Color{30, 24, 36, 230});
+/// A filled bar. A `trail` above `fraction` shows as a pale chip: what a hit just took.
+void bar(Rectangle r, float fraction, Color fill, Color back = color::kBarBack, float trail = -1.0f);
+
+/// The chip a health bar leaves behind on a hit: it holds for a moment, then drains down to
+/// the bar. Heals and fresh bars snap.
+struct BarTrail {
+    float shown = -1.0f; ///< where the chip reaches; below 0 until the first update
+    float last = -1.0f;  ///< the bar's fraction at the previous update
+    float hold = 0.0f;   ///< seconds the chip waits before draining
+    void update(float fraction, float dt);
+};
 /// Darkens the whole screen behind a modal panel (or for a fade) with black at the given alpha.
 void dimScreen(unsigned char alpha);
 bool hovered(Rectangle r);

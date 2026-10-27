@@ -44,6 +44,14 @@ struct Dummy final : Actor {
 
 } // namespace
 
+TEST_CASE("a spell's figures read as one line") {
+    const std::string fire = spellStats(SpellId::FireBolt);
+    CHECK(fire.find("Damage ") == 0);
+    CHECK(fire.find("(Fire)  Mana") != std::string::npos);
+    CHECK(spellStats(SpellId::DamageUp).find("Mana") == 0); // a modifier has no damage of its own
+    CHECK(spellStats(SpellId::Bomb).find("Blast") != std::string::npos);
+}
+
 TEST_CASE("every spell is fully described") {
     for (int i = 1; i < kSpellCount; ++i) {
         const SpellDef& d = spellDef(static_cast<SpellId>(i));
@@ -144,10 +152,12 @@ TEST_CASE("found attack spells go straight onto the active wand") {
 
     run.activeWand = 0;
     CHECK(run.wands[0].slots[3] == SpellId::None);
+    CHECK(run.canAutoSlot(SpellId::FireBolt)); // what the pickup prompt promises
     CHECK(run.trySlotIntoActiveWand(SpellId::FireBolt));
     CHECK(run.wands[0].slots[3] == SpellId::FireBolt);
     CHECK((run.spellsSeen >> static_cast<unsigned>(SpellId::FireBolt)) & 1ull);
     // The rod is full now, so the next spell is left for the satchel.
+    CHECK(!run.canAutoSlot(SpellId::IceShard));
     CHECK(!run.trySlotIntoActiveWand(SpellId::IceShard));
     // Explosives, modifiers and teleports are never slotted unasked.
     run.activeWand = 1;

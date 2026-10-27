@@ -104,6 +104,8 @@ struct RunState {
     /// placing (modifiers, multicasts) or are risky to fire unawares (explosives, teleports,
     /// matter orbs) are left for the satchel. False if the spell was not slotted.
     bool trySlotIntoActiveWand(SpellId s);
+    /// Whether trySlotIntoActiveWand would slot `s` right now.
+    bool canAutoSlot(SpellId s) const;
     void applyPerk(PerkId p);
 
     float damageDealtMul() const;

@@ -144,6 +144,8 @@ private:
     } lens_;
     int shownGold_ = -1;         ///< gold total the HUD last saw
     uint32_t announcedGuardian_ = 0; ///< id of the guardian whose title card was last shown
+    ui::BarTrail hpTrail_, bossTrail_; ///< the pale chips a hit leaves on the health bars
+    uint32_t bossTrailId_ = 0;        ///< whose health the boss chip follows
     struct Toast {
         FeatId feat;
         float time = 0.0f; ///< seconds shown so far

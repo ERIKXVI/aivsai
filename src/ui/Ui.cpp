@@ -121,14 +121,28 @@ void panel(Rectangle r, Color fill, Color border) {
     DrawRectangleRec({r.x + r.width - k + s, r.y + r.height - k + s, k, k}, border);
 }
 
-void bar(Rectangle r, float fraction, Color fill, Color back) {
+void bar(Rectangle r, float fraction, Color fill, Color back, float trail) {
     fraction = std::clamp(fraction, 0.0f, 1.0f);
     DrawRectangleRec(r, back);
+    if (trail > fraction)
+        DrawRectangleRec({r.x + r.width * fraction, r.y, r.width * (std::min(trail, 1.0f) - fraction), r.height}, Color{255, 235, 200, 230});
     DrawRectangleRec({r.x, r.y, r.width * fraction, r.height}, fill);
     Color hi{static_cast<unsigned char>(std::min(255, fill.r + 50)), static_cast<unsigned char>(std::min(255, fill.g + 50)),
              static_cast<unsigned char>(std::min(255, fill.b + 50)), fill.a};
     DrawRectangleRec({r.x, r.y, r.width * fraction, std::max(1.0f, r.height * 0.25f)}, hi);
     DrawRectangleLinesEx(r, 1.0f, Color{0, 0, 0, 160});
+}
+
+void BarTrail::update(float fraction, float dt) {
+    constexpr float kHold = 0.35f, kDrainPerSecond = 0.8f;
+    if (fraction < last) hold = kHold; // a fresh hit holds the chip a moment
+    last = fraction;
+    if (shown < fraction) {
+        shown = fraction; // heals and fresh bars snap
+        return;
+    }
+    if (hold > 0.0f) hold -= dt;
+    else shown = std::max(fraction, shown - kDrainPerSecond * dt);
 }
 
 void dimScreen(unsigned char alpha) { DrawRectangle(0, 0, g_screenW, g_screenH, Color{0, 0, 0, alpha}); }

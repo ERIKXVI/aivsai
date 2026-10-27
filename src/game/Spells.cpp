@@ -494,6 +494,27 @@ std::string spellDetails(SpellId id) {
     return body;
 }
 
+std::string spellStats(SpellId id) {
+    const SpellDef& d = spellDef(id);
+    std::string stats;
+    char buf[96];
+    if (d.type == SpellType::Projectile && d.proj.damage > 0.0f) {
+        std::snprintf(buf, sizeof(buf), "Damage %d (%s)  ", static_cast<int>(d.proj.damage), damageTypeName(d.proj.damageType));
+        stats += buf;
+    }
+    std::snprintf(buf, sizeof(buf), "Mana %d", static_cast<int>(d.mana));
+    stats += buf;
+    if (d.type == SpellType::Projectile && d.proj.explosionRadius > 0.0f) {
+        std::snprintf(buf, sizeof(buf), "  Blast %d", static_cast<int>(d.proj.explosionDamage));
+        stats += buf;
+    }
+    if (d.castDelay != 0.0f) {
+        std::snprintf(buf, sizeof(buf), "  Delay %+.2fs", d.castDelay);
+        stats += buf;
+    }
+    return stats;
+}
+
 const char* damageTypeName(DamageType t) {
     static constexpr const char* kNames[] = {"Physical", "Fire", "Explosion", "Ice", "Electric", "Acid", "Toxic", "Holy"};
     static_assert(std::size(kNames) == static_cast<size_t>(DamageType::Count), "a name for every DamageType");

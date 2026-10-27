@@ -117,6 +117,15 @@ void GameScene::applyLaunchOptions() {
         level_->debugTeleport(level_->transmuters().front().pos + Vec2{-30.0f, -8.0f});
         camera_.reset(level_->player().body.pos);
     }
+    if (app_.options().openUi == "shop") {
+        // In front of the first spell for sale, its prompt open.
+        const auto& wares = level_->pickups();
+        const auto it = std::find_if(wares.begin(), wares.end(), [](const Pickup& p) { return p.price > 0 && p.type == PickupType::Spell; });
+        if (it != wares.end()) {
+            level_->debugTeleport(it->body.pos + Vec2{-6.0f, 0.0f});
+            camera_.reset(level_->player().body.pos);
+        }
+    }
     if (app_.options().openUi == "map") {
         minimap_.revealAll(*level_);
         mode_ = Mode::Map;
@@ -399,6 +408,16 @@ void GameScene::frame(float dt) {
         eventNoticeTime_ = 0.0f;
     }
     if (mode_ == Mode::Playing) eventNoticeTime_ += dt;
+    // Health bars keep a pale chip of what a hit took, draining after a moment.
+    if (mode_ == Mode::Playing || mode_ == Mode::Dead) {
+        const Player& pl = level_->player();
+        hpTrail_.update(pl.hp / pl.maxHp, dt);
+        if (const Enemy* boss = level_->bossBarTarget()) {
+            if (boss->id != bossTrailId_) bossTrail_ = {};
+            bossTrailId_ = boss->id;
+            bossTrail_.update(boss->hp / boss->maxHp, dt);
+        }
+    }
     // The gold counter pops whenever gold comes in.
     goldPop_ = std::max(0.0f, goldPop_ - dt);
     if (shownGold_ >= 0 && run_.gold > shownGold_) goldPop_ = kGoldPopSeconds;

@@ -1,5 +1,6 @@
 #include "game/Run.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace pm {
@@ -34,19 +35,18 @@ bool safeToAutoSlot(SpellId s) {
     }
 }
 
+bool RunState::canAutoSlot(SpellId s) const {
+    const Wand* w = currentWand();
+    return w && safeToAutoSlot(s) && std::find(w->slots.begin(), w->slots.end(), SpellId::None) != w->slots.end();
+}
+
 bool RunState::trySlotIntoActiveWand(SpellId s) {
-    if (!safeToAutoSlot(s)) return false;
+    if (!canAutoSlot(s)) return false;
     Wand* w = currentWand();
-    if (!w) return false;
-    for (SpellId& slot : w->slots) {
-        if (slot == SpellId::None) {
-            slot = s;
-            noteSpell(s);
-            w->resetDeck();
-            return true;
-        }
-    }
-    return false;
+    *std::find(w->slots.begin(), w->slots.end(), SpellId::None) = s;
+    noteSpell(s);
+    w->resetDeck();
+    return true;
 }
 
 void RunState::applyPerk(PerkId p) {
