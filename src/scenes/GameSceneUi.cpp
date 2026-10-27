@@ -88,6 +88,21 @@ void GameScene::drawWorldOverlays(float alpha) const {
         ui::text(TextFormat("%d", p.price), tp.x, tp.y, small, run_.gold >= p.price ? ui::color::kGold : ui::color::kDanger,
                  ui::Align::Center);
     }
+    // Perk altars name their perk from a little way off: one altar of a group is all the alchemist
+    // may claim, so the choice should be in view at once. Neighbours alternate rows, as names are
+    // wider than the altars are apart.
+    for (const Pickup& p : level_->pickups()) {
+        if (p.dead || p.type != PickupType::PerkAltar || &p == focused || (p.body.pos - level_->player().body.pos).length() > 160.0f)
+            continue;
+        int rank = 0;
+        for (const Pickup& o : level_->pickups())
+            rank += !o.dead && o.type == PickupType::PerkAltar && o.altarGroup == p.altarGroup && o.body.pos.x < p.body.pos.x ? 1 : 0;
+        const PerkDef& perk = perkDef(p.perk);
+        Vector2 tp = scene_.worldToScreen({p.body.pos.x, p.body.pos.y + 14.0f});
+        if (rank % 2 != 0) tp.y += static_cast<float>(small) * 1.3f;
+        drawPlate(tp.x, tp.y, static_cast<float>(ui::measure(perk.name, small)), static_cast<float>(small));
+        ui::text(perk.name, tp.x, tp.y, small, hexColor(perk.color), ui::Align::Center);
+    }
 
     // Interaction prompt: the label, and for a spell what it is, what it does and where it goes.
     if (focused) drawPickupPrompt(*focused);
