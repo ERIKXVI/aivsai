@@ -284,13 +284,14 @@ void LevelRenderer::addLights(const Level& level, float alpha, float time) {
     for (const auto& e : level.enemies())
         if (e->alive()) e->addLights(ctx);
 
+    // Only lights that reach the view count towards the caps below.
     int projLights = 0;
     for (const Projectile& p : level.projectiles()) {
-        if (projLights++ > 24) break;
+        if (projLights >= 25) break;
         Color c = hexColor(p.def.color);
         float k = p.def.flags & projflag::kHitscan ? 3.0f : 1.4f;
         Vec2 pos = (p.def.flags & projflag::kHitscan) ? lerp(p.pos, p.beamEnd, 0.5f) : lerp(p.prevPos, p.pos, alpha);
-        scene_.addLight(PointLight{pos, c.r / 255.0f * k, c.g / 255.0f * k, c.b / 255.0f * k, p.def.lightRadius, 1.5f, 1.0f});
+        if (scene_.addLight(PointLight{pos, c.r / 255.0f * k, c.g / 255.0f * k, c.b / 255.0f * k, p.def.lightRadius, 1.5f, 1.0f})) ++projLights;
     }
 
     // Fixtures outrank the projectiles of a busy fight and fade if they ever lose their slot.
@@ -317,8 +318,7 @@ void LevelRenderer::addLights(const Level& level, float alpha, float time) {
         switch (pk.type) {
         case PickupType::PerkAltar: {
             Color c = hexColor(perkDef(pk.perk).color);
-            scene_.addLight(PointLight{at - Vec2{0.0f, 12.0f}, c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, 45.0f, 3.0f, 0.5f});
-            ++lootLights;
+            if (scene_.addLight(PointLight{at - Vec2{0.0f, 12.0f}, c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, 45.0f, 3.0f, 0.5f})) ++lootLights;
             break;
         }
         case PickupType::Spell:
@@ -327,18 +327,15 @@ void LevelRenderer::addLights(const Level& level, float alpha, float time) {
             float pulse = 0.55f + 0.2f * std::sin(time * 3.0f + at.x);
             if (pk.rare) {
                 // Rare finds shine gold, and further.
-                scene_.addLight(PointLight{at, 1.0f * pulse, 0.8f * pulse, 0.4f * pulse, 40.0f, 2.0f, 0.5f});
-                ++lootLights;
+                if (scene_.addLight(PointLight{at, 1.0f * pulse, 0.8f * pulse, 0.4f * pulse, 40.0f, 2.0f, 0.5f})) ++lootLights;
                 break;
             }
-            scene_.addLight(PointLight{at, c.r / 255.0f * pulse, c.g / 255.0f * pulse, c.b / 255.0f * pulse, 28.0f, 2.0f, 0.5f});
-            ++lootLights;
+            if (scene_.addLight(PointLight{at, c.r / 255.0f * pulse, c.g / 255.0f * pulse, c.b / 255.0f * pulse, 28.0f, 2.0f, 0.5f})) ++lootLights;
             break;
         }
         case PickupType::Chest:
             if (!pk.opened) {
-                scene_.addLight(PointLight{at - Vec2{0.0f, 3.0f}, 0.7f, 0.55f, 0.25f, 30.0f, 3.0f, 0.5f});
-                ++lootLights;
+                if (scene_.addLight(PointLight{at - Vec2{0.0f, 3.0f}, 0.7f, 0.55f, 0.25f, 30.0f, 3.0f, 0.5f})) ++lootLights;
             }
             break;
         default: break;

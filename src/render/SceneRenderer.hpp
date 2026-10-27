@@ -74,7 +74,8 @@ public:
     void endEmission();
 
     /// Registers a candidate light; the budget picks which ones are drawn when presenting.
-    void addLight(const PointLight& light);
+    /// Returns false for a light culled because it does not reach the view.
+    bool addLight(const PointLight& light);
     /// Adds a refractive ring centred on a world position for this frame.
     void addShockwave(Vec2 world, float radius, float strength);
     /// Turns the brightest emissive regions of the world layer (lava, fire, glowing fungus)

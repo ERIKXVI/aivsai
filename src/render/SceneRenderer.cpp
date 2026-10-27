@@ -99,9 +99,11 @@ void SceneRenderer::beginEmission() {
 
 void SceneRenderer::endEmission() { EndTextureMode(); }
 
-void SceneRenderer::addLight(const PointLight& light) {
+bool SceneRenderer::addLight(const PointLight& light) {
     // Cull lights whose radius doesn't reach the view.
-    if (lightReaches(light, layerArea())) lights_.push_back(light);
+    if (!lightReaches(light, layerArea())) return false;
+    lights_.push_back(light);
+    return true;
 }
 
 Rectf SceneRenderer::layerArea() const {
