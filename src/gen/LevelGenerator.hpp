@@ -69,7 +69,10 @@ constexpr Vec2 vaultProbePoint(const Rectf& v) { return {v.x + v.w * 0.5f, v.y +
 struct GenOptions {
     int width = 832;
     int height = 1472;
-    int presimTicks = 200;
+    /// Ticks the world runs before the route is cleared: long enough for lava falls and pools to
+    /// settle (lava meeting water hardens into obsidian the starting spells cannot dig), so the
+    /// cleared route is not dammed again in the first seconds of play.
+    int presimTicks = 600;
 };
 
 LevelLayout generateLevel(BiomeId biome, int levelIndex, uint32_t seed, ThreadPool& pool,
