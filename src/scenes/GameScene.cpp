@@ -81,6 +81,7 @@ void GameScene::finishLoading() {
     guide_.update(level_->player().body.pos);
     exiting_ = false;
     titleTimer_ = kTitleCardSeconds;
+    titleTop_ = -1.0f;
     titleOmen_.clear();
     announcedGuardian_ = 0;
     stageDamageStart_ = run_.stats.damageTaken;
@@ -389,6 +390,7 @@ void GameScene::frame(float dt) {
             titleSub_ = guardianEpithet(g->type());
             titleOmen_.clear();
             titleTimer_ = kTitleCardSeconds;
+            titleTop_ = -1.0f;
         }
     }
     // A stage event announces itself under the title card's place.
@@ -534,6 +536,8 @@ void GameScene::render(float alpha) {
         if (mode_ == Mode::Playing && app_.settings().hints) hints_.draw(static_cast<float>(app_.screenWidth()), static_cast<float>(app_.screenHeight()), usingGamepad_);
         // Banners belong to play: under a menu they would ghost through its dimming.
         if (mode_ == Mode::Playing) {
+            // Placed while it fades in, once the camera has settled against the level's edges.
+            if (titleTimer_ > kTitleCardSeconds - 0.4f || (titleTimer_ > 0.0f && titleTop_ < 0.0f)) titleTop_ = pickTitleTop();
             drawTitleCard();
             drawEventNotice();
             if (app_.settings().hints && !run_.inSanctum && run_.levelIndex == 0 && level_->time() < 30.0f) drawControlsHint();

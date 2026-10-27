@@ -84,6 +84,11 @@ private:
     void drawPauseMenu();
     void drawEndScreen(bool victory);
     void drawTitleCard() const;
+    /// Height of the title card's text block, in pixels.
+    float titleCardHeight() const;
+    /// Where the title card goes, as a fraction of the screen height: high or low, whichever
+    /// keeps it clear of the alchemist and of the guardian it announces.
+    float pickTitleTop() const;
     void drawEventNotice() const;
     /// Steps graphics down to Low once if the GPU cannot keep up on High.
     void watchFrameRate();
@@ -112,6 +117,7 @@ private:
     bool castBlocked_ = false;   ///< the left button was held over a menu; ignore it until released
     bool exiting_ = false;       ///< fading out towards the next stage
     float titleTimer_ = 0.0f;
+    float titleTop_ = -1.0f; ///< the card's top as a fraction of the screen height; picked when it appears
     std::string titleMain_, titleSub_, titleOmen_;
     float endTimer_ = 0.0f;
     bool endInputArmed_ = false; ///< the end screen's pad and Enter shortcuts are live

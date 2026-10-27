@@ -390,18 +390,60 @@ void GameScene::drawFeatToast() const {
     ui::text(def.description, sw * 0.5f, y, small, Color{205, 195, 215, al(1.0f)}, ui::Align::Center);
 }
 
+float GameScene::titleCardHeight() const {
+    const int s = ui::scale();
+    float h = static_cast<float>(ui::fontSize(s * 3) + ui::fontSize(s + 1)) + 6.0f * static_cast<float>(s);
+    if (!titleOmen_.empty()) h += static_cast<float>(ui::fontSize(s + 1)) * 0.5f + static_cast<float>(ui::fontSize(s));
+    return h;
+}
+
+float GameScene::pickTitleTop() const {
+    constexpr float kHigh = 0.16f, kLow = 0.58f;
+    const float sh = static_cast<float>(app_.screenHeight()), h = titleCardHeight();
+    float ys[2] = {scene_.worldToScreen(level_->player().body.pos).y, -1.0e6f};
+    if (const Enemy* g = level_->bossBarTarget()) ys[1] = scene_.worldToScreen(g->body.pos).y;
+    // The smallest gap between the card's band and either figure.
+    auto clearance = [&](float top) {
+        const float y0 = top * sh, y1 = y0 + h;
+        float gap = 1.0e6f;
+        for (float y : ys) gap = std::min(gap, y < y0 ? y0 - y : (y > y1 ? y - y1 : 0.0f));
+        return gap;
+    };
+    return clearance(kHigh) >= clearance(kLow) ? kHigh : kLow;
+}
+
 void GameScene::drawTitleCard() const {
     if (titleTimer_ <= 0.0f) return;
     float a = std::min(1.0f, titleTimer_ / 1.0f) * std::min(1.0f, (kTitleCardSeconds - titleTimer_) * 2.0f);
+    a = clamp(a, 0.0f, 1.0f);
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
     const int s = ui::scale();
-    unsigned char alpha = static_cast<unsigned char>(255.0f * clamp(a, 0.0f, 1.0f));
-    ui::text(titleMain_, sw * 0.5f, sh * 0.22f, ui::fontSize(s * 3), Color{240, 226, 200, alpha}, ui::Align::Center);
-    const float subY = sh * 0.22f + static_cast<float>(ui::fontSize(s * 3)) + 6.0f * s;
-    ui::text(titleSub_, sw * 0.5f, subY, ui::fontSize(s + 1), Color{190, 170, 220, alpha}, ui::Align::Center);
+    const float fs = static_cast<float>(s);
+    const unsigned char alpha = static_cast<unsigned char>(255.0f * a);
+    const int mainSize = ui::fontSize(s * 3), subSize = ui::fontSize(s + 1), omenSize = ui::fontSize(s);
+    const float top = (titleTop_ >= 0.0f ? titleTop_ : 0.16f) * sh;
+    const float subY = top + static_cast<float>(mainSize) + 6.0f * fs;
+
+    // A soft dark band behind the block, fading out at both ends.
+    float widest = static_cast<float>(std::max(ui::measure(titleMain_, mainSize), ui::measure(titleSub_, subSize)));
+    if (!titleOmen_.empty()) widest = std::max(widest, static_cast<float>(ui::measure(titleOmen_, omenSize)));
+    const float half = widest * 0.5f + 40.0f * fs;
+    const Rectangle band{sw * 0.5f - half, top - 10.0f * fs, half * 2.0f, titleCardHeight() + 20.0f * fs};
+    const Color clear{0, 0, 0, 0}, dark{0, 0, 0, static_cast<unsigned char>(140.0f * a)};
+    DrawRectangleGradientH(static_cast<int>(band.x), static_cast<int>(band.y), static_cast<int>(half), static_cast<int>(band.height), clear, dark);
+    DrawRectangleGradientH(static_cast<int>(sw * 0.5f), static_cast<int>(band.y), static_cast<int>(half), static_cast<int>(band.height), dark, clear);
+
+    ui::text(titleMain_, sw * 0.5f, top, mainSize, Color{240, 226, 200, alpha}, ui::Align::Center);
+    ui::text(titleSub_, sw * 0.5f, subY, subSize, Color{190, 170, 220, alpha}, ui::Align::Center);
+    // Gold rules either side of the subtitle.
+    const float subHalf = static_cast<float>(ui::measure(titleSub_, subSize)) * 0.5f, ruleY = subY + static_cast<float>(subSize) * 0.5f;
+    const Color rule{ui::color::kGold.r, ui::color::kGold.g, ui::color::kGold.b, static_cast<unsigned char>(alpha / 2)};
+    for (float side : {-1.0f, 1.0f}) {
+        const float x0 = sw * 0.5f + side * (subHalf + 10.0f * fs), x1 = sw * 0.5f + side * (subHalf + 46.0f * fs);
+        DrawRectangleRec({std::min(x0, x1), ruleY, std::abs(x1 - x0), fs}, rule);
+    }
     if (!titleOmen_.empty())
-        ui::text(titleOmen_, sw * 0.5f, subY + static_cast<float>(ui::fontSize(s + 1)) * 1.5f, ui::fontSize(s), Color{235, 190, 110, alpha},
-                 ui::Align::Center);
+        ui::text(titleOmen_, sw * 0.5f, subY + static_cast<float>(subSize) * 1.5f, omenSize, Color{235, 190, 110, alpha}, ui::Align::Center);
 }
 
 void GameScene::drawEventNotice() const {
