@@ -24,6 +24,10 @@ constexpr float kMimicWakeX = 24.0f, kMimicWakeY = 16.0f;
 /// Length (s) of the glowing telegraph before a ranged attack; the brightening in drawAlbedo
 /// and the light in addLights ramp over the same span.
 constexpr float kWindup = 0.4f;
+constexpr float kHitStagger = 0.08f; ///< every hit suspends steering this long so its knockback carries
+constexpr float kFlinchStagger = 0.22f, kEliteFlinchStagger = 0.12f; ///< a heavy blow's flinch
+constexpr float kPoiseTime = 0.7f;      ///< after a flinch, no other can interrupt for this long
+constexpr float kHeavyHitShare = 0.12f; ///< of max health: a blow this big is heavy whatever its type
 
 /// Colour of a creature's wind-up sparks, brightening and light: its own glow, or warm white.
 Color windupColor(const EnemyDef& def) { return def.glow ? hexColor(def.glow) : Color{255, 240, 200, 255}; }
@@ -675,16 +679,22 @@ void Enemy::onDamaged(Level& level, const DamageInfo& info, float dealt) {
     level.audio().playAt(Sfx::EnemyHurt, body.pos, 0.45f, size * level.rng().range(0.85f, 1.2f));
     level.addDamageNumber(id, body.pos + Vec2{level.rng().range(-3.0f, 3.0f), -body.halfH - 4.0f}, dealt, info.crit);
     if (flying || def_->behaviour == Behaviour::Burrower) body.vel += info.knockback * 0.5f * knockbackTaken();
-    // Hit reactions: the knockback carries a moment before the creature recovers. A heavy blow
-    // makes it flinch and lose a telegraphed attack, and poise then guards against a stun-lock.
+    reactToHit(level, info, dealt);
+}
+
+bool Enemy::reelsFromHits() const {
     const Behaviour b = def_->behaviour;
-    // Rooted creatures (sentinels, shrooms) hold their ground.
-    if (def_->guardian || b == Behaviour::Boss || b == Behaviour::Burrower || b == Behaviour::Turret || b == Behaviour::Spore) return;
-    stagger_ = std::max(stagger_, 0.08f);
-    const bool heavy = info.crit || info.type == DamageType::Explosion || info.type == DamageType::Electric || dealt >= maxHp * 0.12f;
+    return !(def_->guardian || b == Behaviour::Boss || b == Behaviour::Burrower || b == Behaviour::Turret || b == Behaviour::Spore);
+}
+
+void Enemy::reactToHit(Level& level, const DamageInfo& info, float dealt) {
+    if (!reelsFromHits()) return;
+    stagger_ = std::max(stagger_, kHitStagger);
+    const bool heavy =
+        info.crit || info.type == DamageType::Explosion || info.type == DamageType::Electric || dealt >= maxHp * kHeavyHitShare;
     if (heavy && poise_ <= 0.0f) {
-        stagger_ = std::max(stagger_, elite_ ? 0.12f : 0.22f);
-        poise_ = 0.7f;
+        stagger_ = std::max(stagger_, elite_ ? kEliteFlinchStagger : kFlinchStagger);
+        poise_ = kPoiseTime;
         if (windup_ > 0.0f) {
             windup_ = 0.0f;
             level.addFloatText(body.pos - Vec2{0.0f, body.halfH + 10.0f}, "Interrupted", 0xb8c8ff, 0.7f);

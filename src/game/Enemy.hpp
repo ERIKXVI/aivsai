@@ -173,6 +173,12 @@ private:
     void contactPlayer(Level& level);
     /// A mimic throws off its disguise.
     void wake(Level& level);
+    /// Keepers and the Rebis are too heavy to reel, a worm has no footing to lose, and rooted
+    /// sentinels and shrooms hold their ground.
+    bool reelsFromHits() const;
+    /// The knockback carries a moment; a heavy blow makes the creature flinch and lose a
+    /// telegraphed attack, and poise then guards against a stun-lock.
+    void reactToHit(Level& level, const DamageInfo& info, float dealt);
     int animFrame(float time) const;
     void drawBoss(DrawContext& ctx, Vec2 p, Color tint) const;
 
