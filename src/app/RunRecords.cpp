@@ -173,7 +173,7 @@ RunRecord foldRun(Profile& p, const RunState& run, bool victory, const std::stri
     float best = -1.0f;
     for (int i = 0; i < kLoadoutCount; ++i) {
         const auto id = static_cast<LoadoutId>(i);
-        if (!loadoutUnlocked(id, was) && loadoutUnlocked(id, now)) record.unlockedPaths.push_back(loadoutDef(id).name);
+        if (!loadoutUnlocked(id, was) && loadoutUnlocked(id, now)) record.unlockedPaths.push_back(id);
         // The locked path nearest to opening is the carrot for the next run.
         const UnlockProgress prior = loadoutProgress(id, was), after = loadoutProgress(id, now);
         if (after.target <= 0 || after.value >= after.target) continue;

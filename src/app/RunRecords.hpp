@@ -21,7 +21,7 @@ struct PathProgress {
 /// What a run added to the profile, for the end screen.
 struct RunRecord {
     std::string discoveries;                ///< e.g. "2 spells, 1 perk"; empty if nothing new
-    std::vector<std::string> unlockedPaths; ///< starting paths unlocked by this run
+    std::vector<LoadoutId> unlockedPaths;   ///< starting paths unlocked by this run
     std::optional<PathProgress> nearestPath; ///< the locked path closest to opening
     std::vector<std::string> records;       ///< personal bests this run set
     int unlockedOrdeal = 0;                 ///< the ordeal this run opened, if any

@@ -303,6 +303,12 @@ TEST_CASE("the end screen shows the nearest locked path and personal bests") {
     // A very first run sets every best, which is no news.
     Profile fresh;
     CHECK(foldRun(fresh, run, false, "Perished").records.empty());
+
+    // Reaching the second stage opens the Pyromancer, named by id for the end screen's offer.
+    run.levelIndex = 1;
+    run.stats.chestsOpened = 0; // the Geomancer stays sealed (7 of 8 chests)
+    const RunRecord deeper = foldRun(profile, run, false, "Slain by a Frost Wraith");
+    CHECK(deeper.unlockedPaths.size() == 1 && deeper.unlockedPaths.front() == LoadoutId::Pyromancer);
 }
 
 TEST_CASE("chronicle entries survive encoding and reject garbage") {

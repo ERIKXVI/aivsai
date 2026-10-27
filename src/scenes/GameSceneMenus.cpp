@@ -195,8 +195,8 @@ void GameScene::drawEndScreen(bool victory) {
         ui::text("New in the Grimoire: " + record_.discoveries, sw * 0.5f, y, font, Color{190, 160, 255, al}, ui::Align::Center);
         y += lineH;
     }
-    for (const std::string& path : record_.unlockedPaths) {
-        ui::text("Path unlocked: the " + path, sw * 0.5f, y, font, Color{255, 210, 110, al}, ui::Align::Center);
+    for (const LoadoutId path : record_.unlockedPaths) {
+        ui::text(std::string("Path unlocked: the ") + loadoutDef(path).name, sw * 0.5f, y, font, Color{255, 210, 110, al}, ui::Align::Center);
         y += lineH;
     }
     if (record_.unlockedOrdeal > 0) {
@@ -256,6 +256,22 @@ void GameScene::drawEndScreen(bool victory) {
     bx += bw + gap;
     if (ui::button({bx, y, bw, bh}, "Main Menu") || (armed && ui::backPressed())) {
         app_.setScene(std::make_unique<MenuScene>(app_));
+        return;
+    }
+    // A path this run unlocked is offered at once, so the reward is one press away. It takes the
+    // row (and the pad's X) the gentler road would use; that offer returns on the next fall.
+    if (!record_.unlockedPaths.empty()) {
+        const LoadoutId fresh = record_.unlockedPaths.back();
+        const LoadoutDef& def = loadoutDef(fresh);
+        const Rectangle offer{sw * 0.5f - bw, y + bh + gap, bw * 2.0f, bh};
+        const bool offerKey = input::keyPressed(KEY_N) || (armed && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT));
+        if (ui::button(offer, TextFormat(usingGamepad_ ? "Begin as the %s (X)" : "Begin as the %s (N)", def.name), true, true) || offerKey) {
+            app_.settings().loadout = static_cast<int>(fresh); // Choose Your Path remembers it too
+            if (!app_.options().automated()) saveSettings(app_.settings());
+            app_.setScene(std::make_unique<GameScene>(app_, newRun(randomRunSeed(), run_.difficulty, false, fresh, run_.daily ? 0 : run_.ordeal)));
+            return;
+        }
+        if (ui::hovered(offer)) ui::tooltip(def.name, def.description, ui::color::kGold);
         return;
     }
     // Two quick falls in a row on stage I, never having won: offer the gentler road.
