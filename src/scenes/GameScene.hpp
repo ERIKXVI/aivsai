@@ -120,6 +120,8 @@ private:
     /// keeps it clear of the alchemist and of the guardian it announces.
     float pickTitleTop() const;
     void drawEventNotice() const;
+    /// The violet bloom that swells from the portal and swallows the screen as it fades through it.
+    void drawPortalBloom() const;
     /// Steps graphics down to Low once if the GPU cannot keep up on High.
     void watchFrameRate();
     void drawLoading() const;

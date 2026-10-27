@@ -597,19 +597,7 @@ void GameScene::render(float alpha) {
     }
     drawFeatToast();
 
-    if (exiting_ && level_) {
-        // Stepping through the portal: a violet bloom swells from it and swallows the screen
-        // as it fades to black.
-        // Additive, so it reads as light pouring out rather than a grey wash.
-        const Vector2 c = scene_.worldToScreen(level_->exitPos() - Vec2{0.0f, 9.0f});
-        const int cx = static_cast<int>(c.x), cy = static_cast<int>(c.y);
-        const float k = std::sin(fade_ * PI), sw = static_cast<float>(app_.screenWidth());
-        BeginBlendMode(BLEND_ADDITIVE);
-        DrawCircleGradient(cx, cy, (0.1f + 1.3f * fade_) * sw, Color{150, 95, 255, static_cast<unsigned char>(150.0f * k)}, Color{150, 95, 255, 0});
-        DrawCircleGradient(cx, cy, (0.04f + 0.35f * fade_) * sw, Color{235, 200, 255, static_cast<unsigned char>(190.0f * k)},
-                           Color{235, 200, 255, 0});
-        EndBlendMode();
-    }
+    if (exiting_ && level_) drawPortalBloom();
     if (fade_ > 0.0f) ui::dimScreen(static_cast<unsigned char>(fade_ * 255.0f));
     if (mode_ == Mode::Loading) drawLoading();
     if (app_.settings().showFps || debugOverlay_) drawDebugOverlay();

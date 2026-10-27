@@ -1,6 +1,6 @@
-// GameScene presentation: HUD, world overlays, compass and reticle, title card, notices,
-// loading screen and debug overlay. The wand editor is in GameSceneEditor.cpp, the pause menu
-// and end screens in GameSceneMenus.cpp; run flow lives in GameScene.cpp.
+// GameScene presentation: HUD, world overlays, compass and reticle, title card, notices, portal
+// bloom, loading screen and debug overlay. The wand editor is in GameSceneEditor.cpp, the pause
+// menu and end screens in GameSceneMenus.cpp; run flow lives in GameScene.cpp.
 
 #include "scenes/GameScene.hpp"
 
@@ -580,6 +580,18 @@ void GameScene::drawEventNotice() const {
     Color c = hexColor(eventNotice_.color);
     c.a = static_cast<unsigned char>(255.0f * a);
     ui::text(eventNotice_.text, sw * 0.5f, sh * 0.3f, ui::fontSize(ui::scale() + 1), c, ui::Align::Center);
+}
+
+void GameScene::drawPortalBloom() const {
+    // Additive, so it reads as light pouring out of the portal rather than a grey wash.
+    constexpr uint32_t kHalo = 0x965fff, kCore = 0xebc8ff;
+    const Vector2 c = scene_.worldToScreen(level_->exitPos() - Vec2{0.0f, 9.0f});
+    const int cx = static_cast<int>(c.x), cy = static_cast<int>(c.y);
+    const float k = std::sin(fade_ * PI), sw = static_cast<float>(app_.screenWidth());
+    BeginBlendMode(BLEND_ADDITIVE);
+    DrawCircleGradient(cx, cy, (0.1f + 1.3f * fade_) * sw, hexColor(kHalo, static_cast<uint8_t>(150.0f * k)), hexColor(kHalo, 0));
+    DrawCircleGradient(cx, cy, (0.04f + 0.35f * fade_) * sw, hexColor(kCore, static_cast<uint8_t>(190.0f * k)), hexColor(kCore, 0));
+    EndBlendMode();
 }
 
 void GameScene::drawControlsHint() const {
