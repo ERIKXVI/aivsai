@@ -142,23 +142,29 @@ void GameScene::drawWorldOverlays(float alpha) const {
 }
 
 void GameScene::drawCompass(float alpha) const {
-    // A faint arrow orbiting the alchemist points towards the exit portal.
+    // An arrow orbiting the alchemist points the way to the exit portal: along the stage's route,
+    // a stretch ahead, so it leads through the tunnels instead of straight into the rock.
     const Player& pl = level_->player();
     if (!pl.alive() || level_->isSanctum()) return;
     const Vec2 p = pl.body.interpolated(alpha);
-    const Vec2 to = level_->exitPos() - p;
-    const float dist = to.length();
-    if (dist < 60.0f) return;
-    const Vec2 dir = to / dist;
+    if ((level_->exitPos() - p).length() < 60.0f) return;
+    Vec2 to = guide_.target(p) - p;
+    if (to.lengthSq() < 1.0f) to = level_->exitPos() - p;
+    const Vec2 dir = to / to.length();
     const float s = static_cast<float>(ui::scale());
-    Vector2 c = scene_.worldToScreen(p + dir * 22.0f);
-    Vector2 tip{c.x + dir.x * 6.0f * s, c.y + dir.y * 6.0f * s};
-    Vector2 left{c.x - dir.y * 3.0f * s, c.y + dir.x * 3.0f * s};
-    Vector2 right{c.x + dir.y * 3.0f * s, c.y - dir.x * 3.0f * s};
-    const float pulse = 0.55f + 0.25f * std::sin(time_ * 3.0f);
-    Color col{200, 170, 255, static_cast<unsigned char>(255.0f * pulse)};
-    DrawTriangle(tip, right, left, col);
-    DrawTriangle(tip, left, right, col);
+    const Vector2 base = scene_.worldToScreen(p + dir * 22.0f);
+    const Vector2 c{base.x + dir.x * 3.0f * s, base.y + dir.y * 3.0f * s}; // the arrow's centroid
+    auto arrow = [&](float size, Color col) {
+        const Vector2 tip{c.x + dir.x * 6.0f * size, c.y + dir.y * 6.0f * size};
+        const Vector2 back{c.x - dir.x * 3.0f * size, c.y - dir.y * 3.0f * size};
+        const Vector2 left{back.x - dir.y * 4.5f * size, back.y + dir.x * 4.5f * size};
+        const Vector2 right{back.x + dir.y * 4.5f * size, back.y - dir.x * 4.5f * size};
+        DrawTriangle(tip, right, left, col);
+        DrawTriangle(tip, left, right, col);
+    };
+    const float pulse = 0.8f + 0.2f * std::sin(time_ * 3.0f);
+    arrow(s * 1.35f, Color{10, 6, 16, static_cast<unsigned char>(200.0f * pulse)}); // dark rim for pale stages
+    arrow(s, Color{200, 170, 255, static_cast<unsigned char>(255.0f * pulse)});
 }
 
 void GameScene::drawHud() const {

@@ -41,8 +41,9 @@ The descent follows the four stages of the alchemical Great Work:
 
 - **Stages** are 832×1472-cell caves (the first opens onto a night-sky mountainside).
   A guaranteed winding route leads to the exit portal; chambers, branches and pockets
-  hang off it with chests, potions and free spells. A compass arrow and the map point
-  the way.
+  hang off it with chests, potions and free spells. A compass arrow follows that route a
+  stretch ahead of the alchemist (`RouteGuide`), and the map marks the portal from the
+  start - hollow until it has been seen.
 - **Vaults** (up to two per stage) are set pieces stamped into solid rock off the route:
   an alchemist's laboratory with a cauldron, a powder magazine, a flooded crypt, a
   guarded treasury and a healing spring. Their passages are validated against the

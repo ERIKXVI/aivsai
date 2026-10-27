@@ -137,11 +137,13 @@ void Minimap::drawMarkers(const Level& level, Rectangle dest, Rectangle src, flo
         const float r = m * (0.75f + 0.1f * std::sin(time * 3.0f));
         DrawPoly(g, 3, r, 90.0f, kGuardianColor);
     }
-    if (!level.isSanctum() && exploredNear(level.exitPos())) {
+    if (!level.isSanctum()) {
+        // The goal is marked from the start: hollow until the alchemist has seen it, then solid.
         const Vector2 s = toScreen(level.exitPos());
         if (inside(s)) {
             const float r = m * (0.9f + 0.15f * std::sin(time * 4.0f));
-            DrawPoly(s, 4, r, 45.0f, kPortalColor);
+            if (exploredNear(level.exitPos())) DrawPoly(s, 4, r, 45.0f, kPortalColor);
+            else DrawPolyLinesEx(s, 4, r, 45.0f, std::max(1.0f, m * 0.3f), kPortalColor);
         }
     }
     const Vector2 s = toScreen(level.player().center());
@@ -191,9 +193,9 @@ void Minimap::drawFull(const Level& level, float screenW, float screenH, float t
     };
     if (lx + 60.0f * s < screenW) {
         legend(WHITE, "You");
-        legend(kPortalColor, "Portal");
+        legend(kPortalColor, "Portal (goal)");
         legend(kVaultColor, "Vault");
-        legend(kGuardianColor, "Guardian");
+        legend(kGuardianColor, "Guardian (optional)");
         legend(kCircleColor, "Circle");
     }
     ui::text("M / Esc to close", screenW * 0.5f, dest.y + dest.height + 6.0f * s, small, ui::color::kTextDim, ui::Align::Center);

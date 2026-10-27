@@ -29,8 +29,8 @@ constexpr HintText kTexts[] = {
      "A sanctum: buy spells with B, then claim one perk at the altars"},
     {"A transmutation circle - pour the matter it craves into it to earn a perk",
      "A transmutation circle - pour the matter it craves into it to earn a perk"},
-    {"The arrow at the edge of the screen always points towards the portal",
-     "The arrow at the edge of the screen always points towards the portal"},
+    {"The violet arrow beside you leads along the way to the portal - press M to see it on the map",
+     "The violet arrow beside you leads along the way to the portal - D-pad down shows the map"},
     {"Gold ore crumbles into gold dust when blasted - walk over the dust to collect it",
      "Gold ore crumbles into gold dust when blasted - walk over the dust to collect it"},
     {"You are burning! Drink water from your flask with F, or dive into water",
@@ -142,7 +142,7 @@ void HintTracker::update(const Level& level, const RunState& run, float dt) {
         show(Hint::Elixir);
         return;
     }
-    if (!seen(Hint::Compass) && run.levelIndex == 0 && t > 75.0f) {
+    if (!seen(Hint::Compass) && run.levelIndex == 0 && t > 35.0f) {
         show(Hint::Compass);
         return;
     }

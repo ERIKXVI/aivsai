@@ -73,8 +73,10 @@ void GameScene::finishLoading() {
     bot_ = Bot{};
     hints_.reset();
     minimap_.reset(*level_);
+    guide_.reset(level_->layout().playerStart, level_->layout().mainPath, level_->exitPos());
     mode_ = Mode::Playing;
     applyLaunchOptions();
+    guide_.update(level_->player().body.pos);
     exiting_ = false;
     titleTimer_ = kTitleCardSeconds;
     titleOmen_.clear();
@@ -297,6 +299,7 @@ void GameScene::stepLevel() {
     for (FeatId f : level_->takeFeats())
         if (controllable) earnFeat(f);
     minimap_.update(*level_);
+    guide_.update(level_->player().body.pos);
     if (mode_ == Mode::Playing && !autoplay && app_.settings().hints) hints_.update(*level_, run_, kTickDt);
 
     switch (level_->pollEvent()) {

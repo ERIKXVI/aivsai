@@ -14,6 +14,7 @@
 #include "game/Input.hpp"
 #include "game/Level.hpp"
 #include "game/LevelRenderer.hpp"
+#include "game/RouteGuide.hpp"
 #include "game/Run.hpp"
 #include "render/SceneRenderer.hpp"
 #include "scenes/Hints.hpp"
@@ -90,6 +91,7 @@ private:
     HintTracker hints_;
     ui::NavList pauseNav_;
     Minimap minimap_;
+    RouteGuide guide_; ///< where the compass points along the stage's route
     Mode mode_ = Mode::Loading;
 
     float fade_ = 1.0f;          ///< 1 = black
