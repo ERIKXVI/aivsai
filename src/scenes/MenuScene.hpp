@@ -43,6 +43,8 @@ private:
     void drawLoadouts();
     /// The ordeal chooser under the paths (or a note that it opens after the first victory).
     void drawOrdealRow(Rectangle row, std::string& tipTitle, std::string& tipBody);
+    /// The gold rim glows faintly and a slanted glint sweeps across it; rim cells acid has eaten stay dark.
+    void stampRimGlow(WorldRenderer& layer) const;
 
     std::unique_ptr<World> world_;
     ParticleSystem particles_;

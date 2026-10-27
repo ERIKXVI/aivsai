@@ -192,6 +192,24 @@ void MenuScene::frame(float dt) {
     app_.audio().setMusicMood(48, 5, 0.0f);
 }
 
+void MenuScene::stampRimGlow(WorldRenderer& layer) const {
+    constexpr float kGlintSpeed = 60.0f;  // cells per second
+    constexpr float kGlintRunUp = 120.0f; // cells the glint travels off each end of the title, so it comes round every ~9 s
+    constexpr float kGlintSlant = 0.4f;   // cells further right per row down
+    constexpr float kGlintWidth = 9.0f;
+    constexpr float kBaseGlow = 0.3f;
+    constexpr Rgba kRimGlow{110, 78, 22, 0};
+    const float span = static_cast<float>(titleRight_ - titleLeft_) + 2.0f * kGlintRunUp;
+    const float sweep = static_cast<float>(titleLeft_) - kGlintRunUp + std::fmod(time_ * kGlintSpeed, span);
+    for (const Vec2i& p : rim_) {
+        if (world_->at(p.x, p.y).mat != mat::GoldOre) continue;
+        const float d = (static_cast<float>(p.x) - kGlintSlant * static_cast<float>(p.y - titleTop_) - sweep) / kGlintWidth;
+        const float g = kBaseGlow + (1.0f - kBaseGlow) * std::exp(-d * d);
+        layer.stampEmission(p.x, p.y, Rgba{static_cast<uint8_t>(kRimGlow.r * g), static_cast<uint8_t>(kRimGlow.g * g),
+                                           static_cast<uint8_t>(kRimGlow.b * g), 0});
+    }
+}
+
 void MenuScene::render(float alpha) {
     (void)alpha;
     ui::beginFrame(app_.screenWidth(), app_.screenHeight());
@@ -203,16 +221,7 @@ void MenuScene::render(float alpha) {
     WorldRenderer& layer = scene_.worldLayer();
     layer.build(*world_, v.originX, v.originY, world_->tick());
     particles_.draw(layer);
-    // The gold rim glows faintly, and a slanted glint sweeps across it every nine seconds or
-    // so. Rim cells that acid has eaten simply stop glowing.
-    const float span = static_cast<float>(titleRight_ - titleLeft_) + 240.0f;
-    const float sweep = static_cast<float>(titleLeft_) - 120.0f + std::fmod(time_ * 60.0f, span);
-    for (const Vec2i& p : rim_) {
-        if (world_->at(p.x, p.y).mat != mat::GoldOre) continue;
-        const float d = (static_cast<float>(p.x) - 0.4f * static_cast<float>(p.y - titleTop_) - sweep) / 9.0f;
-        const float g = 0.3f + 0.7f * std::exp(-d * d);
-        layer.stampEmission(p.x, p.y, Rgba{static_cast<uint8_t>(110.0f * g), static_cast<uint8_t>(78.0f * g), static_cast<uint8_t>(22.0f * g), 0});
-    }
+    stampRimGlow(layer);
     layer.upload();
 
     scene_.beginAlbedo();
