@@ -77,6 +77,9 @@ void MenuScene::buildWorld() {
     const int tx = (kMenuW - text.width) / 2, ty = 40;
     titleTop_ = ty;
     titleBottom_ = ty + text.height;
+    titleLeft_ = tx;
+    titleRight_ = tx + text.width;
+    rim_.clear();
     auto* px = static_cast<Color*>(text.data);
     // Embolden the thin pixel font by one pixel so the letters read as solid stone.
     std::vector<uint8_t> solid(static_cast<size_t>(text.width) * text.height, 0);
@@ -96,6 +99,7 @@ void MenuScene::buildWorld() {
                     int nx = x + dx, ny = y + dy;
                     edge = nx < 0 || ny < 0 || nx >= text.width || ny >= text.height || !solid[static_cast<size_t>(ny) * text.width + nx];
                 }
+            if (edge) rim_.push_back({tx + x, ty + y});
             Cell c = makeCell(edge ? mat::GoldOre : mat::Rune, hash2(x, y, 11u));
             c.var = static_cast<uint8_t>(edge ? 250 : 120 + (y * 5));
             w.at(tx + x, ty + y) = c;
@@ -190,6 +194,16 @@ void MenuScene::render(float alpha) {
     WorldRenderer& layer = scene_.worldLayer();
     layer.build(*world_, v.originX, v.originY, world_->tick());
     particles_.draw(layer);
+    // The gold rim glows faintly, and a slanted glint sweeps across it every nine seconds or
+    // so. Rim cells that acid has eaten simply stop glowing.
+    const float span = static_cast<float>(titleRight_ - titleLeft_) + 240.0f;
+    const float sweep = static_cast<float>(titleLeft_) - 120.0f + std::fmod(time_ * 60.0f, span);
+    for (const Vec2i& p : rim_) {
+        if (world_->at(p.x, p.y).mat != mat::GoldOre) continue;
+        const float d = (static_cast<float>(p.x) - 0.4f * static_cast<float>(p.y - titleTop_) - sweep) / 9.0f;
+        const float g = 0.3f + 0.7f * std::exp(-d * d);
+        layer.stampEmission(p.x, p.y, Rgba{static_cast<uint8_t>(110.0f * g), static_cast<uint8_t>(78.0f * g), static_cast<uint8_t>(22.0f * g), 0});
+    }
     layer.upload();
 
     scene_.beginAlbedo();

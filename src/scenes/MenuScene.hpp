@@ -60,6 +60,8 @@ private:
     float time_ = 0.0f;
     float nextEvent_ = 2.0f;
     int titleTop_ = 0, titleBottom_ = 0;
+    int titleLeft_ = 0, titleRight_ = 0;
+    std::vector<Vec2i> rim_; ///< the title's gold rim cells, which glow and catch a passing glint
 };
 
 } // namespace pm
