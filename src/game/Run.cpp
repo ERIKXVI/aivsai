@@ -15,7 +15,7 @@ bool RunState::addSpell(SpellId s) {
     return false;
 }
 
-bool RunState::trySlotIntoActiveWand(SpellId s) {
+bool safeToAutoSlot(SpellId s) {
     // Small impact bursts (Firebolt, Lightning) are fine; anything that can catch the caster is not.
     constexpr float kMaxBlast = 5.0f;
     const SpellDef& def = spellDef(s);
@@ -30,8 +30,12 @@ bool RunState::trySlotIntoActiveWand(SpellId s) {
     case SpellId::OilOrb:
     case SpellId::LavaOrb:
     case SpellId::SporeBomb: return false;
-    default: break;
+    default: return true;
     }
+}
+
+bool RunState::trySlotIntoActiveWand(SpellId s) {
+    if (!safeToAutoSlot(s)) return false;
     Wand* w = currentWand();
     if (!w) return false;
     for (SpellId& slot : w->slots) {

@@ -5,10 +5,16 @@
 
 #include <cstdint>
 
+#include "game/Spells.hpp"
+
 namespace pm {
 
 class Level;
 struct RunState;
+
+/// A satchel spell worth guiding the first wand edit with: an attack spell safe in the wand in
+/// hand, or a modifier or multicast to put in front of one (never the kit's bomb).
+bool guideCandidate(SpellId s);
 
 // Values are bit positions in the seen-mask. WandGuide is not a banner: it marks the wand
 // editor's guided first drop as done, and its text captions that guide.

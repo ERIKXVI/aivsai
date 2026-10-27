@@ -30,8 +30,15 @@ void applyTestWand(RunState& run, const std::string& list) {
         size_t end = list.find(',', start);
         if (end == std::string::npos) end = list.size();
         std::string name = list.substr(start, end - start);
-        for (int i = 1; i < kSpellCount; ++i)
-            if (name == spellDef(static_cast<SpellId>(i)).name) w.slots.push_back(static_cast<SpellId>(i));
+        // "+Name" puts the spell in the satchel instead, and "-" leaves an empty slot.
+        const bool toSatchel = !name.empty() && name[0] == '+';
+        if (toSatchel) name.erase(0, 1);
+        if (name == "-") w.slots.push_back(SpellId::None);
+        for (int i = 1; i < kSpellCount; ++i) {
+            if (name != spellDef(static_cast<SpellId>(i)).name) continue;
+            if (toSatchel) run.addSpell(static_cast<SpellId>(i));
+            else w.slots.push_back(static_cast<SpellId>(i));
+        }
         start = end + 1;
     }
     w.capacity = std::max(1, static_cast<int>(w.slots.size()));

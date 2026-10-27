@@ -9,6 +9,11 @@
 
 namespace pm {
 
+bool guideCandidate(SpellId s) {
+    if (s == SpellId::None) return false;
+    return spellDef(s).type != SpellType::Projectile || safeToAutoSlot(s);
+}
+
 namespace {
 
 constexpr float kShowTime = 7.0f;
@@ -35,8 +40,8 @@ constexpr HintText kTexts[] = {
      "Gold ore crumbles into gold dust when blasted - walk over the dust to collect it"},
     {"You are burning! Drink water from your flask with F, or dive into water",
      "You are burning! Drink water from your flask with X, or dive into water"},
-    {"Your satchel holds spells - press Tab and drag one onto an empty wand slot",
-     "Your satchel holds spells - press Back and place one on an empty wand slot"},
+    {"Your satchel holds spells - press Tab to put one on a wand",
+     "Your satchel holds spells - press Back to put one on a wand"},
     {"Drag the glowing spell into the glowing slot - the wand casts its spells from left to right",
      "Pick up the glowing spell with A and place it in the glowing slot with A"},
     {"Shoot a lantern down onto your foes - it shatters into burning oil",
@@ -50,11 +55,12 @@ static_assert(std::size(kTexts) == static_cast<size_t>(Hint::Count), "a text for
 
 /// True when a satchel spell could go onto a wand right now.
 bool roomForSatchelSpell(const RunState& run) {
-    const bool satchel = std::any_of(run.inventory.begin(), run.inventory.end(), [](SpellId s) { return s != SpellId::None; });
-    const bool room = std::any_of(run.wands.begin(), run.wands.end(), [](const Wand& w) {
+    // Only a spell worth teaching with (not the kit's bomb) earns the nudge, and either kind
+    // needs an empty slot: an attack spell goes into it, a booster pushes the deck along into it.
+    if (std::none_of(run.inventory.begin(), run.inventory.end(), guideCandidate)) return false;
+    return std::any_of(run.wands.begin(), run.wands.end(), [](const Wand& w) {
         return std::find(w.slots.begin(), w.slots.end(), SpellId::None) != w.slots.end();
     });
-    return satchel && room;
 }
 
 /// True when a hanging lantern near the alchemist has a creature close beneath it.

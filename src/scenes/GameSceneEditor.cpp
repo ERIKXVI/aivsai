@@ -7,6 +7,7 @@
 #include <cmath>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "app/App.hpp"
 #include "app/InputLatch.hpp"
@@ -68,7 +69,12 @@ SpellId& GameScene::editorSlot(int wand, int slot) {
 }
 
 void GameScene::dropDragOnto(int wand, int slot) {
-    std::swap(editorSlot(drag_.wand, drag_.slot), editorSlot(wand, slot));
+    // A satchel spell dropped onto a wand's spell goes in front of it while the wand has room
+    // further along, so a modifier lands before the spell it boosts; anything else swaps.
+    const bool fromSatchel = drag_.wand < 0 && wand >= 0 && editorSlot(wand, slot) != SpellId::None;
+    if (fromSatchel && insertSpell(run_.wands[static_cast<size_t>(wand)].slots, slot, drag_.spell))
+        editorSlot(drag_.wand, drag_.slot) = SpellId::None;
+    else std::swap(editorSlot(drag_.wand, drag_.slot), editorSlot(wand, slot));
     app_.audio().play(Sfx::UiClick, 0.7f);
     if (wand >= 0) {
         // Show what the change did to the wand's first cast.
@@ -147,24 +153,42 @@ void GameScene::drawInventory() {
              panelR.x + panelR.width * 0.5f, panelR.y + 8.0f * s + static_cast<float>(size), small, ui::color::kTextDim,
              ui::Align::Center);
 
-    // Guided first edit: until a satchel spell has been moved onto a wand once, the first
-    // satchel spell and an empty wand slot glow, with a ghost icon drifting between them.
+    // Guided first edit: until a satchel spell has been moved onto a wand once, a satchel spell
+    // worth using and its destination glow, with a ghost icon drifting between them. An attack
+    // spell goes into an empty slot; a modifier or multicast goes onto the wand's first attack
+    // spell, which it then sits in front of. The hardest-hitting wand comes first, never the
+    // digging wand by accident.
     int guideFrom = -1, guideWand = -1, guideSlot = -1;
+    bool guideBooster = false;
     if (!hints_.seen(Hint::WandGuide)) {
-        for (int i = 0; i < RunState::kInventorySize && guideFrom < 0; ++i) {
-            const SpellId sp = run_.inventory[static_cast<size_t>(i)];
-            if (sp != SpellId::None && spellDef(sp).proj.explosionRadius <= 5.0f) guideFrom = i;
+        const auto from = std::find_if(run_.inventory.begin(), run_.inventory.end(), guideCandidate);
+        if (from != run_.inventory.end()) {
+            guideFrom = static_cast<int>(from - run_.inventory.begin());
+            guideBooster = spellDef(*from).type != SpellType::Projectile;
         }
-        auto firstEmpty = [&](int wi) {
+        std::vector<std::pair<float, int>> byDamage; // (first-cast damage, wand), hardest first
+        for (size_t wi = 0; wi < run_.wands.size(); ++wi) {
+            int pos = 0;
+            const Wand& w = run_.wands[wi];
+            float damage = 0.0f;
+            for (const ProjectileLaunch& l : buildShot(w.slots, w.order, pos, w.spellsPerCast).projectiles) damage += l.def.damage;
+            byDamage.emplace_back(-damage, static_cast<int>(wi));
+        }
+        std::stable_sort(byDamage.begin(), byDamage.end());
+        for (const auto& entry : byDamage) {
+            const int wi = entry.second;
             const auto& slots = run_.wands[static_cast<size_t>(wi)].slots;
-            const auto it = std::find(slots.begin(), slots.end(), SpellId::None);
-            return it == slots.end() ? -1 : static_cast<int>(it - slots.begin());
-        };
-        for (int k = -1; k < static_cast<int>(run_.wands.size()) && guideSlot < 0; ++k) {
-            const int wi = k < 0 ? run_.activeWand : k; // the active wand first
-            if (wi < 0 || wi >= static_cast<int>(run_.wands.size())) continue;
-            guideSlot = firstEmpty(wi);
+            const auto empty = std::find(slots.begin(), slots.end(), SpellId::None);
+            if (empty == slots.end()) continue;
+            auto to = empty;
+            if (guideBooster) {
+                // Onto the first attack spell that has room behind it to move along.
+                to = std::find_if(slots.begin(), slots.end(), [](SpellId s) { return s != SpellId::None && spellDef(s).type == SpellType::Projectile; });
+                if (to == slots.end() || std::find(to + 1, slots.end(), SpellId::None) == slots.end()) continue;
+            }
             guideWand = wi;
+            guideSlot = static_cast<int>(to - slots.begin());
+            break;
         }
     }
     const bool guide = guideFrom >= 0 && guideSlot >= 0;
@@ -223,7 +247,12 @@ void GameScene::drawInventory() {
         Color firstColor = statColor;
         if (firstCastWand_ == static_cast<int>(wi) && firstCastFlash_ > 0.0f)
             firstColor = ColorLerp(statColor, ui::color::kGold, std::min(1.0f, firstCastFlash_ / 0.5f));
-        if (count > 0)
+        // A booster at the end of an ordered deck is wasted; say so in place of the preview.
+        const SpellId dangling = w.shuffle ? SpellId::None : trailingBooster(w.slots);
+        if (dangling != SpellId::None)
+            ui::text(TextFormat("%s has nothing after it to work on", spellDef(dangling).name), sx, y + slot + 3.0f * s, small,
+                     ui::color::kDanger);
+        else if (count > 0)
             ui::text(TextFormat("first cast: %d projectile%s, %d damage, %d mana", count, count == 1 ? "" : "s", static_cast<int>(damage),
                                 static_cast<int>(first.mana)),
                      sx, y + slot + 3.0f * s, small, firstColor);
@@ -286,7 +315,11 @@ void GameScene::drawInventory() {
         const Rectangle ghost{guideFromR.x + (guideToR.x - guideFromR.x) * e, guideFromR.y + (guideToR.y - guideFromR.y) * e, slot, slot};
         ui::spellIcon(run_.inventory[static_cast<size_t>(guideFrom)], ghost, false);
         DrawRectangleRec(ghost, Color{14, 12, 20, static_cast<unsigned char>(255.0f * (1.0f - std::sin(k * PI)))});
-        ui::text(HintTracker::text(Hint::WandGuide, pad), panelR.x + 10.0f * s, satchelBottom + 3.0f * s, small, ui::color::kGold);
+        const char* caption = HintTracker::text(Hint::WandGuide, pad);
+        if (guideBooster)
+            caption = pad ? "Pick up the glowing booster with A and place it on the glowing spell - it boosts the spell after it"
+                          : "Drag the glowing booster onto the glowing spell - it goes in front and boosts the spell after it";
+        ui::text(caption, panelR.x + 10.0f * s, satchelBottom + 3.0f * s, small, ui::color::kGold);
     }
     if (pad && !hints_.seen(Hint::WandGuide) && cursorR.width <= 0.0f) cursorR = guideFromR;
     if (pad && cursorR.width > 0.0f) {

@@ -87,6 +87,21 @@ CastShot buildShot(const std::vector<SpellId>& slots, const std::vector<int>& or
     return shot;
 }
 
+bool insertSpell(std::vector<SpellId>& slots, int at, SpellId s) {
+    if (at < 0 || at >= static_cast<int>(slots.size())) return false;
+    const auto first = slots.begin() + at;
+    const auto hole = std::find(first + 1, slots.end(), SpellId::None);
+    if (hole == slots.end()) return false;
+    std::rotate(first, hole, hole + 1);
+    *first = s;
+    return true;
+}
+
+SpellId trailingBooster(const std::vector<SpellId>& slots) {
+    const auto last = std::find_if(slots.rbegin(), slots.rend(), [](SpellId s) { return s != SpellId::None; });
+    return last != slots.rend() && spellDef(*last).type != SpellType::Projectile ? *last : SpellId::None;
+}
+
 void Wand::tick(float dt) {
     mana = std::min(manaMax, mana + manaCharge * dt);
     if (cooldown > 0.0f) {

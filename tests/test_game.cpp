@@ -91,6 +91,24 @@ TEST_CASE("wand decks cast modifiers, multicasts and triggers") {
     CHECK(w.recharging);
 }
 
+TEST_CASE("a booster dropped onto a spell goes in front of it") {
+    std::vector<SpellId> deck{SpellId::SparkBolt, SpellId::None, SpellId::FireBolt, SpellId::None};
+    CHECK(trailingBooster(deck) == SpellId::None);
+    REQUIRE(insertSpell(deck, 0, SpellId::DamageUp));
+    const std::vector<SpellId> boosted{SpellId::DamageUp, SpellId::SparkBolt, SpellId::FireBolt, SpellId::None};
+    CHECK(deck == boosted);
+    CHECK(castOnce(deck).projectiles[0].def.damage > castOnce({SpellId::SparkBolt}).projectiles[0].def.damage);
+    // Only an empty slot further along makes room; a full tail leaves the deck alone.
+    REQUIRE(insertSpell(deck, 1, SpellId::Homing));
+    CHECK(!insertSpell(deck, 0, SpellId::SpeedUp));
+    const std::vector<SpellId> full{SpellId::DamageUp, SpellId::Homing, SpellId::SparkBolt, SpellId::FireBolt};
+    CHECK(deck == full);
+    // A modifier or multicast at the end of the deck has nothing to work on.
+    const std::vector<SpellId> dangling{SpellId::SparkBolt, SpellId::DoubleCast, SpellId::None};
+    CHECK(trailingBooster(dangling) == SpellId::DoubleCast);
+    CHECK(trailingBooster(std::vector<SpellId>(3, SpellId::None)) == SpellId::None);
+}
+
 TEST_CASE("every loadout builds a consistent kit") {
     for (int d = 0; d < kDifficultyCount; ++d) {
         for (int l = 0; l < kLoadoutCount; ++l) {

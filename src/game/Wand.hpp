@@ -76,6 +76,12 @@ struct Wand {
 /// Builds a cast from `slots` starting at `pos`, drawing `draws` projectile groups.
 /// `pos` is advanced past every consumed card.
 CastShot buildShot(const std::vector<SpellId>& slots, const std::vector<int>& order, int& pos, int draws);
+/// Puts `s` at `at`, pushing the spells from there one slot to the right into the first empty
+/// slot after it. Returns false, changing nothing, when no slot after `at` is empty.
+bool insertSpell(std::vector<SpellId>& slots, int at, SpellId s);
+/// The deck's last spell when it is a modifier or multicast, with nothing after it to work on;
+/// None otherwise.
+SpellId trailingBooster(const std::vector<SpellId>& slots);
 
 Wand makeStarterWand(int index);
 /// Random wand appropriate for a depth tier (0..4), pre-loaded with a few spells.

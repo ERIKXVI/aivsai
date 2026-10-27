@@ -25,7 +25,7 @@ struct LaunchOptions {
     int startLevel = 0;       ///< stage to begin a --play run on (testing)
     int startLoadout = 0;     ///< starting loadout (LoadoutId) for a --play run
     int ordeal = 0;           ///< ordeal level for a --play run (testing)
-    std::string testWand;     ///< comma-separated spell names for the first wand (testing)
+    std::string testWand;     ///< comma-separated spell names for the first wand, "+Name" for the satchel, "-" empty (testing)
     bool startInSanctum = false; ///< begin the --play run in a sanctum (testing)
     std::string openUi;       ///< open a screen once loaded: inventory, pause, transmuter, vault, map (in a run) or loadout, grimoire, help, settings (menu)
     int captureFrame = -1;    ///< save a screenshot after this many frames, then quit (testing)

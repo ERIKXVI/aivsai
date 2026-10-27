@@ -49,6 +49,10 @@ struct RunStats {
 
 static_assert(kSpellCount <= 64, "RunState::spellsSeen is a 64-bit mask (bit i = SpellId i)");
 
+/// An attack spell safe to put straight into the wand in hand: nothing that can catch the caster
+/// in its blast or spills, and no utility bolts (digging, teleport, matter orbs).
+bool safeToAutoSlot(SpellId s);
+
 struct RunState {
     static constexpr int kMaxWands = 4;
     static constexpr int kInventorySize = 16;
