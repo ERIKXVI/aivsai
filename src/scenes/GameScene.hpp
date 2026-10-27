@@ -52,12 +52,17 @@ private:
     void advanceStage();
     PlayerInput gatherInput();
     void latchInput();
-    void noteInputDevice();
     void updateLens(float dt);
     /// Low-health heartbeat cue; it quickens as hp falls below a quarter of max.
     void updateHeartbeat(float dt);
     /// Pause on focus loss, per-mode key/pad transitions (pause, inventory, map) and mode timers.
     void updateModeInput(float dt);
+    /// Raises the title card (stage or guardian); its height on screen is picked again as it fades in.
+    void showTitleCard(std::string title, std::string subtitle, std::string omen = {});
+    /// A guardian gets a title card the first time it notices the alchemist.
+    void announceGuardian();
+    /// The satchel badge, the health bars' pale chips and the gold counter's pop.
+    void updateHudFeedback(float dt);
     /// Records a feat in the profile the first time it is earned, and queues its toast.
     void earnFeat(FeatId feat);
     void updateFeats(float dt);

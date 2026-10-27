@@ -82,9 +82,6 @@ void GameScene::finishLoading() {
     applyLaunchOptions();
     guide_.update(level_->player().body.pos);
     exiting_ = false;
-    titleTimer_ = kTitleCardSeconds;
-    titleTop_ = -1.0f;
-    titleOmen_.clear();
     announcedGuardian_ = 0;
     stageDamageStart_ = run_.stats.damageTaken;
     if (run_.levelIndex >= 3 && !run_.inSanctum) earnFeat(FeatId::DeepDelver);
@@ -92,21 +89,28 @@ void GameScene::finishLoading() {
         // Sanctums restore the alchemist completely (under Lean Sanctums, half of what was lost).
         run_.hp = run_.under(Ordeal::LeanSanctums) ? run_.hp + (run_.maxHp - run_.hp) * 0.5f : run_.maxHp;
         level_->player().hp = run_.hp;
-        titleMain_ = "SANCTUM";
-        titleSub_ = biomeDef(BiomeId::Sanctum).subtitle;
+        showTitleCard("SANCTUM", biomeDef(BiomeId::Sanctum).subtitle);
     } else {
         const BiomeDef& b = biomeDef(level_->biome());
-        titleMain_ = std::string(stageNumeral(run_.levelIndex)) + "  " + b.name;
-        titleSub_ = b.subtitle;
+        std::string omenLine;
         if (const Omen omen = level_->layout().omen; omen != Omen::None) {
-            titleOmen_ = std::string("Omen: ") + omenDef(omen).name + ". " + omenDef(omen).description;
+            omenLine = std::string("Omen: ") + omenDef(omen).name + ". " + omenDef(omen).description;
             app_.audio().play(Sfx::Perk, 0.45f, 0.6f); // a low chime marks the omen
             if (app_.options().autoplay) logAutoplay(TextFormat("stage %d omen %s", run_.levelIndex, omenDef(omen).name));
         }
+        showTitleCard(std::string(stageNumeral(run_.levelIndex)) + "  " + b.name, b.subtitle, std::move(omenLine));
     }
     run_.stats.deepest = std::max(run_.stats.deepest, run_.levelIndex + 1);
     // Every stage start is a resume point.
     if (!app_.options().previewOnly()) saveSuspendedRun(run_);
+}
+
+void GameScene::showTitleCard(std::string title, std::string subtitle, std::string omen) {
+    titleMain_ = std::move(title);
+    titleSub_ = std::move(subtitle);
+    titleOmen_ = std::move(omen);
+    titleTimer_ = kTitleCardSeconds;
+    titleTop_ = -1.0f;
 }
 
 void GameScene::applyLaunchOptions() {
@@ -182,11 +186,6 @@ void GameScene::latchInput() {
     latchCycle_ -= wheel_.step(GetMouseWheelMoveV().y, GetFrameTime());
     if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_TRIGGER_1)) latchCycle_ -= 1;
     if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_1)) latchCycle_ += 1;
-}
-
-void GameScene::noteInputDevice() {
-    // Button prompts follow whichever device was used last.
-    usingGamepad_ = input::usingGamepad(usingGamepad_);
 }
 
 void GameScene::updateLens(float dt) {
@@ -401,23 +400,43 @@ void GameScene::frame(float dt) {
     // the first seconds of a stage does not cost the player the stage's name or its omen.
     if (mode_ == Mode::Playing) titleTimer_ = std::max(0.0f, titleTimer_ - dt);
     updateFeats(dt);
-    // A guardian is announced with a title card the first time it notices the alchemist.
-    if (mode_ == Mode::Playing) {
-        if (const Enemy* g = level_->bossBarTarget(); g && g->guardian() && g->id != announcedGuardian_) {
-            announcedGuardian_ = g->id;
-            titleMain_ = g->def().name;
-            titleSub_ = guardianEpithet(g->type());
-            titleOmen_.clear();
-            titleTimer_ = kTitleCardSeconds;
-            titleTop_ = -1.0f;
-        }
-    }
+    if (mode_ == Mode::Playing) announceGuardian();
     // A stage event announces itself under the title card's place.
     if (EventNotice n = level_->events().takeNotice(); !n.text.empty()) {
         eventNotice_ = std::move(n);
         eventNoticeTime_ = 0.0f;
     }
     if (mode_ == Mode::Playing) eventNoticeTime_ += dt;
+    updateHudFeedback(dt);
+
+    if (input::keyPressed(KEY_F3)) debugOverlay_ = !debugOverlay_;
+    updateHeartbeat(dt);
+    if (mode_ != Mode::Playing) castBlocked_ = true;
+    usingGamepad_ = input::usingGamepad(usingGamepad_); // button prompts follow the device used last
+    updateModeInput(dt);
+
+    // Camera and audio follow the alchemist.
+    const ViewInfo& v = scene_.view();
+    Vec2 viewSize{v.viewW > 0 ? v.viewW : 480.0f, v.viewH > 0 ? v.viewH : 270.0f};
+    const Player& pl = level_->player();
+    Vec2 aim = usingGamepad_ ? pl.body.pos + padAim_ * 80.0f : scene_.screenToWorld(GetMousePosition());
+    if (mode_ != Mode::Playing) aim = pl.body.pos;
+    camera_.kick(level_->player().takeRecoil());
+    updateLens(dt);
+    camera_.update(pl.body.pos, aim, dt, {static_cast<float>(level_->world().width()), static_cast<float>(level_->world().height())},
+                   viewSize);
+    const BiomeDef& b = biomeDef(level_->biome());
+    audio.setMusicMood(b.musicRoot, b.musicMode, level_->combatIntensity());
+}
+
+void GameScene::announceGuardian() {
+    const Enemy* g = level_->bossBarTarget();
+    if (!g || !g->guardian() || g->id == announcedGuardian_) return;
+    announcedGuardian_ = g->id;
+    showTitleCard(g->def().name, guardianEpithet(g->type()));
+}
+
+void GameScene::updateHudFeedback(float dt) {
     // Spells that went to the satchel wait on a HUD badge until the editor is opened.
     if (level_->spellsToSatchel() > satchelCounted_) {
         satchelNew_ += level_->spellsToSatchel() - satchelCounted_;
@@ -438,25 +457,6 @@ void GameScene::frame(float dt) {
     goldPop_ = std::max(0.0f, goldPop_ - dt);
     if (shownGold_ >= 0 && run_.gold > shownGold_) goldPop_ = kGoldPopSeconds;
     shownGold_ = run_.gold;
-
-    if (input::keyPressed(KEY_F3)) debugOverlay_ = !debugOverlay_;
-    updateHeartbeat(dt);
-    if (mode_ != Mode::Playing) castBlocked_ = true;
-    noteInputDevice();
-    updateModeInput(dt);
-
-    // Camera and audio follow the alchemist.
-    const ViewInfo& v = scene_.view();
-    Vec2 viewSize{v.viewW > 0 ? v.viewW : 480.0f, v.viewH > 0 ? v.viewH : 270.0f};
-    const Player& pl = level_->player();
-    Vec2 aim = usingGamepad_ ? pl.body.pos + padAim_ * 80.0f : scene_.screenToWorld(GetMousePosition());
-    if (mode_ != Mode::Playing) aim = pl.body.pos;
-    camera_.kick(level_->player().takeRecoil());
-    updateLens(dt);
-    camera_.update(pl.body.pos, aim, dt, {static_cast<float>(level_->world().width()), static_cast<float>(level_->world().height())},
-                   viewSize);
-    const BiomeDef& b = biomeDef(level_->biome());
-    audio.setMusicMood(b.musicRoot, b.musicMode, level_->combatIntensity());
 }
 
 void GameScene::updateHeartbeat(float dt) {
