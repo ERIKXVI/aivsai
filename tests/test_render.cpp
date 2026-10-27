@@ -1,4 +1,4 @@
-// Tests for the GL-free parts of the renderer: the light budget and the emissive blocks.
+// Tests for the GL-free parts of the renderer: the light budget, the world layer and the sprite data.
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -372,6 +372,40 @@ TEST_CASE("every sprite is registered once and drawn in the palette") {
         }
     }
     for (int n : seen) CHECK(n == 1);
+}
+
+TEST_CASE("a sprite frame lists exactly its opaque pixels, and clamps its frame") {
+    int count = 0;
+    const SpriteSource* sources = spriteSources(count);
+    const SpriteFrame* first = &spriteFrame(sources[0].id, 0);
+    for (int s = 0; s < count; ++s) {
+        const SpriteSource& src = sources[s];
+        for (int f = 0; f < src.frames; ++f) {
+            const SpriteFrame& fr = spriteFrame(src.id, f);
+            CHECK(fr.w == src.w && fr.h == src.h);
+            // '.' is the only transparent character (see the test above).
+            size_t expected = 0;
+            for (int y = 0; y < src.h; ++y) {
+                const char* row = src.rows[f * src.h + y];
+                for (int x = 0; x < src.w && row[x] != '\0'; ++x) expected += row[x] != '.';
+            }
+            CHECK(fr.pixels.size() == expected);
+            for (const SpritePixel& p : fr.pixels) {
+                CHECK(p.x >= 0 && p.x < src.w && p.y >= 0 && p.y < src.h);
+                if (p.x < 0 || p.x >= src.w || p.y < 0 || p.y >= src.h) continue;
+                bool emissive = false;
+                const Color c = spritePaletteColor(src.rows[f * src.h + p.y][p.x], emissive);
+                CHECK(c.r == p.color.r && c.g == p.color.g && c.b == p.color.b && c.a == p.color.a);
+                CHECK(emissive == p.emissive);
+            }
+        }
+    }
+    for (int s = 0; s < count; ++s) {
+        const SpriteSource& src = sources[s];
+        CHECK(&spriteFrame(src.id, src.frames + 3) == &spriteFrame(src.id, src.frames - 1));
+        CHECK(&spriteFrame(src.id, -1) == &spriteFrame(src.id, 0));
+    }
+    CHECK(&spriteFrame(sources[0].id, 0) == first); // references survive building every other sprite's frames
 }
 
 TEST_CASE("a health bar's damage chip holds, drains, and snaps up on a heal") {
