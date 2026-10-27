@@ -171,10 +171,11 @@ void Level::populate() {
 }
 
 Enemy& Level::spawnEnemy(EnemyType type, Vec2 pos) {
-    float scale = 1.0f + 0.32f * static_cast<float>(layout_.levelIndex);
-    if (run_.difficulty == Difficulty::Apprentice) scale *= 0.8f;
-    if (run_.difficulty == Difficulty::Archmage) scale *= 1.3f;
-    if (type == EnemyType::Companion || type == EnemyType::Boss) scale = 1.0f;
+    // Foes harden with depth and with the difficulty. The final boss's health is set for its
+    // stage already, so it takes only the difficulty; the alchemist's homunculus takes neither.
+    const float difficulty = run_.difficulty == Difficulty::Apprentice ? 0.8f : run_.difficulty == Difficulty::Archmage ? 1.3f : 1.0f;
+    float scale = (type == EnemyType::Boss ? 1.0f : 1.0f + 0.32f * static_cast<float>(layout_.levelIndex)) * difficulty;
+    if (type == EnemyType::Companion) scale = 1.0f;
     // Ordeals harden every foe (the alchemist's homunculus aside), and the keepers most of all.
     const bool foe = type != EnemyType::Companion;
     if (foe && run_.under(Ordeal::HardenedFoes)) scale *= 1.25f;

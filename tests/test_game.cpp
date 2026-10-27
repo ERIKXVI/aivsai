@@ -408,6 +408,20 @@ TEST_CASE("elites carry an affix, rolled from the seed") {
     CHECK(burning.resist[static_cast<size_t>(DamageType::Fire)] == 0.0f);
 }
 
+TEST_CASE("the final boss honours the difficulty, unlike the depth") {
+    initMaterials();
+    ThreadPool pool(2);
+    Audio audio;
+    const float base = enemyDef(EnemyType::Boss).hp;
+    const std::pair<Difficulty, float> tiers[] = {{Difficulty::Apprentice, 0.8f}, {Difficulty::Adept, 1.0f}, {Difficulty::Archmage, 1.3f}};
+    for (const auto& [difficulty, k] : tiers) {
+        RunState run = newRun(11, difficulty, false);
+        Level level(generateSanctum(0, 11u, pool), run, audio, pool);
+        const Enemy& boss = level.spawnEnemy(EnemyType::Boss, level.player().body.pos + Vec2{60.0f, -10.0f});
+        CHECK(std::fabs(boss.maxHp - base * k) < 0.5f);
+    }
+}
+
 TEST_CASE("guardians rage, the toad sheds its brood and the slayer earns a perk") {
     initMaterials();
     ThreadPool pool(2);
