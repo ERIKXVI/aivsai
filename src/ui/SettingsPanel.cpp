@@ -27,7 +27,7 @@ bool slider(Rectangle r, const char* label, float& value, bool focused) {
     DrawRectangleRec({knobX - 2.0f * s, r.y, 4.0f * s, r.height}, WHITE);
     ui::text(TextFormat("%d%%", static_cast<int>(std::round(value * 100.0f))), r.x + r.width + 6.0f * s,
              r.y + r.height * 0.5f - static_cast<float>(small) * 0.5f, small, ui::color::kText);
-    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(), {r.x - 4.0f, r.y - 4.0f, r.width + 8.0f, r.height + 8.0f})) {
+    if (input::mouseDown(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(), {r.x - 4.0f, r.y - 4.0f, r.width + 8.0f, r.height + 8.0f})) {
         value = clamp((GetMousePosition().x - r.x) / r.width, 0.0f, 1.0f);
         return true;
     }

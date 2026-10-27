@@ -95,9 +95,19 @@ TEST_CASE("the mouse wheel steps one wand per notch, however it is sent") {
     CHECK(partial.step(0.6f, 0.016f) == 0);
     CHECK(partial.step(0.0f, 0.3f) == 0);
     CHECK(partial.step(0.6f, 0.016f) == 0);
-    // Notches faster than the cooldown are not lost, just spaced out.
+    // Notches faster than the cooldown are not lost, just spaced out: a flick of three, or two
+    // notches reported in one frame, each give their full count.
     input::WheelStepper fast;
-    CHECK(fast.step(1.0f, 0.016f) == 1);
-    CHECK(fast.step(1.0f, 0.016f) == 0);
-    CHECK(fast.step(0.0f, 0.15f) == 1);
+    int flick = 0;
+    for (int frame = 0; frame < 60; ++frame) flick += fast.step(frame == 0 || frame == 2 || frame == 4 ? -1.0f : 0.0f, 1.0f / 60.0f);
+    CHECK(flick == -3);
+    input::WheelStepper twice;
+    int both = 0;
+    for (int frame = 0; frame < 60; ++frame) both += twice.step(frame == 0 ? 2.0f : 0.0f, 1.0f / 60.0f);
+    CHECK(both == 2);
+    // Turning back at once is one step back, not swallowed by what was queued.
+    input::WheelStepper back;
+    CHECK(back.step(1.0f, 0.016f) == 1);
+    CHECK(back.step(0.5f, 0.016f) == 0);
+    CHECK(back.step(-1.0f, 0.2f) == -1);
 }

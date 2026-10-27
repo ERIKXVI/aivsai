@@ -126,6 +126,12 @@ TEST_CASE("the Apprentice's first satchel card varies with the seed") {
         if (std::find(seen.begin(), seen.end(), run.inventory[0]) == seen.end()) seen.push_back(run.inventory[0]);
     }
     CHECK(seen.size() >= 3);
+    // Other kits pack their own satchel, and the Grimoire never hears of the card.
+    for (uint32_t seed = 1; seed <= 40; ++seed) {
+        const RunState storm = newRun(seed, Difficulty::Adept, false, LoadoutId::Stormcaller);
+        CHECK(!((storm.spellsSeen >> static_cast<unsigned>(SpellId::Critical)) & 1ull));
+        CHECK(!((storm.spellsSeen >> static_cast<unsigned>(SpellId::IceShard)) & 1ull));
+    }
 }
 
 TEST_CASE("every loadout builds a consistent kit") {

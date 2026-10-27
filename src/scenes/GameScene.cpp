@@ -260,8 +260,8 @@ PlayerInput GameScene::gatherInput() {
     in.aim = scene_.screenToWorld(GetMousePosition());
     // A click that closed a menu (Resume, Tab mid-drag) must not keep casting once play resumes.
     if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) castBlocked_ = false;
-    in.castHeld = (!castBlocked_ && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) || latchCast_;
-    in.sprayHeld = IsMouseButtonDown(MOUSE_BUTTON_RIGHT);
+    in.castHeld = (!castBlocked_ && input::mouseDown(MOUSE_BUTTON_LEFT)) || latchCast_;
+    in.sprayHeld = input::mouseDown(MOUSE_BUTTON_RIGHT);
     in.absorbHeld = IsKeyDown(KEY_Q);
     if (pad) {
         float rx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X), ry = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y);
