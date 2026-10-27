@@ -68,7 +68,8 @@ public:
     StatusEffects status;
     Resistances resist = kNeutralResist;
     float hurtFlash = 0.0f;
-    float invulnerable = 0.0f;
+    float invulnerable = 0.0f;  ///< seconds in which hits are shrugged off (silent damage over time still lands)
+    float untouchable = 0.0f;   ///< seconds in which no damage lands at all, not even environmental (a revive's grace)
     float contactDamageCooldown = 0.0f;
     bool dead = false;
     bool flying = false;

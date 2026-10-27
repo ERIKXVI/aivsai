@@ -251,7 +251,7 @@ void GameScene::drawInventory() {
         if (firstCastWand_ == static_cast<int>(wi) && firstCastFlash_ > 0.0f)
             firstColor = ColorLerp(statColor, ui::color::kGold, std::min(1.0f, firstCastFlash_ / 0.5f));
         // A booster at the end of an ordered deck is wasted; say so in place of the preview.
-        const SpellId dangling = w.shuffle ? SpellId::None : trailingBooster(w.slots);
+        const SpellId dangling = w.shuffle ? SpellId::None : trailingBooster(w.slots, w.spellsPerCast);
         if (dangling != SpellId::None)
             ui::textWrapped(TextFormat("%s has nothing after it to work on", spellDef(dangling).name), sx, y + slot + 3.0f * s, slotsW,
                             small, ui::color::kDanger);
@@ -337,12 +337,20 @@ void GameScene::drawInventory() {
         DrawRectangleLinesEx({cursorR.x - m, cursorR.y - m, cursorR.width + 2 * m, cursorR.height + 2 * m}, s, ui::color::kGold);
     }
 
-    // Drag & drop.
+    // Drag & drop: a press picks a spell up and the release drops it where it lands. Released over
+    // its own slot it stays in hand, and the next press puts it down (or back, beside the slots):
+    // the only way a touchpad tap can place, as its release falls in the same poll and raylib
+    // never reports it.
     if (!pad) {
-        if (input::mousePressed(MOUSE_BUTTON_LEFT) && hover.wand != -2 && hover.spell != SpellId::None) {
+        const bool pressed = input::mousePressed(MOUSE_BUTTON_LEFT);
+        if (pressed && drag_.active) {
+            if (hover.wand != -2) dropDragOnto(hover.wand, hover.slot);
+            else drag_ = Drag{};
+        } else if (pressed && hover.wand != -2 && hover.spell != SpellId::None) {
             drag_ = {true, hover.spell, hover.wand, hover.slot};
         }
-        if (input::mousePressed(MOUSE_BUTTON_RIGHT) && hover.wand >= 0 && hover.spell != SpellId::None) {
+        // Not while a spell is in hand (as with the pad's Y): emptying its slot would leave it held from nowhere.
+        if (input::mousePressed(MOUSE_BUTTON_RIGHT) && !drag_.active && hover.wand >= 0 && hover.spell != SpellId::None) {
             if (run_.addSpell(hover.spell)) editorSlot(hover.wand, hover.slot) = SpellId::None;
             app_.audio().play(Sfx::UiClick, 0.6f);
         }
@@ -352,7 +360,8 @@ void GameScene::drawInventory() {
         const Rectangle r = pad ? Rectangle{cursorR.x + slot * 0.4f, cursorR.y - slot * 0.6f, slot, slot}
                                 : Rectangle{mouse.x - slot * 0.5f, mouse.y - slot * 0.5f, slot, slot};
         ui::spellIcon(drag_.spell, r, true);
-        if (!pad && IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+        const bool overSource = hover.wand == drag_.wand && hover.slot == drag_.slot;
+        if (!pad && IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && !overSource) {
             if (hover.wand != -2) dropDragOnto(hover.wand, hover.slot);
             else drag_ = Drag{};
         }

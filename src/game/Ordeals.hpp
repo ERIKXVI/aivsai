@@ -13,7 +13,7 @@ enum class Ordeal : uint8_t {
     None,
     HardenedFoes,     ///< creatures have a quarter more health
     GatheringElites,  ///< elites are twice as common
-    LeanSanctums,     ///< sanctums restore only half the health lost
+    LeanSanctums,     ///< sanctums restore only half the health lost; their fonts hold water
     DearWares,        ///< shop prices rise by half
     CruelBlows,       ///< creatures strike a quarter harder
     RestlessMountain, ///< stage events come twice as often
@@ -26,7 +26,7 @@ constexpr int kMaxOrdeal = static_cast<int>(Ordeal::Count) - 1;
 
 struct OrdealDef {
     const char* name; ///< "Lean Sanctums"
-    const char* rule; ///< "Sanctums restore only half the health you have lost."
+    const char* rule; ///< "Sanctums restore only half the health lost, and their fonts hold only water."
 };
 
 /// Ordeal level `level` (1..kMaxOrdeal).

@@ -10,7 +10,7 @@
 namespace pm {
 
 float Actor::applyDamage(Level& level, const DamageInfo& info) {
-    if (dead || info.amount <= 0.0f) return 0.0f;
+    if (dead || info.amount <= 0.0f || untouchable > 0.0f) return 0.0f;
     if (invulnerable > 0.0f && !info.silent) return 0.0f;
     float dealt = info.amount * resist[static_cast<size_t>(info.type)];
     if (dealt <= 0.0f) return 0.0f;
@@ -37,6 +37,7 @@ void Actor::updateStatus(Level& level, const Environment& env) {
     const float dt = kTickDt;
     hurtFlash = std::max(0.0f, hurtFlash - dt);
     invulnerable = std::max(0.0f, invulnerable - dt);
+    untouchable = std::max(0.0f, untouchable - dt);
     contactDamageCooldown = std::max(0.0f, contactDamageCooldown - dt);
     status.wet = std::max(0.0f, status.wet - dt);
     status.oiled = std::max(0.0f, status.oiled - dt);

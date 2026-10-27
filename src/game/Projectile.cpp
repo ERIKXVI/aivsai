@@ -13,6 +13,7 @@ using namespace projflag;
 
 /// What to blame for a projectile's damage: the creature that cast it, else the spell.
 const char* projectileCause(const Level& level, const Projectile& p) {
+    if (p.ownerName) return p.ownerName; // named at launch, so a shot still in flight when its caster dies blames it
     if (p.team == Team::Monster)
         if (const char* name = level.actorName(p.ownerId)) return name;
     return p.spell == SpellId::None ? nullptr : spellDef(p.spell).name;
@@ -174,7 +175,8 @@ void emitTrail(Level& level, Projectile& p) {
     Rng& rng = level.rng();
     if (d.trailMat != mat::Empty && phaseOf(d.trailMat) == Phase::Solid) {
         // A solid trail (rime) is laid cell by cell along the whole step, so it forms an
-        // unbroken bridge - though never inside the caster.
+        // unbroken bridge - though never inside the caster. Its cells are marked so that spells
+        // laying the same trail (this one, its siblings) fly through them instead of crashing.
         const Rectf keepClear = level.player().bounds();
         const Vec2 step = p.pos - p.prevPos;
         const int n = std::max(1, static_cast<int>(std::ceil(step.length())));
@@ -183,7 +185,8 @@ void emitTrail(Level& level, Projectile& p) {
             if (t.x > keepClear.x - 2.0f && t.x < keepClear.x + keepClear.w + 2.0f && t.y > keepClear.y - 2.0f &&
                 t.y < keepClear.y + keepClear.h + 2.0f)
                 continue;
-            world.placeIfEmpty(floorToInt(t.x), floorToInt(t.y), d.trailMat);
+            const int tx = floorToInt(t.x), ty = floorToInt(t.y);
+            if (world.placeIfEmpty(tx, ty, d.trailMat)) world.at(tx, ty).flags |= cellflag::kRime;
         }
     } else if (d.trailMat != mat::Empty && d.trailRate > 0.0f) {
         p.trailAccum += d.trailRate;
@@ -266,6 +269,15 @@ void updateProjectile(Level& level, Projectile& p, float dt) {
         }
     } lanternSweep{level, p, p.pos};
 
+    // A rime-trailed spell rides over the ice it (or a sibling shot) laid; other matter, natural ice
+    // included, still stops it. Out of bounds reads as bedrock.
+    auto blocks = [&](int x, int y) {
+        if (!world.inBounds(x, y)) return true;
+        const Cell& c = world.at(x, y);
+        const bool ownTrail = c.mat == d.trailMat && (c.flags & cellflag::kRime);
+        return isSolidForCollision(c.mat) && !ownTrail;
+    };
+
     // March along the path in sub-cell steps.
     Vec2 delta = p.vel * dt;
     const float dist = delta.length();
@@ -283,17 +295,17 @@ void updateProjectile(Level& level, Projectile& p, float dt) {
 
         const MatId m = world.at(nx, ny).mat;
         const MaterialDef& md = matDef(m);
-        if (isSolidForCollision(m) && !(d.flags & kNoCollideWorld)) {
+        if (blocks(nx, ny) && !(d.flags & kNoCollideWorld)) {
             if (d.flags & kRolls) {
                 // Saw blades ride along floors and turn around at walls.
-                bool wallX = isSolidForCollision(world.matAt(nx, floorToInt(p.pos.y)));
+                bool wallX = blocks(nx, floorToInt(p.pos.y));
                 if (wallX) p.vel.x = -p.vel.x;
                 else p.vel.y = std::min(p.vel.y, 0.0f) * 0.2f;
                 break;
             }
             if (p.bouncesLeft > 0) {
-                bool blockX = isSolidForCollision(world.matAt(nx, floorToInt(p.pos.y)));
-                bool blockY = isSolidForCollision(world.matAt(floorToInt(p.pos.x), ny));
+                bool blockX = blocks(nx, floorToInt(p.pos.y));
+                bool blockY = blocks(floorToInt(p.pos.x), ny);
                 if (blockX) p.vel.x = -p.vel.x;
                 if (blockY) p.vel.y = -p.vel.y;
                 if (!blockX && !blockY) p.vel = -p.vel;

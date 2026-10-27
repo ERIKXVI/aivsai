@@ -51,7 +51,9 @@ void applyTestWand(RunState& run, const std::string& list) {
 } // namespace
 
 App::App(const LaunchOptions& options) : options_(options) {
-    unsigned flags = FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT;
+    // Always-run: otherwise raylib blocks inside EndDrawing while the window is minimised, and
+    // run() never sees the minimise (to release the display and pause) or a close from the taskbar.
+    unsigned flags = FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT | FLAG_WINDOW_ALWAYS_RUN;
     SetConfigFlags(flags);
     SetTraceLogLevel(LOG_WARNING);
 
@@ -273,6 +275,8 @@ int App::run() {
         }
         applyPendingScene();
     }
+    // The settings panel only saves on Back: keep changes made before closing the window with it open.
+    if (!options_.automated()) saveSettings(settings_);
     return 0;
 }
 

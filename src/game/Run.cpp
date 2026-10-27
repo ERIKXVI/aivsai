@@ -51,6 +51,7 @@ bool RunState::trySlotIntoActiveWand(SpellId s) {
 
 void RunState::applyPerk(PerkId p) {
     perks[static_cast<size_t>(p)] = static_cast<uint8_t>(perks[static_cast<size_t>(p)] + 1);
+    perksSeen |= 1u << static_cast<unsigned>(p);
     switch (p) {
     case PerkId::Vitality:
         maxHp += 40.0f;

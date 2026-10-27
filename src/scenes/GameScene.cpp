@@ -55,15 +55,23 @@ void GameScene::requestLevel() {
     // A drag begun during the exit fade must not carry wand/slot indices into the next stage.
     drag_ = Drag{};
     for (Wand& w : run_.wands) w.resetDeck();
+    // Nor may a press latched during the fade, or the click that skips the loading screen, act on
+    // the next stage's first tick: a button still held must be let go before it casts.
+    latchJump_ = latchInteract_ = latchDrink_ = latchCast_ = false;
+    latchWand_ = -1;
+    latchCycle_ = 0;
+    wheel_ = input::WheelStepper{};
+    castBlocked_ = true;
     loadTimer_ = 0.0f;
     loadSkipped_ = false;
     level_.reset();
     const bool sanctum = run_.inSanctum;
+    const bool leanFont = run_.under(Ordeal::LeanSanctums);
     const int index = run_.levelIndex;
     const uint32_t seed = hash3(static_cast<int>(run_.seed), index, sanctum ? 1 : 0, 0xA1C4E3u);
     ThreadPool* pool = &app_.pool();
-    pending_ = std::async(std::launch::async, [sanctum, index, seed, pool]() {
-        if (sanctum) return generateSanctum(index, seed, *pool);
+    pending_ = std::async(std::launch::async, [sanctum, leanFont, index, seed, pool]() {
+        if (sanctum) return generateSanctum(index, seed, *pool, leanFont);
         return generateLevel(biomeForDepth(index), index, seed, *pool);
     });
 }
@@ -86,10 +94,7 @@ void GameScene::finishLoading() {
     stageDamageStart_ = run_.stats.damageTaken;
     if (run_.levelIndex >= 3 && !run_.inSanctum) earnFeat(FeatId::DeepDelver);
     if (run_.inSanctum) {
-        // Sanctums restore the alchemist completely (under Lean Sanctums, half of what was lost).
-        run_.hp = run_.under(Ordeal::LeanSanctums) ? run_.hp + (run_.maxHp - run_.hp) * 0.5f : run_.maxHp;
-        level_->player().hp = run_.hp;
-        showTitleCard("SANCTUM", biomeDef(BiomeId::Sanctum).subtitle);
+        showTitleCard("SANCTUM", biomeDef(BiomeId::Sanctum).subtitle); // its heal came on arrival (advanceStage)
     } else {
         const BiomeDef& b = biomeDef(level_->biome());
         std::string omenLine;
@@ -161,6 +166,9 @@ void GameScene::advanceStage() {
         return;
     } else {
         run_.inSanctum = true;
+        // Sanctums restore the alchemist completely (under Lean Sanctums, half of what was lost).
+        // Healed here, once, and saved with the run: resuming in the sanctum must not heal again.
+        run_.hp = run_.under(Ordeal::LeanSanctums) ? run_.hp + (run_.maxHp - run_.hp) * 0.5f : run_.maxHp;
     }
     // Save the cleared stage's gains straight away: closing the game during the fade or the
     // loading screen then resumes at the next stage, as promised.
@@ -606,6 +614,7 @@ void GameScene::render(float alpha) {
 void GameScene::recordProfile(bool victory) {
     if (profileRecorded_) return;
     profileRecorded_ = true;
+    endStats_ = run_.stats; // the end screen matches the chronicle: what burns on after death is not counted
     std::string fate = run_.quintessence() ? "Perfected the Work" : "Completed the Great Work";
     if (!victory) fate = level_ && !level_->player().alive() ? deathCause(level_->player()) : "Abandoned the Work";
     if (fate.empty()) fate = "Perished";

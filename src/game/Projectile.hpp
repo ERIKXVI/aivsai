@@ -16,6 +16,7 @@ struct Projectile {
     float age = 0.0f;
     Team team = Team::Player;
     uint32_t ownerId = 0;
+    const char* ownerName = nullptr; ///< the creature that cast it (monster shots), kept after it dies
     float critChance = 0.0f;
     int bouncesLeft = 0;
     int chainsLeft = 0;     ///< leaps still to make to further foes (seeded from def.chains)

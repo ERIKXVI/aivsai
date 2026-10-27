@@ -253,20 +253,20 @@ void Player::move(Level& level, const Environment& env) {
         if (input_.jumpHeld) body.vel.y = approach(body.vel.y, -70.0f * speedMul, 600.0f * dt);
         if (input_.downHeld) body.vel.y = approach(body.vel.y, 60.0f, 600.0f * dt);
     } else if (!grounded && input_.jumpHeld) {
-        // Variable jump: keep rising on the initial press, then levitate once falling.
-        bool rising = body.vel.y < 0.0f && jumpedThisPress_;
+        // Variable jump: keep rising on the initial press, then levitate once falling. Once the lift
+        // has engaged, the upward speed is its own, not the jump's rise (or it would switch off).
+        const bool rising = body.vel.y < 0.0f && jumpedThisPress_ && !levitating_;
         const bool lifting = !rising && levitation_ > 0.0f;
         if (lifting) {
-            // Once per hold: lifting flickers on and off as the rise and the hover alternate.
-            if (!levitating_) level.audio().play(Sfx::Levitate, 0.35f, level.fxRng().range(0.9f, 1.1f));
+            if (!levitating_) level.audio().play(Sfx::Levitate, 0.35f, level.fxRng().range(0.9f, 1.1f)); // once per hold
             levitating_ = true;
             body.vel.y = approach(body.vel.y, -kLevitateSpeed, kLevitateAccel * dt);
             levitation_ = std::max(0.0f, levitation_ - dt / levMax);
-            Rng& rng = level.rng();
-            if (rng.chance(0.7f)) {
-                level.particles().addVisual({body.pos.x + rng.range(-2.0f, 2.0f), body.pos.y + body.halfH},
-                                            {rng.range(-15.0f, 15.0f), rng.range(30.0f, 70.0f)}, {170, 150, 255, 220},
-                                            {90, 70, 200, 255}, rng.range(0.2f, 0.4f), 0.0f);
+            Rng& fx = level.fxRng(); // cosmetic sparkle
+            if (fx.chance(0.7f)) {
+                level.particles().addVisual({body.pos.x + fx.range(-2.0f, 2.0f), body.pos.y + body.halfH},
+                                            {fx.range(-15.0f, 15.0f), fx.range(30.0f, 70.0f)}, {170, 150, 255, 220},
+                                            {90, 70, 200, 255}, fx.range(0.2f, 0.4f), 0.0f);
             }
         }
     } else if (!grounded && !input_.jumpHeld && body.vel.y < 0.0f && jumpedThisPress_ == false) {
@@ -452,11 +452,22 @@ void Player::handleFlask(Level& level) {
             level.audio().play(Sfx::UiDeny, 0.5f);
         }
     } else if (input_.sprayHeld && !flask.empty()) {
+        // Pour from the last open pixel along the wand: matter spawned at a tip buried in the
+        // floor or a wall would have nowhere to settle and be lost while still leaving the flask.
+        const Vec2 hand = handPos(body.pos, facingRight_);
+        const Wand* wand = run_.currentWand();
+        const int len = wand ? wand->length : 8; // as wandTip()
+        Vec2 origin = hand;
+        for (int i = 1; i <= len; ++i) {
+            const Vec2 q = hand + aimDir_ * static_cast<float>(i);
+            if (!isPassable(world.matAt(floorToInt(q.x), floorToInt(q.y)))) break;
+            origin = q;
+        }
         for (int i = 0; i < kSprayPerTick && flask.amount > 0; ++i) {
             float a = angleOf(aimDir_) + rng.range(-0.12f, 0.12f);
             Cell cell = makeCell(flask.mat, rng.next());
             cell.flags |= cellflag::kPlayerMade;
-            level.particles().addMatter(wandTip(), fromAngle(a, rng.range(170.0f, 240.0f)), cell);
+            level.particles().addMatter(origin, fromAngle(a, rng.range(170.0f, 240.0f)), cell);
             --flask.amount;
         }
         if (flask.amount <= 0) flask = Flask{};
@@ -575,11 +586,15 @@ void Player::onDamaged(Level& level, const DamageInfo& info, float dealt) {
 
 void Player::onKilled(Level& level, const DamageInfo&) {
     if (run_.hasPerk(PerkId::SecondLife)) {
-        run_.perks[static_cast<size_t>(PerkId::SecondLife)] = 0;
+        run_.perks[static_cast<size_t>(PerkId::SecondLife)] = 0; // spent; the run's perksSeen keeps it for the Grimoire
         dead = false;
         hp = maxHp * 0.5f;
+        // Lava, acid, flames, poison and drowning are silent damage, which `invulnerable` lets through
+        // (it is kept for the blink): without a grace that stops them too, the hazard kills again at once.
         invulnerable = 2.5f;
-        status = StatusEffects{};
+        untouchable = 2.5f;
+        status = StatusEffects{}; // no longer burning or poisoned
+        breath_ = 1.0f;
         level.addFloatText(body.pos + Vec2{0.0f, -12.0f}, "Second Life!", 0xfff0c0, 1.5f);
         level.audio().play(Sfx::Perk, 0.8f);
         level.addFlash(body.pos, 0xfff0c0, 3.0f, 120.0f, 0.8f);

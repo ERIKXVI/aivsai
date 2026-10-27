@@ -68,11 +68,12 @@ struct Profile {
 /// directory if the platform location is unavailable.
 const std::filesystem::path& dataDirectory();
 
-/// Simple key=value files (one pair per line), written atomically.
+/// Simple key=value files (one pair per line), written atomically. Each write keeps the previous
+/// file as "<path>.bak", which reading falls back to when the file is there but empty.
 using KeyValues = std::map<std::string, std::string>;
 KeyValues readKeyValues(const std::filesystem::path& path);
 void writeKeyValues(const std::filesystem::path& path, const KeyValues& kv);
-/// Deletes a key=value file and any temporary file an interrupted write left beside it.
+/// Deletes a key=value file with its backup and any temporary file an interrupted write left beside it.
 void removeKeyValues(const std::filesystem::path& path);
 /// Strict base-10 integer: the whole string must parse and lie in [lo, hi].
 bool parseInteger(const std::string& s, long long& out, long long lo, long long hi);

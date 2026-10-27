@@ -26,7 +26,9 @@ void Generator::placeTransmuter(World& world, LevelLayout& out) {
         for (int dx = -10; dx <= 10; ++dx) {
             for (int dy = 1; dy <= 4; ++dy) world.place(x + dx, y + dy, mat::Rune);
         }
-        for (int dy = -4; dy <= 0; ++dy) {
+        // The rim stands as tall as the 19 x 7 box Level::updateTransmuters counts, so the basin
+        // holds all it asks for.
+        for (int dy = -6; dy <= 0; ++dy) {
             world.place(x - 10, y + dy, mat::Rune);
             world.place(x + 10, y + dy, mat::Rune);
         }

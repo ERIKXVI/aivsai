@@ -86,6 +86,9 @@ bool ShaderProgram::load(const char* fragmentSource, const char* debugName) {
     shader_ = LoadShaderFromMemory(nullptr, fragmentSource);
     if (!IsShaderValid(shader_) || shader_.id == rlGetShaderIdDefault()) {
         TraceLog(LOG_ERROR, "Shader '%s' failed to compile", debugName);
+        // A link failure hands back raylib's default program, which must stay loaded, with a
+        // location table allocated just for this copy: free only the table.
+        if (shader_.id == rlGetShaderIdDefault()) MemFree(shader_.locs);
         shader_ = Shader{};
         return false;
     }

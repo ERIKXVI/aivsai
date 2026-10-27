@@ -1,5 +1,6 @@
 #include "sim/Particles.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 #include "render/WorldRenderer.hpp"
@@ -47,17 +48,28 @@ void ParticleSystem::burst(Vec2 pos, int count, float speed, Rgba color, Rgba gl
 }
 
 void ParticleSystem::deposit(World& world, const Particle& p) {
+    auto settle = [&](int tx, int ty) {
+        if (!world.inBounds(tx, ty) || !isVacant(world.at(tx, ty).mat)) return false;
+        world.set(tx, ty, p.cell);
+        return true;
+    };
     // Settle into the nearest empty cell around the landing point.
-    int x = floorToInt(p.pos.x), y = floorToInt(p.pos.y);
+    const int x = floorToInt(p.pos.x), y = floorToInt(p.pos.y);
     static constexpr int kOffsets[][2] = {{0, 0}, {0, -1}, {-1, 0}, {1, 0}, {-1, -1}, {1, -1}, {0, -2}, {-2, 0}, {2, 0}};
-    for (const auto& o : kOffsets) {
-        int tx = x + o[0], ty = y + o[1];
-        if (!world.inBounds(tx, ty)) continue;
-        if (isVacant(world.at(tx, ty).mat)) {
-            world.set(tx, ty, p.cell);
-            return;
-        }
+    for (const auto& o : kOffsets)
+        if (settle(x + o[0], y + o[1])) return;
+    // Buried (launched inside terrain, or the cells around it filled up): retrace the way it flew
+    // this tick, then look straight up, rather than destroy the matter.
+    constexpr int kSearch = 6;
+    const Vec2 back = p.prevPos - p.pos;
+    const float dist = back.length();
+    const Vec2 dir = back.normalized();
+    for (int i = 1; i <= kSearch && static_cast<float>(i - 1) < dist; ++i) {
+        const Vec2 q = p.pos + dir * std::min(static_cast<float>(i), dist);
+        if (settle(floorToInt(q.x), floorToInt(q.y))) return;
     }
+    for (int i = 3; i <= kSearch + 2; ++i) // the offsets above already tried two cells up
+        if (settle(x, y - i)) return;
 }
 
 void ParticleSystem::update(World& world, float dt) {

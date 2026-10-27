@@ -202,7 +202,8 @@ public:
     void dropLoot(Vec2 pos, int tier, bool chest);
     uint32_t nextId() { return nextId_++; }
     void onEnemyKilled(Enemy& e);
-    /// Applies a perk to the run and rebuilds the player's derived stats, with fanfare.
+    /// Applies a perk to the run and rebuilds the player's derived stats, with fanfare. A Homunculus
+    /// joins at once. Never call it while iterating enemies(): it may spawn one.
     void grantPerk(PerkId perk, const char* reason);
     /// A slain keeper's essence: two perk altars in its lair, its signature gift and one other.
     void offerEssence(const Enemy& keeper);

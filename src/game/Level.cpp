@@ -597,6 +597,11 @@ void Level::grantPerk(PerkId perk, const char* reason) {
     addFloatText(pos - Vec2{0.0f, 14.0f}, def.name, def.color, 1.4f);
     addFlash(pos, def.color, 3.0f, 120.0f, 0.8f);
     particles_.burst(pos, 60, 160.0f, {255, 240, 200, 255}, {255, 200, 120, 255}, 0.8f, rng_, 0.0f);
+    // A homunculus granted mid-stage joins at once, taking the next place in populate()'s line.
+    if (perk == PerkId::Companion && player_->alive()) {
+        const int i = run_.perkCount(PerkId::Companion) - 1;
+        spawnEnemy(EnemyType::Companion, pos + Vec2{static_cast<float>(-6 - 4 * i), 0.0f});
+    }
 }
 
 void Level::updateTransmuters() {
@@ -605,7 +610,7 @@ void Level::updateTransmuters() {
         if (t.complete) continue;
         const int cx = floorToInt(t.pos.x), floorY = floorToInt(t.pos.y);
         // Only matter the alchemist brought counts: a circle beside a natural pool must
-        // not fill itself.
+        // not fill itself. The box is the basin's inside (placeTransmuter builds the rim to match).
         int count = 0;
         for (int y = floorY - 6; y <= floorY; ++y)
             for (int x = cx - 9; x <= cx + 9; ++x)

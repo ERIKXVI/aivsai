@@ -161,7 +161,7 @@ bool pathExists(const World& world, Vec2 from, Vec2 to, std::vector<uint8_t>* re
     return goalFits && nav.distanceAt(from) != NavGrid::kUnreachable;
 }
 
-LevelLayout generateSanctum(int levelIndex, uint32_t seed, ThreadPool& pool) {
+LevelLayout generateSanctum(int levelIndex, uint32_t seed, ThreadPool& pool, bool leanFont) {
     constexpr int kW = 448, kH = 256;
     LevelLayout out;
     out.world = std::make_unique<World>(kW, kH, seed);
@@ -189,13 +189,14 @@ LevelLayout generateSanctum(int levelIndex, uint32_t seed, ThreadPool& pool) {
     }
     // Rune trim along the floor.
     for (int x = left; x <= right; ++x) w.place(x, floorY, mat::Rune);
-    // Healing font: a basin of Vitae.
+    // Healing font: a basin of Vitae (only water under Lean Sanctums, so it cannot undo the halved heal).
     const int fontX = kW / 2;
+    const MatId fontMat = leanFont ? mat::Water : mat::Vitae;
     for (int x = fontX - 16; x <= fontX + 16; ++x) {
         for (int y = floorY - 7; y < floorY; ++y) {
             bool wall = x == fontX - 16 || x == fontX + 16 || y == floorY - 1;
             if (wall) w.place(x, y, mat::Rune);
-            else if (y > floorY - 6) w.place(x, y, mat::Vitae);
+            else if (y > floorY - 6) w.place(x, y, fontMat);
         }
     }
     w.wakeAll();

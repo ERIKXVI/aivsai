@@ -62,6 +62,7 @@ struct Wand {
     bool recharging = false;
     int deckPos = 0;
     std::vector<int> order; ///< shuffled slot order (shuffle wands)
+    bool shuffled = false;  ///< `order` is already shuffled for the current pass through the deck
 
     void tick(float dt);
     CastOutcome tryCast(Rng& rng);
@@ -79,9 +80,10 @@ CastShot buildShot(const std::vector<SpellId>& slots, const std::vector<int>& or
 /// Puts `s` at `at`, pushing the spells from there one slot to the right into the first empty
 /// slot after it. Returns false, changing nothing, when no slot after `at` is empty.
 bool insertSpell(std::vector<SpellId>& slots, int at, SpellId s);
-/// The deck's last spell when it is a modifier or multicast, with nothing after it to work on;
-/// None otherwise.
-SpellId trailingBooster(const std::vector<SpellId>& slots);
+/// The deck's last spell when it is a modifier or multicast that nothing can use: a trailing
+/// multicast always, a trailing modifier when the deck's last cast (`spellsPerCast` cards per cast,
+/// in slot order) fires no projectile, or ends in a trigger left without a payload. None otherwise.
+SpellId trailingBooster(const std::vector<SpellId>& slots, int spellsPerCast = 1);
 
 Wand makeStarterWand(int index);
 /// Random wand appropriate for a depth tier (0..kMaxTier), pre-loaded with a few spells.

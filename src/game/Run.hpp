@@ -48,6 +48,7 @@ struct RunStats {
 };
 
 static_assert(kSpellCount <= 64, "RunState::spellsSeen is a 64-bit mask (bit i = SpellId i)");
+static_assert(kPerkCount <= 32, "RunState::perksSeen is a 32-bit mask (bit i = PerkId i)");
 
 /// An attack spell safe to put straight into the wand in hand: nothing that can catch the caster
 /// in its blast or spills, and no utility bolts (digging, teleport, matter orbs).
@@ -76,6 +77,7 @@ struct RunState {
     std::array<uint8_t, kPerkCount> perks{};
     RunStats stats;
     uint64_t spellsSeen = 0;            ///< discoveries this run, merged into the profile
+    uint32_t perksSeen = 0;             ///< bit i: PerkId i taken this run, even if since spent (Second Life)
     std::array<int, kMaxCreatureTypes> killsByType{}; ///< indexed by EnemyType
     uint8_t essences = 0; ///< bit i: the guardian of stage i slain this run (all four: the Quintessence)
 

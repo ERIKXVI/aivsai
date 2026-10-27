@@ -81,7 +81,8 @@ LevelLayout generateLevel(BiomeId biome, int levelIndex, uint32_t seed, ThreadPo
 std::vector<uint32_t> pruneTree(const World& world, TreeShape& tree);
 
 /// Builds the hand-shaped sanctum between stages (shop, healing font, perk altar, exit).
-LevelLayout generateSanctum(int levelIndex, uint32_t seed, ThreadPool& pool);
+/// `leanFont` (the Lean Sanctums ordeal) fills the font with plain water instead of Vitae.
+LevelLayout generateSanctum(int levelIndex, uint32_t seed, ThreadPool& pool, bool leanFont = false);
 
 /// True if a player-sized body can travel from `from` to `to` through open space
 /// (liquids count as open). Used by tests and as a generation safety net.

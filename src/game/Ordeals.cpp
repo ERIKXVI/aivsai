@@ -11,7 +11,7 @@ namespace {
 constexpr OrdealDef kOrdeals[] = {
     {"Hardened Foes", "Creatures have a quarter more health."},
     {"Gathering Elites", "Elites are twice as common."},
-    {"Lean Sanctums", "Sanctums restore only half the health you have lost."},
+    {"Lean Sanctums", "Sanctums restore only half the health lost, and their fonts hold only water."},
     {"Dear Wares", "Shop prices rise by half."},
     {"Cruel Blows", "Creatures strike a quarter harder."},
     {"Restless Mountain", "The mountain stirs twice as often."},

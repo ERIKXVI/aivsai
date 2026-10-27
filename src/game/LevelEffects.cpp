@@ -68,6 +68,7 @@ void Level::launch(const ProjectileLaunch& l, Vec2 origin, float angle, Team tea
     p.vel = fromAngle(angle, l.def.speed * rng_.range(0.96f, 1.04f));
     p.team = team;
     p.ownerId = ownerId;
+    if (team == Team::Monster) p.ownerName = actorName(ownerId); // the caster may die before the shot lands
     p.critChance = l.critChance;
     p.bouncesLeft = l.def.bounces;
     p.payload = l.payload;

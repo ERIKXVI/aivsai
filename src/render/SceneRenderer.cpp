@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 #include "EmbeddedShaders.hpp"
+#include "app/Platform.hpp"
 #include "rlgl.h"
 
 namespace pm {
@@ -24,10 +26,17 @@ uint32_t emissiveKey(int superX, int superY) {
 } // namespace
 
 SceneRenderer::SceneRenderer() {
-    lightShader_.load(embedded::light_fs, "light.fs");
-    downShader_.load(embedded::down_fs, "down.fs");
-    upShader_.load(embedded::up_fs, "up.fs");
-    compositeShader_.load(embedded::composite_fs, "composite.fs");
+    // Every program is compiled even after one fails, so the log names each failure.
+    bool ok = lightShader_.load(embedded::light_fs, "light.fs");
+    ok = downShader_.load(embedded::down_fs, "down.fs") && ok;
+    ok = upShader_.load(embedded::up_fs, "up.fs") && ok;
+    ok = compositeShader_.load(embedded::composite_fs, "composite.fs") && ok;
+    if (!ok) {
+        // Drawing with a missing program would crash on its empty location table: explain and stop.
+        platform::showFatalError("Prima Materia", "Your graphics driver could not compile the game's shaders. Please install or "
+                                                  "update the drivers for your graphics card.");
+        std::exit(1);
+    }
     lights_.reserve(kMaxLights * 2);
 }
 

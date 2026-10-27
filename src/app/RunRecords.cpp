@@ -137,6 +137,7 @@ RunRecord foldRun(Profile& p, const RunState& run, bool victory, const std::stri
     for (const Wand& w : run.wands)
         for (SpellId s : w.slots)
             if (s != SpellId::None) p.spellsSeen |= 1ull << static_cast<unsigned>(s);
+    p.perksSeen |= run.perksSeen; // includes perks spent since (Second Life)
     for (size_t i = 0; i < run.perks.size(); ++i)
         if (run.perks[i] > 0) p.perksSeen |= 1u << i;
     for (size_t i = 0; i < p.creatureKills.size(); ++i) p.creatureKills[i] += run.killsByType[i];
@@ -230,6 +231,7 @@ void writeRunSave(const RunState& r, const fs::path& path) {
                   std::to_string(r.stats.chestsOpened) + "," + num(r.stats.damageDealt) + "," + num(r.stats.damageTaken) + "," +
                   std::to_string(r.stats.alchemicalKills);
     kv["spells_seen"] = std::to_string(r.spellsSeen);
+    kv["perks_seen"] = std::to_string(r.perksSeen);
     kv["kills_by_type"] = list(r.killsByType);
     kv["essences"] = std::to_string(r.essences);
     writeKeyValues(path, kv);
@@ -281,6 +283,13 @@ std::optional<RunState> readRunSave(const fs::path& path) {
     if (perks.size() != r.perks.size()) return std::nullopt;
     for (size_t i = 0; i < perks.size(); ++i)
         if (!parseInt(perks[i], r.perks[i], 0, 255)) return std::nullopt;
+    // Saves from before perksSeen carry none: the perks still held are all that is known.
+    if (get("perks_seen").empty()) {
+        for (size_t i = 0; i < r.perks.size(); ++i)
+            if (r.perks[i] > 0) r.perksSeen |= 1u << i;
+    } else if (!parseInt(get("perks_seen"), r.perksSeen, 0, 0xFFFFFFFFll)) {
+        return std::nullopt;
+    }
 
     const std::vector<std::string> stats = split(get("stats"), ',');
     // Saves from before alchemical kills were counted carry eight fields.

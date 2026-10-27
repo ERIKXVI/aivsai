@@ -256,7 +256,7 @@ void Enemy::tickGuardian(Level& level, Vec2 toPlayer, bool sees) {
             if (fallSpeed_ > 120.0f && def_->behaviour == Behaviour::Hopper) {
                 ExplosionSpec s;
                 s.radius = 14.0f;
-                s.damage = 14.0f;
+                s.damage = 14.0f * strikeMul_;
                 s.power = 25;
                 s.team = Team::Monster;
                 s.knockback = 200.0f;
@@ -458,7 +458,9 @@ void Enemy::tickTurret(Level& level, Vec2 /*toPlayer*/, bool sees) {
             }
         }
     } else {
-        windup_ = 0.0f; // lost sight mid wind-up: start a fresh telegraph next time
+        // Lost sight mid wind-up or mid burst: the next attack starts over with a fresh telegraph.
+        windup_ = 0.0f;
+        special_ = 0.0f;
     }
 }
 
@@ -516,7 +518,7 @@ void Enemy::tickBrute(Level& level, Vec2 toPlayer, bool sees) {
             phase_ = 0;
             ExplosionSpec s;
             s.radius = 16.0f + 8.0f * static_cast<float>(def_->scale - 1);
-            s.damage = 26.0f;
+            s.damage = 26.0f * strikeMul_;
             s.power = 60;
             s.team = Team::Monster;
             s.knockback = 320.0f;
@@ -587,6 +589,8 @@ void Enemy::tickBoss(Level& level, Vec2 toPlayer, bool /*sees*/) {
     if (body.hitWall) body.vel.x *= -0.5f;
     if (body.hitCeiling || body.onGround) body.vel.y *= -0.5f;
 
+    // The Rebis' spells are tuned for its stage: only an ordeal's Cruel Blows make them strike harder.
+    const float dmgMul = strikeMul_;
     // Called lightning: the columns crackle for a moment, then the bolts fall exactly there.
     if (strikeTimer_ > 0.0f) {
         strikeTimer_ -= dt;
@@ -603,13 +607,12 @@ void Enemy::tickBoss(Level& level, Vec2 toPlayer, bool /*sees*/) {
             l.spell = SpellId::Lightning;
             l.def = spellDef(SpellId::Lightning).proj;
             l.def.damage = 18.0f;
-            for (const Vec2& top : strikes_) level.launch(l, top, kPi * 0.5f, team, id, 1.0f);
+            for (const Vec2& top : strikes_) level.launch(l, top, kPi * 0.5f, team, id, dmgMul);
             strikes_.clear();
         }
     }
 
     if (attackTimer_ > 0.0f || !pl.alive()) return;
-    const float dmgMul = 1.0f;
     int pattern = rng.rangeInt(0, phase_ + 1);
     switch (pattern) {
     case 0: {

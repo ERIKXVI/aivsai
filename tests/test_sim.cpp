@@ -5,6 +5,7 @@
 
 #include "core/ThreadPool.hpp"
 #include "sim/ChunkUpdater.hpp"
+#include "sim/Particles.hpp"
 #include "sim/World.hpp"
 #include "tests/TestFramework.hpp"
 #include "tests/TestWorld.hpp"
@@ -109,6 +110,22 @@ TEST_CASE("a pool in a salt basin turns to brine and settles to sleep") {
     for (int i = 0; i < 4000; ++i) w.step(pool);
     CHECK(countMat(w, mat::SaltRock) == salt);
     CHECK(w.activeChunkCount() <= 4);
+}
+
+TEST_CASE("matter launched inside rock is pushed out, not lost") {
+    // A flask poured with the wand tip buried in the floor: the cells around the landing point
+    // are all rock, so the matter has to climb further to find room.
+    initMaterials();
+    World w(128, 128, 6);
+    buildBox(w);
+    for (int y = 60; y < 127; ++y)
+        for (int x = 1; x < 127; ++x) w.place(x, y, mat::Rock);
+    ParticleSystem particles;
+    particles.addMatter({64.5f, 62.5f}, {200.0f, 40.0f}, makeCell(mat::Water, 1u)); // three cells deep
+    for (int tick = 0; tick < 10 && particles.count() > 0; ++tick) particles.update(w, 1.0f / 60.0f);
+    CHECK(particles.count() == 0);
+    CHECK(countMat(w, mat::Water) == 1);
+    CHECK(w.at(64, 59).mat == mat::Water); // the first open cell above it
 }
 
 TEST_CASE("idle world sleeps") {

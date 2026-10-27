@@ -59,6 +59,8 @@ public:
     void draw(WorldRenderer& layer, float alpha = 1.0f, uint32_t tick = 0) const;
 
 private:
+    /// Writes a matter particle's cell into the nearest vacant cell; when buried, searches back
+    /// along this tick's path and then upward.
     void deposit(World& world, const Particle& p);
     std::vector<Particle> particles_;
 };

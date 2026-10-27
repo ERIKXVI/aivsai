@@ -159,7 +159,7 @@ void GameScene::drawEndScreen(bool victory) {
     }
 
     // The run in two columns either side of a central gutter.
-    const RunStats& st = run_.stats;
+    const RunStats& st = endStats_; // as recorded (enterEndScreen records the run before this screen shows)
     const float lineH = fontH * 1.35f;
     const std::string reached = biomeDef(biomeForDepth(run_.levelIndex)).name;
     const std::string seedNote = run_.daily ? " (Daily Rite)" : run_.ordeal > 0 ? " (" + ordealLabel(run_.ordeal) + ")" : "";

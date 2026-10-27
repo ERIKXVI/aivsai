@@ -2,6 +2,8 @@
 // settings and profile field mappings, including the upgrade of profiles from older builds.
 
 #include <filesystem>
+#include <fstream>
+#include <string>
 
 #include "app/Persistence.hpp"
 #include "game/Ordeals.hpp"
@@ -32,6 +34,43 @@ TEST_CASE("key=value files survive an interrupted replace") {
     fs::copy_file(file, tmp, fs::copy_options::overwrite_existing, ec);
     removeKeyValues(file);
     CHECK(!fs::exists(file) && !fs::exists(tmp));
+    CHECK(readKeyValues(file).empty());
+    fs::remove_all(dir, ec);
+}
+
+TEST_CASE("key=value files fall back to the previous write after a power cut") {
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / "pm_test_kv_bak";
+    std::error_code ec;
+    fs::remove_all(dir, ec); // nothing left over from an aborted run
+    fs::create_directories(dir, ec);
+    const fs::path file = dir / "run.sav";
+    fs::path bak = file;
+    bak += ".bak";
+    writeKeyValues(file, {{"runs", "1"}});
+    writeKeyValues(file, {{"runs", "2"}});
+    CHECK(readKeyValues(file)["runs"] == "2");
+    CHECK(fs::exists(bak));
+
+    // The new file's data never reached the disk: zero-filled or empty, the backup is read.
+    {
+        std::ofstream out(file, std::ios::binary | std::ios::trunc);
+        const std::string zeros(64, '\0');
+        out.write(zeros.data(), static_cast<std::streamsize>(zeros.size()));
+    }
+    CHECK(readKeyValues(file)["runs"] == "1");
+    { std::ofstream out(file, std::ios::trunc); }
+    CHECK(readKeyValues(file)["runs"] == "1");
+    // A file the player deleted is not brought back.
+    fs::remove(file, ec);
+    CHECK(readKeyValues(file).empty());
+
+    // Removing the file takes the backup with it, so an abandoned run cannot come back.
+    writeKeyValues(file, {{"runs", "3"}});
+    writeKeyValues(file, {{"runs", "4"}});
+    CHECK(fs::exists(file) && fs::exists(bak));
+    removeKeyValues(file);
+    CHECK(!fs::exists(file) && !fs::exists(bak));
     CHECK(readKeyValues(file).empty());
     fs::remove_all(dir, ec);
 }

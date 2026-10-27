@@ -164,6 +164,7 @@ private:
     float tickAccumulator_ = 0.0f;
     bool profileRecorded_ = false;
     RunRecord record_;           ///< what the finished run added to the profile, for the end screen
+    RunStats endStats_{};        ///< the run's stats as recorded, for the end screen (later kills do not count)
     bool debugOverlay_ = false;
     Vec2 botAim_;              ///< where the autoplay bot aims (its reticle is drawn there)
     Vec2 padAim_{1.0f, 0.0f}; ///< the gamepad's aim direction, kept when the right stick is released

@@ -136,6 +136,17 @@ TEST_CASE("a booster dropped onto a spell goes in front of it") {
     CHECK(trailingBooster(std::vector<SpellId>(3, SpellId::None)) == SpellId::None);
 }
 
+TEST_CASE("a trailing modifier is flagged only when its cast has nothing to boost") {
+    // Cast alone it fires nothing; drawn into the last cast with a projectile, it boosts that.
+    const std::vector<SpellId> pair{SpellId::SparkBolt, SpellId::DamageUp};
+    CHECK(trailingBooster(pair) == SpellId::DamageUp);
+    CHECK(trailingBooster(pair, 2) == SpellId::None);
+    CHECK(trailingBooster({SpellId::DoubleCast, SpellId::SparkBolt, SpellId::DamageUp}) == SpellId::None);
+    // A trigger's empty payload swallows it; once the trigger carries a spell, a second draw boosts the trigger.
+    CHECK(trailingBooster({SpellId::SparkTrigger, SpellId::DamageUp}) == SpellId::DamageUp);
+    CHECK(trailingBooster({SpellId::SparkTrigger, SpellId::SparkBolt, SpellId::DamageUp}, 2) == SpellId::None);
+}
+
 TEST_CASE("the guided first edit takes a worthy satchel spell to the hardest-hitting wand with room") {
     RunState run = newRun(1, Difficulty::Adept, false);
     run.wands = {makeStarterWand(0), makeStarterWand(1)}; // Rod: 3 Spark Bolts and an empty slot; Delver's: Digging Bolt, 2 empty
@@ -270,6 +281,7 @@ TEST_CASE("suspended runs survive a save and load") {
     run.flask.mat = mat::Vitae;
     run.flask.amount = 333;
     run.perks[static_cast<size_t>(PerkId::Vitality)] = 2;
+    run.perksSeen = (1u << static_cast<unsigned>(PerkId::Vitality)) | (1u << static_cast<unsigned>(PerkId::SecondLife)); // one spent
     run.stats.kills = 57;
     run.stats.time = 1234.5f;
     run.killsByType[3] = 9;
@@ -294,19 +306,25 @@ TEST_CASE("suspended runs survive a save and load") {
     }
     CHECK(r.inventory == run.inventory);
     CHECK(r.flask.mat == mat::Vitae && r.flask.amount == 333);
-    CHECK(r.perks == run.perks);
+    CHECK(r.perks == run.perks && r.perksSeen == run.perksSeen);
     CHECK(r.stats.kills == 57 && r.stats.time == run.stats.time && r.stats.alchemicalKills == 6);
     CHECK(r.killsByType == run.killsByType && r.spellsSeen == run.spellsSeen);
 
-    // A save from before alchemical kills were counted (eight stats) still loads.
+    // A save from before alchemical kills were counted (eight stats) and perks seen were kept
+    // still loads; the perks it holds count as seen.
     {
         KeyValues kv = readKeyValues(path);
         std::string& stats = kv["stats"];
         stats.erase(stats.rfind(','));
+        kv.erase("perks_seen");
         writeKeyValues(path, kv);
     }
     const std::optional<RunState> older = readRunSave(path);
     REQUIRE(older.has_value());
+    uint32_t held = 0;
+    for (size_t i = 0; i < run.perks.size(); ++i)
+        if (run.perks[i] > 0) held |= 1u << i;
+    CHECK(older->perksSeen == held);
     CHECK(older->stats.kills == 57 && older->stats.alchemicalKills == 0);
 
     // A damaged file is rejected rather than half-loaded.
@@ -315,7 +333,7 @@ TEST_CASE("suspended runs survive a save and load") {
         out << "version=1\nseed=12\nwands=2\nwand0=broken\n";
     }
     CHECK(!readRunSave(path).has_value());
-    std::filesystem::remove(path);
+    removeKeyValues(path);
     CHECK(!readRunSave(path).has_value()); // no save at all
 }
 
@@ -415,6 +433,56 @@ TEST_CASE("hitscan lightning follows the aim") {
     // Straight left.
     level.launch(shot.projectiles.front(), origin, kPi, Team::Player, 0, 1.0f);
     CHECK(level.flashes().back().pos.x < origin.x - 5.0f);
+}
+
+TEST_CASE("rime-trailed bolts fly over their own ice and each other's, but not over plain ice") {
+    SanctumRun s(15);
+    Level& level = s.level;
+    World& w = level.world();
+    // A sealed corridor in the brick under the sanctum floor, far from the player, ending in plain ice.
+    constexpr int kRow = 205, kStartX = 40, kWallX = 180;
+    for (int y = kRow - 2; y <= kRow + 2; ++y) {
+        for (int x = kStartX; x < kWallX; ++x) w.clear(x, y);
+        w.place(kWallX, y, mat::Ice);
+    }
+    const CastShot shot = castOnce({SpellId::RimeTrail, SpellId::SparkBolt});
+    REQUIRE(shot.projectiles.size() == 1);
+    REQUIRE(shot.projectiles.front().def.trailMat == mat::Ice);
+    // Two bolts from one tip, as a multicast fires them: the first lays ice across the second's path.
+    const Vec2 tip{static_cast<float>(kStartX) + 10.5f, static_cast<float>(kRow) + 0.5f};
+    level.launch(shot.projectiles.front(), tip, 0.0f, Team::Player, 0, 1.0f);
+    level.launch(shot.projectiles.front(), tip, 0.0f, Team::Player, 0, 1.0f);
+    for (int i = 0; i < 12; ++i) level.tick(PlayerInput{});
+    CHECK(level.projectiles().size() == 2);
+    for (const Projectile& p : level.projectiles()) CHECK(p.pos.x > tip.x + 60.0f);
+    // A bridge of rime lies behind them...
+    const Cell& laid = w.at(kStartX + 40, kRow);
+    CHECK(laid.mat == mat::Ice);
+    CHECK((laid.flags & cellflag::kRime) != 0);
+    // ...and the plain ice ahead still stops them, long before their lifetime runs out.
+    for (int i = 0; i < 14; ++i) level.tick(PlayerInput{});
+    CHECK(level.projectiles().empty());
+}
+
+TEST_CASE("holding jump climbs on levitation once the jump's rise is spent") {
+    SanctumRun s(16);
+    Level& level = s.level;
+    World& w = level.world();
+    Player& pl = level.player();
+    for (int i = 0; i < 30; ++i) level.tick(PlayerInput{}); // settle on the floor
+    REQUIRE(pl.body.onGround);
+    // Open air above, clear of the sanctum's ceiling.
+    const int px = floorToInt(pl.body.pos.x), top = floorToInt(pl.body.pos.y) - 8;
+    for (int y = std::max(1, top - 100); y <= top; ++y)
+        for (int x = px - 6; x <= px + 6; ++x) w.clear(x, y);
+    const float startY = pl.body.pos.y;
+    PlayerInput hold;
+    hold.jumpPressed = hold.jumpHeld = true;
+    level.tick(hold);
+    hold.jumpPressed = false;
+    for (int i = 0; i < 59; ++i) level.tick(hold);
+    // The jump alone rises about 23 cells; held for a second, levitation climbs well past that.
+    CHECK(startY - pl.body.pos.y > 45.0f);
 }
 
 TEST_CASE("sanctum lanterns stay hung") {

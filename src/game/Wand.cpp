@@ -128,9 +128,25 @@ bool insertSpell(std::vector<SpellId>& slots, int at, SpellId s) {
     return true;
 }
 
-SpellId trailingBooster(const std::vector<SpellId>& slots) {
+SpellId trailingBooster(const std::vector<SpellId>& slots, int spellsPerCast) {
     const auto last = std::find_if(slots.rbegin(), slots.rend(), [](SpellId s) { return s != SpellId::None; });
-    return last != slots.rend() && spellDef(*last).type != SpellType::Projectile ? *last : SpellId::None;
+    if (last == slots.rend()) return SpellId::None;
+    const SpellType type = spellDef(*last).type;
+    if (type == SpellType::Projectile) return SpellId::None;
+    if (type == SpellType::Multicast) return *last; // nothing after it to draw
+    // A modifier still boosts a projectile drawn into the same cast before it (multicasts, several
+    // spells per cast), so walk the deck cast by cast and look at what the last cast fires.
+    const int n = static_cast<int>(slots.size());
+    CastShot lastShot;
+    for (int pos = 0; pos < n;) lastShot = buildShot(slots, {}, pos, std::max(1, spellsPerCast));
+    if (lastShot.projectiles.empty()) return *last;
+    // A trigger at the end carries the rest of the deck as its payload: an empty one wastes the modifier.
+    const ProjectileLaunch* tip = &lastShot.projectiles.back();
+    while (spellDef(tip->spell).trigger) {
+        if (!tip->payload || tip->payload->projectiles.empty()) return *last;
+        tip = &tip->payload->projectiles.back();
+    }
+    return SpellId::None;
 }
 
 void Wand::tick(float dt) {
@@ -150,6 +166,7 @@ int Wand::spellCount() const {
 
 void Wand::resetDeck() {
     deckPos = 0;
+    shuffled = false; // the next cast deals a fresh shuffle
     order.clear();
     if (shuffle) {
         order.resize(slots.size());
@@ -167,6 +184,15 @@ CastOutcome Wand::tryCast(Rng& rng) {
     if (cooldown > 0.0f) return out;
     if (shuffle && order.size() != slots.size()) resetDeck();
 
+    // Shuffle wands deal each pass in a fresh random order, once per pass.
+    auto reshuffle = [&] {
+        for (size_t i = order.size(); i > 1; --i)
+            std::swap(order[i - 1], order[static_cast<size_t>(rng.rangeInt(0, static_cast<int>(i) - 1))]);
+        shuffled = true;
+    };
+    // A reset deck (a new wand, or one just edited) starts shuffled too, not in slot order.
+    if (shuffle && deckPos == 0 && !shuffled) reshuffle();
+
     // Cards left after the read head?
     auto cardsRemain = [&] {
         for (int i = deckPos; i < static_cast<int>(slots.size()); ++i)
@@ -178,9 +204,7 @@ CastOutcome Wand::tryCast(Rng& rng) {
         deckPos = 0;
         recharging = true;
         cooldown = std::max(cooldown, std::max(0.05f, rechargeTime + extra));
-        if (shuffle) {
-            for (size_t i = order.size(); i > 1; --i) std::swap(order[i - 1], order[static_cast<size_t>(rng.rangeInt(0, static_cast<int>(i) - 1))]);
-        }
+        if (shuffle) reshuffle();
     };
 
     int pos = deckPos;

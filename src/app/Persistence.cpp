@@ -25,23 +25,41 @@ fs::path tempPathFor(const fs::path& path) {
     return tmp;
 }
 
+/// Where writeKeyValues keeps the previous file while the new one may not have reached the disk.
+fs::path backupPathFor(const fs::path& path) {
+    fs::path bak = path;
+    bak += ".bak";
+    return bak;
+}
+
+/// The pairs in one file, skipping lines without '='; a missing file reads as empty.
+KeyValues parseKeyValues(const fs::path& path) {
+    KeyValues kv;
+    std::ifstream in(path);
+    std::string line;
+    while (std::getline(in, line)) {
+        auto eq = line.find('=');
+        if (eq == std::string::npos) continue;
+        kv[line.substr(0, eq)] = line.substr(eq + 1);
+    }
+    return kv;
+}
+
 } // namespace
 
 KeyValues readKeyValues(const fs::path& path) {
-    KeyValues kv;
-    // A write interrupted between removing the old file and renaming the new one leaves only
+    // A write interrupted between moving the old file aside and renaming the new one leaves only
     // the temporary file; it is complete, so read that.
     fs::path source = path;
     std::error_code ec;
     if (!fs::exists(path, ec)) {
         if (const fs::path tmp = tempPathFor(path); fs::exists(tmp, ec)) source = tmp;
     }
-    std::ifstream in(source);
-    std::string line;
-    while (std::getline(in, line)) {
-        auto eq = line.find('=');
-        if (eq == std::string::npos) continue;
-        kv[line.substr(0, eq)] = line.substr(eq + 1);
+    KeyValues kv = parseKeyValues(source);
+    // A power cut soon after a write can leave the new file empty or zero-filled: fall back to the
+    // previous one, whose data reached the disk long ago. A file deleted on purpose stays deleted.
+    if (kv.empty() && fs::exists(source, ec)) {
+        if (const fs::path bak = backupPathFor(path); fs::exists(bak, ec)) kv = parseKeyValues(bak);
     }
     return kv;
 }
@@ -61,6 +79,16 @@ void writeKeyValues(const fs::path& path, const KeyValues& kv) {
             return;
         }
     }
+    // The new data may still be only in the OS cache, so a power cut soon after the rename can
+    // leave the file empty or zero-filled: keep the previous one, long since on disk, as a backup.
+    if (fs::exists(path, ec)) {
+        const fs::path bak = backupPathFor(path);
+        fs::rename(path, bak, ec);
+        if (ec) { // a runtime that cannot rename over an existing file
+            fs::remove(bak, ec);
+            fs::rename(path, bak, ec);
+        }
+    }
     fs::rename(tmp, path, ec);
     if (ec) {
         // Some runtimes cannot rename over an existing file; readKeyValues falls back to the
@@ -73,7 +101,9 @@ void writeKeyValues(const fs::path& path, const KeyValues& kv) {
 void removeKeyValues(const fs::path& path) {
     std::error_code ec;
     fs::remove(path, ec);
-    fs::remove(tempPathFor(path), ec); // a leftover temporary file must not bring the data back
+    // A leftover temporary file or the backup must not bring the data back.
+    fs::remove(tempPathFor(path), ec);
+    fs::remove(backupPathFor(path), ec);
 }
 
 bool parseInteger(const std::string& s, long long& out, long long lo, long long hi) {

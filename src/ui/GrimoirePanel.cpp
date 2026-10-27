@@ -28,6 +28,20 @@ bool listedCreature(EnemyType t) { return t != EnemyType::Companion; }
 
 bool spellKnown(const Profile& p, int i) { return (p.spellsSeen >> i) & 1ull; }
 
+/// Splits `name` into two lines at the space that best balances their widths at `size`;
+/// false when it has no space.
+bool splitName(const std::string& name, int size, std::string& first, std::string& second) {
+    int best = -1;
+    for (size_t at = name.find(' '); at != std::string::npos; at = name.find(' ', at + 1)) {
+        const int wider = std::max(ui::measure(name.substr(0, at), size), ui::measure(name.substr(at + 1), size));
+        if (best >= 0 && wider >= best) continue;
+        best = wider;
+        first = name.substr(0, at);
+        second = name.substr(at + 1);
+    }
+    return best >= 0;
+}
+
 } // namespace
 
 bool GrimoirePanel::draw(App& app) {
@@ -139,12 +153,21 @@ void GrimoirePanel::drawCreatures(App& app, float x, float y) {
         if (kills > 0) sprites.drawScaled(def.sprite, 0, pos, scale, false, enemyTint(type));
         else sprites.drawScaled(def.sprite, 0, pos, scale, false, Color{34, 28, 44, 255}, false, true);
 
-        const float ny = py + artH + 3.0f * s;
-        ui::text(kills > 0 ? def.name : "???", px + cellW * 0.5f, ny, small, kills > 0 ? ui::color::kText : ui::color::kTextDim,
-                 ui::Align::Center);
+        const float ny = py + artH + 3.0f * s, line2 = ny + static_cast<float>(small) + 1.0f * s;
+        const std::string name = kills > 0 ? def.name : "???";
+        const Color nameColor = kills > 0 ? ui::color::kText : ui::color::kTextDim;
+        // At the smallest UI scale the small text is body-sized: a name too wide for its cell
+        // takes both lines, and the count moves to a tooltip.
+        std::string first, second;
+        if (static_cast<float>(ui::measure(name, small)) > cellW - 4.0f * s && splitName(name, small, first, second)) {
+            ui::text(first, px + cellW * 0.5f, ny, small, nameColor, ui::Align::Center);
+            ui::text(second, px + cellW * 0.5f, line2, small, nameColor, ui::Align::Center);
+            if (kills > 0 && ui::hovered({px, py, cellW, cellH})) ui::tooltip(name, TextFormat("Slain %d", kills));
+            continue;
+        }
+        ui::text(name, px + cellW * 0.5f, ny, small, nameColor, ui::Align::Center);
         if (kills > 0)
-            ui::text(TextFormat("slain %d", kills), px + cellW * 0.5f, ny + static_cast<float>(small) + 1.0f * s, small,
-                     ui::color::kTextDim, ui::Align::Center);
+            ui::text(TextFormat("slain %d", kills), px + cellW * 0.5f, line2, small, ui::color::kTextDim, ui::Align::Center);
     }
 }
 
@@ -214,8 +237,13 @@ void GrimoirePanel::drawChronicle(App& app, float x, float y) {
     const float rowH = 17.0f * s, rowW = (kPanelW - 32.0f) * s;
     const char* headers[] = {"Path", "Reached", "Time", "Fate"};
     for (int c = 0; c < 4; ++c) ui::text(headers[c], x + cols[c], y, size, ui::color::kGold);
-    ui::text("choose a run to replay its seed", x + rowW - 6.0f * s, y + static_cast<float>(size - small), small,
-             ui::color::kTextDim, ui::Align::Right);
+    // At the smallest UI scale the hint is body-sized and would run over the Fate header: leave it
+    // out there (hovering a row explains the replay).
+    const std::string hint = "choose a run to replay its seed";
+    const float hintRight = x + rowW - 6.0f * s;
+    const float fateRight = x + cols[3] + static_cast<float>(ui::measure(headers[3], size));
+    if (hintRight - static_cast<float>(ui::measure(hint, small)) > fateRight + 6.0f * s)
+        ui::text(hint, hintRight, y + static_cast<float>(size - small), small, ui::color::kTextDim, ui::Align::Right);
     chronicleNav_.update(static_cast<int>(p.history.size()));
     const float top = y + rowH * 1.25f;
     auto rowRect = [&](size_t i) { return Rectangle{x - 6.0f * s, top + static_cast<float>(i) * rowH - 2.0f * s, rowW, rowH}; };
