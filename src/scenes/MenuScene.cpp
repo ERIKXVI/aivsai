@@ -23,11 +23,6 @@ namespace {
 constexpr int kMenuW = 512;
 constexpr int kMenuH = 288;
 constexpr const char* kTitle = "PRIMA MATERIA";
-constexpr const char* kDifficultyNames[] = {"Apprentice", "Adept", "Archmage"};
-constexpr const char* kDifficultyHints[] = {"Gentler foes, more health.", "The intended experience.",
-                                            "For seasoned alchemists."};
-static_assert(std::size(kDifficultyNames) == kDifficultyCount && std::size(kDifficultyHints) == kDifficultyCount,
-              "a name and a hint for every difficulty");
 
 uint32_t dailySeed() {
     std::time_t now = std::time(nullptr);
@@ -294,11 +289,11 @@ void MenuScene::drawMain() {
     }
     Settings& st = app_.settings();
     const int d = clamp(st.difficulty, 0, kDifficultyCount - 1);
-    if (item(std::string("Difficulty: ") + kDifficultyNames[d])) {
+    if (item(std::string("Difficulty: ") + difficultyName(difficultyFromIndex(d)))) {
         st.difficulty = (d + 1) % kDifficultyCount;
         saveSettings(st);
     }
-    if (ui::hovered(last)) ui::tooltip(kDifficultyNames[d], kDifficultyHints[d], ui::color::kGold);
+    if (ui::hovered(last)) ui::tooltip(difficultyName(difficultyFromIndex(d)), difficultyDetail(difficultyFromIndex(d)), ui::color::kGold);
     if (item("Alchemy Sandbox")) app_.setScene(std::make_unique<SandboxScene>(app_));
     if (item("Grimoire")) panel_ = Panel::Grimoire;
     if (item("How to Play")) panel_ = Panel::Help;
@@ -332,7 +327,7 @@ void MenuScene::drawLoadouts() {
 
     ui::dimScreen(150);
     const float rowH = 36.0f * s, rowGap = 4.0f * s;
-    Rectangle r{sw * 0.5f - 210.0f * s, sh * 0.5f - 143.0f * s, 420.0f * s, 286.0f * s};
+    Rectangle r{sw * 0.5f - 210.0f * s, sh * 0.5f - 155.0f * s, 420.0f * s, 310.0f * s};
     ui::panel(r);
     ui::text("CHOOSE YOUR PATH", sw * 0.5f, r.y + 8.0f * s, ui::fontSize(ui::scale() + 1), ui::color::kGold, ui::Align::Center);
 
@@ -399,6 +394,18 @@ void MenuScene::drawLoadouts() {
         }
     }
 
+    // The difficulty, where the run is committed to (a click cycles it).
+    const Difficulty diff = difficultyFromIndex(st.difficulty);
+    const Rectangle diffR{sw * 0.5f - 90.0f * s, y, 180.0f * s, 16.0f * s};
+    if (ui::button(diffR, std::string("Difficulty: ") + difficultyName(diff))) {
+        st.difficulty = (static_cast<int>(diff) + 1) % kDifficultyCount;
+        saveSettings(st);
+    }
+    if (ui::hovered(diffR)) {
+        tipTitle = difficultyName(diff);
+        tipBody = difficultyDetail(diff);
+    }
+    y += diffR.height + 6.0f * s;
     drawOrdealRow({r.x + 10.0f * s, y, r.width - 20.0f * s, 20.0f * s}, tipTitle, tipBody);
 
     const float bw = 100.0f * s, bh = 16.0f * s, by = r.y + r.height - 24.0f * s;

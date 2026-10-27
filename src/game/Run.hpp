@@ -21,6 +21,9 @@ constexpr int kDifficultyCount = 3;
 static_assert(static_cast<int>(Difficulty::Archmage) == kDifficultyCount - 1, "update kDifficultyCount");
 /// Settings and the chronicle store the difficulty as an int; out-of-range values snap to the nearest tier.
 constexpr Difficulty difficultyFromIndex(int i) { return static_cast<Difficulty>(clamp(i, 0, kDifficultyCount - 1)); }
+const char* difficultyName(Difficulty d);
+/// What a difficulty changes, in numbers, for menu tooltips.
+const char* difficultyDetail(Difficulty d);
 
 /// Room for every EnemyType in kill counts (saves and profiles), with space to grow.
 constexpr size_t kMaxCreatureTypes = 24;

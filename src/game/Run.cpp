@@ -68,6 +68,27 @@ void RunState::applyPerk(PerkId p) {
     }
 }
 
+const char* difficultyName(Difficulty d) {
+    switch (d) {
+    case Difficulty::Apprentice: return "Apprentice";
+    case Difficulty::Adept: return "Adept";
+    case Difficulty::Archmage: return "Archmage";
+    }
+    return "";
+}
+
+const char* difficultyDetail(Difficulty d) {
+    // Keep in step with damageDealtMul, damageTakenMul, newRun and Level::spawnEnemy.
+    switch (d) {
+    case Difficulty::Apprentice:
+        return "50 more health, foes deal 45% less damage and are 20% frailer, your spells hit 25% harder, "
+               "and you start with a Damage Plus card.";
+    case Difficulty::Adept: return "The intended trial.";
+    case Difficulty::Archmage: return "30 less health, foes deal 50% more damage and are 30% hardier. For seasoned alchemists.";
+    }
+    return "";
+}
+
 float RunState::damageDealtMul() const {
     float m = hasPerk(PerkId::GlassCannon) ? 2.0f : 1.0f;
     if (difficulty == Difficulty::Apprentice) m *= 1.25f;

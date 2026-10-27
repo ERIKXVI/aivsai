@@ -921,7 +921,27 @@ void GameScene::drawEndScreen(bool victory) {
     if (ui::hovered({bx, y, bw, bh}))
         ui::tooltip("Retry Seed", "Walk the same stages again: the same layout, wands and treasures.", ui::color::kAccent);
     bx += bw + gap;
-    if (ui::button({bx, y, bw, bh}, "Main Menu") || ui::backPressed()) app_.setScene(std::make_unique<MenuScene>(app_));
+    if (ui::button({bx, y, bw, bh}, "Main Menu") || ui::backPressed()) {
+        app_.setScene(std::make_unique<MenuScene>(app_));
+        return;
+    }
+    // Two quick falls in a row on stage I, never having won: offer the gentler road.
+    const Profile& prof = app_.profile();
+    const bool struggling = !victory && prof.victories == 0 && run_.difficulty != Difficulty::Apprentice && run_.ordeal == 0 &&
+                            !run_.daily && prof.history.size() >= 2 && prof.history[0].depth == 0 && prof.history[1].depth == 0 &&
+                            !prof.history[0].victory && !prof.history[1].victory;
+    if (struggling) {
+        const Rectangle easier{sw * 0.5f - bw, y + bh + gap, bw * 2.0f, bh};
+        if (ui::button(easier, "Try as Apprentice")) {
+            app_.settings().difficulty = static_cast<int>(Difficulty::Apprentice);
+            if (!app_.options().automated()) saveSettings(app_.settings());
+            app_.setScene(std::make_unique<GameScene>(app_, newRun(randomRunSeed(), Difficulty::Apprentice, false, run_.loadout, 0)));
+            return;
+        }
+        if (ui::hovered(easier))
+            ui::tooltip("Apprentice", std::string(difficultyDetail(Difficulty::Apprentice)) + " Change it any time under Choose Your Path.",
+                        ui::color::kGold);
+    }
 }
 
 void GameScene::drawDebugOverlay() const {
