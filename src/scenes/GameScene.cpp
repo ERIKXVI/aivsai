@@ -244,7 +244,14 @@ PlayerInput GameScene::gatherInput() {
     in.absorbHeld = IsKeyDown(KEY_Q);
     if (pad) {
         float rx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X), ry = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y);
-        if (rx * rx + ry * ry > 0.1f && level_) in.aim = level_->player().body.pos + Vec2{rx, ry}.normalized() * 80.0f;
+        if (rx * rx + ry * ry > 0.1f) {
+            padAim_ = Vec2{rx, ry}.normalized();
+            padAimSet_ = true;
+        } else if (!padAimSet_ && std::fabs(in.moveX) > 0.25f) {
+            padAim_ = {in.moveX > 0.0f ? 1.0f : -1.0f, 0.0f}; // until the right stick is used, aim where you walk
+        }
+        // On a pad the aim keeps the stick's last direction instead of snapping to the idle mouse pointer.
+        if (usingGamepad_ && level_) in.aim = level_->player().body.pos + padAim_ * 80.0f;
         if (GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_TRIGGER) > 0.3f) in.castHeld = true;
         if (GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_TRIGGER) > 0.3f) in.sprayHeld = true;
         if (IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_UP)) in.absorbHeld = true;
@@ -392,7 +399,7 @@ void GameScene::frame(float dt) {
     const ViewInfo& v = scene_.view();
     Vec2 viewSize{v.viewW > 0 ? v.viewW : 480.0f, v.viewH > 0 ? v.viewH : 270.0f};
     const Player& pl = level_->player();
-    Vec2 aim = scene_.screenToWorld(GetMousePosition());
+    Vec2 aim = usingGamepad_ ? pl.body.pos + padAim_ * 80.0f : scene_.screenToWorld(GetMousePosition());
     if (mode_ != Mode::Playing) aim = pl.body.pos;
     camera_.kick(level_->player().takeRecoil());
     updateLens(dt);
@@ -458,6 +465,11 @@ void GameScene::updateModeInput(float dt) {
 
 void GameScene::render(float alpha) {
     ui::beginFrame(app_.screenWidth(), app_.screenHeight());
+    // The system cursor gives way to the reticle in play, and is back in every menu and screen.
+    if (showReticle() != IsCursorHidden()) {
+        if (showReticle()) HideCursor();
+        else ShowCursor();
+    }
     ScopedTimer renderTimer(ProfileSection::Render);
     ClearBackground(BLACK);
     if (level_) {
@@ -471,6 +483,7 @@ void GameScene::render(float alpha) {
         levelRenderer_.render(*level_, cam, a, time_, app_.screenWidth(), app_.screenHeight());
         if (mode_ != Mode::Dead && mode_ != Mode::Victory) drawWorldOverlays(a);
         if (mode_ == Mode::Playing) drawCompass(a);
+        if (showReticle()) drawReticle(a);
         if (mode_ != Mode::Victory) drawHud();
         // The lens names a thing for a few seconds, then lets it be.
         if (mode_ == Mode::Playing && !lens_.title.empty() && lens_.same < 4.0f) ui::tooltip(lens_.title, lens_.body, lens_.color);
@@ -483,7 +496,9 @@ void GameScene::render(float alpha) {
 
     switch (mode_) {
     case Mode::Inventory: drawInventory(); break;
-    case Mode::Map: minimap_.drawFull(*level_, static_cast<float>(app_.screenWidth()), static_cast<float>(app_.screenHeight()), time_); break;
+    case Mode::Map:
+        minimap_.drawFull(*level_, static_cast<float>(app_.screenWidth()), static_cast<float>(app_.screenHeight()), time_, usingGamepad_);
+        break;
     case Mode::Paused: drawPauseMenu(); break;
     case Mode::Settings:
         ui::dimScreen(150);

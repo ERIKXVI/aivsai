@@ -167,7 +167,7 @@ void Minimap::drawCorner(const Level& level, float screenW, float top, float tim
     drawMarkers(level, dest, src, time, 2.5f * s);
 }
 
-void Minimap::drawFull(const Level& level, float screenW, float screenH, float time) const {
+void Minimap::drawFull(const Level& level, float screenW, float screenH, float time, bool gamepad) const {
     if (texture_.id == 0) return;
     const float s = static_cast<float>(ui::scale());
     const int size = ui::fontSize(ui::scale() + 1), small = ui::smallFontSize();
@@ -198,7 +198,7 @@ void Minimap::drawFull(const Level& level, float screenW, float screenH, float t
         legend(kGuardianColor, "Guardian (optional)");
         legend(kCircleColor, "Circle");
     }
-    ui::text("M / Esc to close", screenW * 0.5f, dest.y + dest.height + 6.0f * s, small, ui::color::kTextDim, ui::Align::Center);
+    ui::text(gamepad ? "D-pad down / B to close" : "M / Esc to close", screenW * 0.5f, dest.y + dest.height + 6.0f * s, small, ui::color::kTextDim, ui::Align::Center);
 }
 
 } // namespace pm

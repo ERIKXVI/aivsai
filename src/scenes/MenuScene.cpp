@@ -187,6 +187,7 @@ void MenuScene::frame(float dt) {
 void MenuScene::render(float alpha) {
     (void)alpha;
     ui::beginFrame(app_.screenWidth(), app_.screenHeight());
+    if (IsCursorHidden()) ShowCursor(); // a run's reticle hides it
     usingGamepad_ = input::usingGamepad(usingGamepad_);
     const float zoom = SceneRenderer::kViewHeightCells / static_cast<float>(kMenuH);
     scene_.beginFrame({kMenuW * 0.5f, kMenuH * 0.5f}, app_.screenWidth(), app_.screenHeight(), zoom);

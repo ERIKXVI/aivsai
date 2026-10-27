@@ -29,8 +29,8 @@ public:
     void revealAll(const Level& level);
     /// Small map anchored at the top-right corner below `top` (screen pixels).
     void drawCorner(const Level& level, float screenW, float top, float time) const;
-    /// Full-screen map overlay.
-    void drawFull(const Level& level, float screenW, float screenH, float time) const;
+    /// Full-screen map overlay; `gamepad` picks the closing prompt.
+    void drawFull(const Level& level, float screenW, float screenH, float time, bool gamepad) const;
 
 private:
     bool explored(int bx, int by) const;

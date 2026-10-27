@@ -127,7 +127,7 @@ void GameScene::drawWorldOverlays(float alpha) const {
     if (mode_ == Mode::Playing && level_->player().alive()) {
         if (const Pickup* p = level_->focusedPickup()) {
             Vector2 sp = scene_.worldToScreen({p->body.pos.x, p->body.pos.y - 16.0f});
-            std::string label = "[E] " + p->label();
+            std::string label = (usingGamepad_ ? "[B] " : "[E] ") + p->label();
             if (p->rare) label += " - a rare find";
             const Color labelColor = p->price > 0 && run_.gold < p->price ? ui::color::kDanger
                                      : p->rare                            ? ui::color::kGold
@@ -168,6 +168,33 @@ void GameScene::drawCompass(float alpha) const {
     const float pulse = 0.8f + 0.2f * std::sin(time_ * 3.0f);
     arrow(s * 1.35f, Color{10, 6, 16, static_cast<unsigned char>(200.0f * pulse)}); // dark rim for pale stages
     arrow(s, Color{200, 170, 255, static_cast<unsigned char>(255.0f * pulse)});
+}
+
+void GameScene::drawReticle(float alpha) const {
+    const float s = static_cast<float>(ui::scale());
+    const Vector2 c = usingGamepad_ ? scene_.worldToScreen(level_->player().body.interpolated(alpha) + padAim_ * 60.0f)
+                                    : GetMousePosition();
+    // Four ticks around an open centre, each with a dark rim so it reads on lava and on salt.
+    const float gap = 2.0f * s, len = 3.0f * s, w = std::max(1.0f, s);
+    auto ticks = [&](float grow, Color col) {
+        DrawRectangleRec({c.x - gap - len - grow, c.y - w * 0.5f - grow, len + grow * 2.0f, w + grow * 2.0f}, col);
+        DrawRectangleRec({c.x + gap - grow, c.y - w * 0.5f - grow, len + grow * 2.0f, w + grow * 2.0f}, col);
+        DrawRectangleRec({c.x - w * 0.5f - grow, c.y - gap - len - grow, w + grow * 2.0f, len + grow * 2.0f}, col);
+        DrawRectangleRec({c.x - w * 0.5f - grow, c.y + gap - grow, w + grow * 2.0f, len + grow * 2.0f}, col);
+    };
+    ticks(w, Color{10, 6, 16, 200});
+    ticks(0.0f, Color{235, 228, 255, 235});
+    // Around it, the held wand's rhythm: the ring fills while it recharges, and burns red when
+    // its mana runs low.
+    const Wand* wand = run_.currentWand();
+    if (!wand) return;
+    const float ready = wand->cooldownTotal > 0.0f ? clamp(1.0f - wand->cooldown / wand->cooldownTotal, 0.0f, 1.0f) : 1.0f;
+    const bool lowMana = wand->mana < wand->manaMax * 0.12f;
+    if (ready >= 1.0f && !lowMana) return;
+    const float r = 7.5f * s;
+    DrawRing(c, r - w, r + w * 0.5f, 0.0f, 360.0f, 32, Color{10, 6, 16, 120});
+    const Color fill = lowMana ? Color{230, 70, 60, 230} : wand->recharging ? Color{255, 170, 60, 230} : Color{235, 228, 255, 200};
+    DrawRing(c, r - w * 0.5f, r, -90.0f, -90.0f + 360.0f * (lowMana ? 1.0f : ready), 32, fill);
 }
 
 void GameScene::drawHud() const {
@@ -280,9 +307,13 @@ void GameScene::drawHud() const {
         DrawRectangleLinesEx(r, s, Color{190, 220, 240, 200});
         DrawRectangleRec({r.x + r.width * 0.3f, r.y - 3.0f * s, r.width * 0.4f, 3.0f * s}, Color{120, 80, 50, 255});
         std::string label = f.empty() ? "Empty flask" : std::string(matDef(f.mat).name) + TextFormat(" %d%%", f.amount * 100 / Flask::kCapacity);
-        ui::text(label, r.x - 4.0f * s, r.y + r.height - static_cast<float>(small), small, ui::color::kTextDim, ui::Align::Right);
-        ui::text("RMB pour  Q absorb  F drink", r.x - 4.0f * s, r.y + r.height - static_cast<float>(small) * 2.2f, small,
-                 Color{120, 112, 104, 200}, ui::Align::Right);
+        // The flask's name and its controls, on a dark plate so they read over ice and sulphur.
+        const char* legend = usingGamepad_ ? "LT pour  Y absorb  X drink" : "RMB pour  Q absorb  F drink";
+        const float plateW = static_cast<float>(std::max(ui::measure(label, small), ui::measure(legend, small))) + 6.0f * s;
+        const float plateY = r.y + r.height - static_cast<float>(small) * 2.2f - 2.0f * s;
+        DrawRectangleRec({r.x - 4.0f * s - plateW, plateY, plateW + 2.0f * s, r.y + r.height - plateY + 2.0f * s}, Color{10, 8, 16, 150});
+        ui::text(label, r.x - 4.0f * s, r.y + r.height - static_cast<float>(small), small, ui::color::kText, ui::Align::Right);
+        ui::text(legend, r.x - 4.0f * s, r.y + r.height - static_cast<float>(small) * 2.2f, small, ui::color::kTextDim, ui::Align::Right);
     }
 
     // Boss (or guardian) health.
@@ -812,7 +843,8 @@ void GameScene::drawEndScreen(bool victory) {
         RunState fresh = newRun(seed, run_.difficulty, false, run_.loadout, run_.daily ? 0 : run_.ordeal);
         app_.setScene(std::make_unique<GameScene>(app_, std::move(fresh)));
     };
-    if (ui::button({bx, y, bw, bh}, victory ? "New Work" : "Try Again") || ui::confirmPressed() || input::keyPressed(KEY_R)) {
+    const char* again = victory ? (usingGamepad_ ? "New Work (A)" : "New Work (R)") : (usingGamepad_ ? "Try Again (A)" : "Try Again (R)");
+    if (ui::button({bx, y, bw, bh}, again) || ui::confirmPressed() || input::keyPressed(KEY_R)) {
         startRun(randomRunSeed());
         return;
     }
