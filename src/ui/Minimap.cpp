@@ -25,6 +25,22 @@ constexpr Color kCircleColor{120, 230, 255, 230};
 constexpr Color kGuardianColor{230, 70, 60, 240};
 constexpr Color kPortalColor{200, 140, 255, 255};
 
+enum class Glyph { You, Portal, Vault, Guardian, Circle };
+
+/// One marker's shape, shared by the map's markers and its legend so the two cannot drift.
+void drawGlyph(Glyph glyph, Vector2 c, float r, float line, Color color) {
+    switch (glyph) {
+    case Glyph::You:
+        DrawCircleV(c, r * 1.5f, Color{0, 0, 0, 200});
+        DrawCircleV(c, r, color);
+        break;
+    case Glyph::Portal: DrawPoly(c, 4, r, 45.0f, color); break;
+    case Glyph::Vault: DrawRectangleLinesEx({c.x - r * 0.8f, c.y - r * 0.5f, r * 1.6f, r}, line, color); break;
+    case Glyph::Guardian: DrawPoly(c, 3, r, 90.0f, color); break;
+    case Glyph::Circle: DrawCircleV(c, r, color); break;
+    }
+}
+
 Color shade(Rgba c, float k, uint8_t alpha) {
     return Color{static_cast<unsigned char>(static_cast<float>(c.r) * k), static_cast<unsigned char>(static_cast<float>(c.g) * k),
                  static_cast<unsigned char>(static_cast<float>(c.b) * k), alpha};
@@ -127,7 +143,7 @@ void Minimap::drawMarkers(const Level& level, Rectangle dest, Rectangle src, flo
     for (const Transmuter& t : level.transmuters()) {
         if (t.complete || !exploredNear(t.pos)) continue;
         const Vector2 s = toScreen(t.pos);
-        if (inside(s)) DrawCircleV(s, m * 0.6f, kCircleColor);
+        if (inside(s)) drawGlyph(Glyph::Circle, s, m * 0.6f, 1.0f, kCircleColor);
     }
     // A lair's guardian is known by rumour: marked from the start, so the fight can be sought.
     for (const auto& e : level.enemies()) {
@@ -135,22 +151,19 @@ void Minimap::drawMarkers(const Level& level, Rectangle dest, Rectangle src, flo
         const Vector2 g = toScreen(e->body.pos);
         if (!inside(g)) continue;
         const float r = m * (0.75f + 0.1f * std::sin(time * 3.0f));
-        DrawPoly(g, 3, r, 90.0f, kGuardianColor);
+        drawGlyph(Glyph::Guardian, g, r, 1.0f, kGuardianColor);
     }
     if (!level.isSanctum()) {
         // The goal is marked from the start: hollow until the alchemist has seen it, then solid.
         const Vector2 s = toScreen(level.exitPos());
         if (inside(s)) {
             const float r = m * (0.9f + 0.15f * std::sin(time * 4.0f));
-            if (exploredNear(level.exitPos())) DrawPoly(s, 4, r, 45.0f, kPortalColor);
+            if (exploredNear(level.exitPos())) drawGlyph(Glyph::Portal, s, r, 1.0f, kPortalColor);
             else DrawPolyLinesEx(s, 4, r, 45.0f, std::max(1.0f, m * 0.3f), kPortalColor);
         }
     }
     const Vector2 s = toScreen(level.player().center());
-    if (inside(s)) {
-        DrawCircleV(s, m * 0.75f, Color{0, 0, 0, 200});
-        DrawCircleV(s, m * 0.5f, std::fmod(time, 1.0f) < 0.75f ? WHITE : Color{255, 230, 160, 255});
-    }
+    if (inside(s)) drawGlyph(Glyph::You, s, m * 0.5f, 1.0f, std::fmod(time, 1.0f) < 0.75f ? WHITE : Color{255, 230, 160, 255});
 }
 
 void Minimap::drawCorner(const Level& level, float screenW, float top, float time) const {
@@ -161,7 +174,8 @@ void Minimap::drawCorner(const Level& level, float screenW, float top, float tim
     // Window centred on the player, kept inside the map.
     Rectangle src{clamp(p.x / kBlock - w * 0.5f, 0.0f, static_cast<float>(bw_) - w), clamp(p.y / kBlock - h * 0.5f, 0.0f, static_cast<float>(bh_) - h), w, h};
     Rectangle dest{screenW - (w + 10.0f) * s, top, w * s, h * s};
-    DrawRectangleRec({dest.x - s, dest.y - s, dest.width + 2.0f * s, dest.height + 2.0f * s}, Color{6, 5, 10, 150});
+    // A near-opaque backing, so the live world does not show through unexplored blocks.
+    DrawRectangleRec({dest.x - s, dest.y - s, dest.width + 2.0f * s, dest.height + 2.0f * s}, Color{6, 5, 10, 210});
     DrawTexturePro(texture_, src, dest, {0.0f, 0.0f}, 0.0f, WHITE);
     DrawRectangleLinesEx({dest.x - s, dest.y - s, dest.width + 2.0f * s, dest.height + 2.0f * s}, 1.0f, Color{92, 76, 120, 200});
     drawMarkers(level, dest, src, time, 2.5f * s);
@@ -185,18 +199,18 @@ void Minimap::drawFull(const Level& level, float screenW, float screenH, float t
     // Legend.
     const float lx = dest.x + dest.width + 12.0f * s;
     float ly = dest.y + 4.0f * s;
-    auto legend = [&](Color c, const char* label) {
-        c.a = 255; // solid swatches: the markers' translucency would only dim them against the panel
-        DrawRectangleRec({lx, ly + static_cast<float>(small) * 0.25f, 6.0f * s, 6.0f * s}, c);
+    auto legend = [&](Glyph glyph, Color c, const char* label) {
+        c.a = 255; // solid: the markers' translucency would only dim them against the panel
+        drawGlyph(glyph, {lx + 3.0f * s, ly + static_cast<float>(small) * 0.5f}, 3.0f * s, std::max(1.0f, s), c);
         ui::text(label, lx + 10.0f * s, ly, small, ui::color::kTextDim);
         ly += static_cast<float>(small) * 1.6f;
     };
     if (lx + 60.0f * s < screenW) {
-        legend(WHITE, "You");
-        legend(kPortalColor, "Portal (goal)");
-        legend(kVaultColor, "Vault");
-        legend(kGuardianColor, "Guardian (optional)");
-        legend(kCircleColor, "Circle");
+        legend(Glyph::You, WHITE, "You");
+        legend(Glyph::Portal, kPortalColor, "Portal (goal)");
+        legend(Glyph::Vault, kVaultColor, "Vault");
+        legend(Glyph::Guardian, kGuardianColor, "Guardian (optional)");
+        legend(Glyph::Circle, kCircleColor, "Transmutation circle");
     }
     ui::text(gamepad ? "D-pad down / B to close" : "M / Esc to close", screenW * 0.5f, dest.y + dest.height + 6.0f * s, small, ui::color::kTextDim, ui::Align::Center);
 }
