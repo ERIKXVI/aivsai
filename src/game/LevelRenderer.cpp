@@ -22,6 +22,16 @@ Color spellColor(SpellId s) {
     return WHITE;
 }
 
+constexpr float kDeathDesaturation = 0.8f; ///< share of the biome's saturation a finished death fade drains
+constexpr float kDeathDimming = 0.3f;      ///< share of the exposure it takes
+
+/// Live enemies, then the alchemist, into the albedo or the emission layer.
+void drawFigures(const Level& level, DrawContext& ctx, bool emissive) {
+    auto draw = [&](const Actor& a) { if (emissive) a.drawEmission(ctx); else a.drawAlbedo(ctx); };
+    for (const auto& e : level.enemies())
+        if (e->alive()) draw(*e);
+    if (level.player().alive()) draw(level.player());
+}
 
 } // namespace
 
@@ -57,9 +67,7 @@ void LevelRenderer::render(const Level& level, Vec2 camera, float alpha, float t
         // and haze them like the back wall they stand against.
         gpu::BlendScope foreground(gpu::Blend::Foreground);
         drawProps(level, alpha, time, false);
-        for (const auto& e : level.enemies())
-            if (e->alive()) e->drawAlbedo(ctx);
-        if (level.player().alive()) level.player().drawAlbedo(ctx);
+        drawFigures(level, ctx, false);
     }
     scene_.endAlbedo();
 
@@ -70,13 +78,19 @@ void LevelRenderer::render(const Level& level, Vec2 camera, float alpha, float t
         sky_.draw(layout.skyline, layout.surfaceY, v.originX, v.originY, v.texW, v.texH, time, true);
     }
     drawProps(level, alpha, time, true);
-    for (const auto& e : level.enemies())
-        if (e->alive()) e->drawEmission(ctx);
-    if (level.player().alive()) level.player().drawEmission(ctx);
+    drawFigures(level, ctx, true);
     scene_.endEmission();
 
     addLights(level, alpha, time);
+    for (const Shockwave& w : level.shockwaves()) {
+        const float t = w.age / w.duration;
+        scene_.addShockwave(w.pos, w.maxRadius * std::sqrt(t), w.strength * (1.0f - t));
+    }
+    scene_.present(lightingParams(level, camera, time, v.originY), time);
+}
 
+LightingParams LevelRenderer::lightingParams(const Level& level, Vec2 camera, float time, int originY) const {
+    const LevelLayout& layout = level.layout();
     const BiomeDef& b = biomeDef(level.biome());
     LightingParams lp;
     lp.highQuality = highQuality_;
@@ -86,15 +100,15 @@ void LevelRenderer::render(const Level& level, Vec2 camera, float alpha, float t
     lp.tintR = b.tint[0];
     lp.tintG = b.tint[1];
     lp.tintB = b.tint[2];
-    lp.saturation = b.saturation * (1.0f - 0.8f * deathFade_);
-    lp.exposure = 1.0f - 0.3f * deathFade_;
+    lp.saturation = b.saturation * (1.0f - kDeathDesaturation * deathFade_);
+    lp.exposure = 1.0f - kDeathDimming * deathFade_;
     const Rgba air = hexRgba(b.fogColor);
     lp.airR = static_cast<float>(air.r) / 255.0f;
     lp.airG = static_cast<float>(air.g) / 255.0f;
     lp.airB = static_cast<float>(air.b) / 255.0f;
     // Under an open sky the haze starts below the lowest point of the ground line.
     if (!layout.skyline.empty())
-        lp.airTop = static_cast<float>(*std::max_element(layout.skyline.begin(), layout.skyline.end()) - v.originY);
+        lp.airTop = static_cast<float>(*std::max_element(layout.skyline.begin(), layout.skyline.end()) - originY);
     if (layout.surfaceY > 0) {
         // Moonlight when the view is near the surface.
         const float boost = clamp((static_cast<float>(layout.surfaceY) + 90.0f - camera.y) / 150.0f, 0.0f, 1.0f);
@@ -104,13 +118,9 @@ void LevelRenderer::render(const Level& level, Vec2 camera, float alpha, float t
     }
     lp.damageFlash = level.playerHurtPulse() * 0.7f;
     lp.aberration = level.playerHurtPulse() * 1.2f;
-    for (const Shockwave& w : level.shockwaves()) {
-        const float t = w.age / w.duration;
-        scene_.addShockwave(w.pos, w.maxRadius * std::sqrt(t), w.strength * (1.0f - t));
-    }
     const Player& pl = level.player();
     if (pl.alive() && pl.hp < pl.maxHp * 0.25f) lp.damageFlash = std::max(lp.damageFlash, 0.25f + 0.2f * std::sin(time * 6.0f));
-    scene_.present(lp, time);
+    return lp;
 }
 
 void LevelRenderer::drawProps(const Level& level, float alpha, float time, bool emissive) {

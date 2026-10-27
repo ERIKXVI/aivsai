@@ -9,6 +9,7 @@
 namespace pm {
 
 class Level;
+struct LightingParams;
 struct Pickup;
 class SceneRenderer;
 class SpriteBank;
@@ -28,6 +29,8 @@ private:
     void drawProps(const Level& level, float alpha, float time, bool emissive);
     void drawPickup(const Level& level, const Pickup& pk, float alpha, float time, bool emissive);
     void addLights(const Level& level, float alpha, float time);
+    /// Biome light and tint, the death fade, open-air haze, moonlight near the surface and the hurt pulse.
+    LightingParams lightingParams(const Level& level, Vec2 camera, float time, int originY) const;
 
     SceneRenderer& scene_;
     const SpriteBank& sprites_;
