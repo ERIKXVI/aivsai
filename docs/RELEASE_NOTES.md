@@ -20,15 +20,23 @@ switches to a window.
   edit (and works with a gamepad).
 - A matter lens: rest the cursor on any substance or creature to learn what it does.
 - Lanterns you can shoot down onto foes, and elites with Burning, Swift or Gilded affixes.
+- The world is a weapon: creatures slain by fire, lava, acid, blasts or cave-ins are named
+  as they fall and chain into reactions that pay extra gold.
+- Rare finds: vaults, guardians' hoards and the odd chest hold spells from deeper down
+  (Lightning, Black Hole, Lava Orb...) that glint gold.
+- Hits land: knockback that carries, flinches that break a foe's wind-up, crits that
+  punch, creatures that burst into their own pixels and blasts that scorch the rock.
 - Mimics among the chests, elixirs to drink (quicksilver for haste, ichor for fury) and a
   mountain that stirs: cave-ins, breaches, marsh gas, swarms and falls of gold.
-- A fog-of-war map, contextual hints for new players and a death screen that tells you
-  what got you, how to avoid it, how close your next starting path is and lets you retry
-  the same seed.
+- A compass that follows the route, a map that marks the portal from the start,
+  contextual hints for new players, How to Play in the pause menu, and a death screen
+  that tells you what got you, how to avoid it, how close your next starting path is and
+  lets you retry the same seed (or try again as an Apprentice).
 - All art, sound and music are generated procedurally by the game.
 
 Controls: `A/D` move · `W/Space` jump (hold to levitate) · mouse aim · `LMB` cast ·
 `1-4`/wheel switch wand · `Tab` edit wands · `RMB` pour flask · `Q` absorb · `F` drink ·
-`E` interact · `M` map · `Esc` pause · `F11` fullscreen. Gamepads are supported.
+`E` interact · `M` map · `Esc` pause · `F11` fullscreen. Gamepads are supported, and
+button prompts follow the device you use.
 
 Settings and progress are stored in `%APPDATA%\PrimaMateria`.
