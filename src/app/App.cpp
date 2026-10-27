@@ -1,7 +1,9 @@
 #include "app/App.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
+#include <thread>
 
 #include "app/InputLatch.hpp"
 #include "app/Platform.hpp"
@@ -195,7 +197,8 @@ int App::run() {
         // event loop alive cheaply until it is restored (the run pauses on focus loss).
         if (IsWindowMinimized() || GetScreenWidth() <= 0 || GetScreenHeight() <= 0) {
             PollInputEvents();
-            WaitTime(0.05);
+            // A plain sleep: raylib's WaitTime spins out the last milliseconds of every wait.
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
             last = GetTime();
             wasMinimized = true;
             continue;

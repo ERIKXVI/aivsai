@@ -59,6 +59,7 @@ private:
 
     uint32_t& seen_;
     Hint active_ = Hint::Count;
+    bool leanSanctum_ = false; ///< the sanctum hint is for a font that holds only water (Lean Sanctums)
     float timer_ = 0.0f;
     float scanTimer_ = 0.0f;
 };

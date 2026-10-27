@@ -12,7 +12,7 @@ constexpr uint8_t kMoved = 1u << 0;      ///< moved ahead of the scan this tick;
 constexpr uint8_t kBurning = 1u << 1;    ///< flammable cell currently on fire
 constexpr uint8_t kFlowRight = 1u << 2;  ///< liquid sideways-flow memory (reduces jitter)
 constexpr uint8_t kElectric = 1u << 3;   ///< conductive cell carrying a charge this tick
-constexpr uint8_t kRime = 1u << 4;       ///< laid by a solid spell trail; spells carrying that trail pass through it
+constexpr uint8_t kRime = 1u << 4;       ///< laid by a solid spell trail; the alchemist's spells pass through it
 constexpr uint8_t kPlayerMade = 1u << 5; ///< spawned by a player spell (no gold farming, etc.)
 } // namespace cellflag
 

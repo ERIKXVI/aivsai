@@ -269,13 +269,14 @@ void updateProjectile(Level& level, Projectile& p, float dt) {
         }
     } lanternSweep{level, p, p.pos};
 
-    // A rime-trailed spell rides over the ice it (or a sibling shot) laid; other matter, natural ice
-    // included, still stops it. Out of bounds reads as bedrock.
+    // The alchemist's spells pass through rime laid by their own trails: the shot laying it, its
+    // siblings, and a trigger's payload released on the line. Other matter, natural ice included,
+    // still stops them, and rime stops the creatures' shots. Out of bounds reads as bedrock.
     auto blocks = [&](int x, int y) {
         if (!world.inBounds(x, y)) return true;
         const Cell& c = world.at(x, y);
-        const bool ownTrail = c.mat == d.trailMat && (c.flags & cellflag::kRime);
-        return isSolidForCollision(c.mat) && !ownTrail;
+        const bool rime = (c.flags & cellflag::kRime) && p.team == Team::Player;
+        return isSolidForCollision(c.mat) && !rime;
     };
 
     // March along the path in sub-cell steps.

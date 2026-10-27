@@ -460,8 +460,9 @@ void Player::handleFlask(Level& level) {
         Vec2 origin = hand;
         for (int i = 1; i <= len; ++i) {
             const Vec2 q = hand + aimDir_ * static_cast<float>(i);
-            if (!isPassable(world.matAt(floorToInt(q.x), floorToInt(q.y)))) break;
-            origin = q;
+            const MatId m = world.matAt(floorToInt(q.x), floorToInt(q.y));
+            if (isPassable(m)) origin = q;
+            else if (phaseOf(m) != Phase::Liquid) break; // terrain; a wading hand reaches through the liquid
         }
         for (int i = 0; i < kSprayPerTick && flask.amount > 0; ++i) {
             float a = angleOf(aimDir_) + rng.range(-0.12f, 0.12f);

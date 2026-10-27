@@ -735,7 +735,7 @@ void Enemy::onKilled(Level& level, const DamageInfo&) {
     if (type_ == EnemyType::Beetle) {
         ExplosionSpec s;
         s.radius = 13.0f;
-        s.damage = 32.0f;
+        s.damage = 32.0f * strikeMul_;
         s.power = 120;
         s.incendiary = true;
         s.team = Team::Monster;

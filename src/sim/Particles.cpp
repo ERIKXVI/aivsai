@@ -68,6 +68,10 @@ void ParticleSystem::deposit(World& world, const Particle& p) {
         const Vec2 q = p.pos + dir * std::min(static_cast<float>(i), dist);
         if (settle(floorToInt(q.x), floorToInt(q.y))) return;
     }
+    // Only matter buried in terrain climbs out: one that landed in the open with its neighbours
+    // full must not pass through the rock above it.
+    const MatId here = world.matAt(x, y);
+    if (phaseOf(here) != Phase::Solid && phaseOf(here) != Phase::Powder) return;
     for (int i = 3; i <= kSearch + 2; ++i) // the offsets above already tried two cells up
         if (settle(x, y - i)) return;
 }

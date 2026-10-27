@@ -93,6 +93,9 @@ constexpr HintText kTexts[] = {
      "An elixir! Drink it with X: quicksilver lends haste, ichor lends your spells fury"},
 };
 static_assert(std::size(kTexts) == static_cast<size_t>(Hint::Count), "a text for every Hint");
+/// The sanctum hint when Lean Sanctums leaves only water in the font.
+constexpr HintText kLeanSanctumText{"A sanctum: buy spells with E, then claim one perk at the altars - under this ordeal the font holds only water",
+                                    "A sanctum: buy spells with B, then claim one perk at the altars - under this ordeal the font holds only water"};
 
 /// True when a satchel spell could go onto a wand right now.
 bool roomForSatchelSpell(const RunState& run) {
@@ -159,7 +162,10 @@ void HintTracker::update(const Level& level, const RunState& run, float dt) {
     const float t = level.time();
     if (t < 2.0f) return;
     if (level.isSanctum()) {
-        if (!seen(Hint::Sanctum)) show(Hint::Sanctum);
+        if (!seen(Hint::Sanctum)) {
+            leanSanctum_ = run.under(Ordeal::LeanSanctums);
+            show(Hint::Sanctum);
+        }
         return;
     }
     // The opening controls card covers the first half minute of the first stage.
@@ -226,7 +232,8 @@ void HintTracker::draw(float screenW, float screenH, bool gamepad) const {
     if (active_ == Hint::Count) return;
     const float s = static_cast<float>(ui::scale());
     const int size = ui::fontSize(ui::scale());
-    const char* text = HintTracker::text(active_, gamepad);
+    const char* text = active_ == Hint::Sanctum && leanSanctum_ ? (gamepad ? kLeanSanctumText.gamepad : kLeanSanctumText.keyboard)
+                                                                 : HintTracker::text(active_, gamepad);
     const float a = clamp(std::min((kShowTime - timer_) * 3.0f, timer_ * 1.5f), 0.0f, 1.0f);
     // One line where it fits; on a narrow window the hint wraps and its box grows upwards.
     const float textW = std::min(screenW - 40.0f * s, static_cast<float>(ui::measure(text, size)));

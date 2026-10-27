@@ -349,8 +349,9 @@ void GameScene::drawInventory() {
         } else if (pressed && hover.wand != -2 && hover.spell != SpellId::None) {
             drag_ = {true, hover.spell, hover.wand, hover.slot};
         }
-        // Not while a spell is in hand (as with the pad's Y): emptying its slot would leave it held from nowhere.
-        if (input::mousePressed(MOUSE_BUTTON_RIGHT) && !drag_.active && hover.wand >= 0 && hover.spell != SpellId::None) {
+        // Not while a spell is in hand (as with the pad's Y): emptying its slot would leave it held from
+        // nowhere. Nor in the frame a left press moved spells: `hover` predates the move.
+        if (input::mousePressed(MOUSE_BUTTON_RIGHT) && !pressed && !drag_.active && hover.wand >= 0 && hover.spell != SpellId::None) {
             if (run_.addSpell(hover.spell)) editorSlot(hover.wand, hover.slot) = SpellId::None;
             app_.audio().play(Sfx::UiClick, 0.6f);
         }
