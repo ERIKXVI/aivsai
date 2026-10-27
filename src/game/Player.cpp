@@ -78,6 +78,19 @@ CastVoice castVoice(const CastShot& shot) {
     return v;
 }
 
+/// The alchemist's drawn size for a squash (> 0: wider and shorter) or a stretch (< 0: narrower
+/// and taller), in layer pixels; `exact` when it is the frame's own size.
+struct Stretch {
+    float w, h;
+    bool exact;
+};
+Stretch stretchOf(const SpriteInfo& info, float squash) {
+    constexpr float kAmount = 0.2f; // a full squash widens by a fifth and flattens by a fifth
+    const int w = roundToInt(static_cast<float>(info.w) * (1.0f + kAmount * squash));
+    const int h = roundToInt(static_cast<float>(info.h) * (1.0f - kAmount * squash));
+    return {static_cast<float>(w), static_cast<float>(h), w == info.w && h == info.h};
+}
+
 /// Dust kicked up from the ground under `feet`, in the ground's own colour (a neutral grey over
 /// liquid or air).
 Rgba groundDust(const World& world, Vec2 feet) {
@@ -131,6 +144,7 @@ void Player::tick(Level& level) {
     const float dt = kTickDt;
     animTime_ += dt;
     castFlash_ = std::max(0.0f, castFlash_ - dt);
+    squash_ *= std::exp(-14.0f * dt);
 
     // Never leave the alchemist entombed: if no free spot is near, dig one out.
     if (!unbury(body, level.world())) level.dig(body.pos, std::max(body.halfW, body.halfH) + 1.0f, 254, false);
@@ -218,6 +232,7 @@ void Player::move(Level& level, const Environment& env) {
         coyote_ = 0.0f;
         jumpBuffer_ = 0.0f;
         jumpedThisPress_ = true;
+        squash_ = -0.6f; // stretched by the push-off
         level.audio().play(Sfx::Jump, 0.5f, level.rng().range(0.95f, 1.05f));
         // A puff of the ground pushed off from.
         const Vec2 feet{body.pos.x, body.pos.y + body.halfH};
@@ -265,6 +280,8 @@ void Player::move(Level& level, const Environment& env) {
     lastFallSpeed_ = body.vel.y;
     moveBody(body, level.world(), dt);
     footsteps(level, dt);
+    // Squashed by a landing, harder the faster the fall (gentle slopes and steps stay below 60).
+    if (body.onGround && !grounded && lastFallSpeed_ > 60.0f) squash_ = clamp(lastFallSpeed_ / 300.0f, 0.3f, 1.0f);
     if (body.onGround && !grounded && lastFallSpeed_ > 150.0f) {
         level.audio().play(Sfx::Land, std::min(1.0f, lastFallSpeed_ / 400.0f));
         // Ground-coloured dust thrown to both sides, more the harder the fall, and a dip of the
@@ -575,25 +592,33 @@ void Player::drawAlbedo(DrawContext& ctx) const {
     const Vec2 p = body.interpolated(ctx.alpha);
     const auto [sprite, frame] = currentPose(body, input_.jumpHeld, animTime_);
     const SpriteInfo& info = ctx.sprites.info(sprite);
-    Vector2 lp = ctx.scene.layerPos({p.x - info.w * 0.5f, p.y + body.halfH - static_cast<float>(info.h)});
+    const Stretch st = stretchOf(info, squash_);
+    const Vector2 lp = ctx.scene.layerPos({p.x - st.w * 0.5f, p.y + body.halfH - st.h}); // feet stay put
+    const bool flip = !facingRight_;
+    // One pass of the figure: at its own size, or squashed or stretched for a moment.
+    auto figure = [&](Color tint, bool silhouette) {
+        if (!st.exact) ctx.sprites.drawStretched(sprite, frame, {lp.x, lp.y, st.w, st.h}, flip, tint, false, silhouette);
+        else if (silhouette) ctx.sprites.drawSilhouette(sprite, frame, lp, flip, tint);
+        else ctx.sprites.draw(sprite, frame, lp, flip, tint);
+    };
     const bool blink = invulnerable > 0.0f && static_cast<int>(invulnerable * 20.0f) % 2 == 0;
     if (!blink) {
-        ctx.sprites.draw(sprite, frame, lp, !facingRight_);
-        if (hurtFlash > 0.0f) ctx.sprites.drawSilhouette(sprite, frame, lp, !facingRight_, Color{255, 255, 255, 200});
-        else if (status.burning > 0.0f)
-            ctx.sprites.drawSilhouette(sprite, frame, lp, !facingRight_, Color{255, 120, 30, 90});
+        figure(WHITE, false);
+        if (hurtFlash > 0.0f) figure(Color{255, 255, 255, 200}, true);
+        else if (status.burning > 0.0f) figure(Color{255, 120, 30, 90}, true);
         else if (status.fury > 0.0f) {
             const auto pulse = static_cast<unsigned char>(45.0f + 30.0f * std::sin(animTime_ * 9.0f));
-            ctx.sprites.drawSilhouette(sprite, frame, lp, !facingRight_, Color{255, 80, 30, pulse});
+            figure(Color{255, 80, 30, pulse}, true);
         }
     }
 
     drawEssences(ctx, p);
 
-    // The wand: a line of pixels from the hand towards the cursor, gem at the tip.
+    // The wand: a line of pixels from the hand towards the cursor, gem at the tip. The hand rides
+    // down and up with a squash.
     if (const Wand* wand = run_.currentWand()) {
         const Wand& w = *wand;
-        const Vec2 hand = handPos(p, facingRight_);
+        const Vec2 hand = handPos(p, facingRight_) + Vec2{0.0f, (static_cast<float>(info.h) - st.h) * 0.5f};
         for (int i = 0; i <= w.length; ++i) {
             Vec2 q = hand + aimDir_ * static_cast<float>(i);
             Vector2 lq = ctx.scene.layerPos(q);
@@ -625,12 +650,15 @@ void Player::drawEmission(DrawContext& ctx) const {
     const Vec2 p = body.interpolated(ctx.alpha);
     const auto [sprite, frame] = currentPose(body, input_.jumpHeld, animTime_);
     const SpriteInfo& info = ctx.sprites.info(sprite);
-    Vector2 lp = ctx.scene.layerPos({p.x - info.w * 0.5f, p.y + body.halfH - static_cast<float>(info.h)});
-    ctx.sprites.drawEmissive(sprite, frame, lp, !facingRight_);
+    const Stretch st = stretchOf(info, squash_);
+    const Vector2 lp = ctx.scene.layerPos({p.x - st.w * 0.5f, p.y + body.halfH - st.h});
+    if (st.exact) ctx.sprites.drawEmissive(sprite, frame, lp, !facingRight_);
+    else ctx.sprites.drawStretched(sprite, frame, {lp.x, lp.y, st.w, st.h}, !facingRight_, WHITE, true);
     drawEssences(ctx, p);
     if (const Wand* wand = run_.currentWand()) {
         const Wand& w = *wand;
-        Vec2 tip = handPos(p, facingRight_) + aimDir_ * static_cast<float>(w.length);
+        const Vec2 hand = handPos(p, facingRight_) + Vec2{0.0f, (static_cast<float>(info.h) - st.h) * 0.5f};
+        Vec2 tip = hand + aimDir_ * static_cast<float>(w.length);
         Vector2 lt = ctx.scene.layerPos(tip);
         Color g = hexColor(w.gemColor);
         if (castFlash_ > 0.0f) g = WHITE;

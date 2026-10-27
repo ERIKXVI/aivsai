@@ -71,6 +71,7 @@ private:
     uint32_t nextFlaskNotice_ = 0; ///< tick before which the "flask holds..." notice stays quiet
     float animTime_ = 0.0f;
     float castFlash_ = 0.0f;
+    float squash_ = 0.0f; ///< >0 squashed by a landing, <0 stretched by a jump; eases back to 0
     Vec2 recoil_;
     float sprayAccum_ = 0.0f;
     float footstepTimer_ = 0.0f; ///< counts down to the next footfall sound

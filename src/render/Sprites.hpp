@@ -65,6 +65,10 @@ public:
     /// Draws a frame scaled by an integer factor (top-left at `pos`); used for giants.
     void drawScaled(SpriteId id, int frame, Vector2 pos, int scale, bool flipX, Color tint = WHITE, bool emissive = false,
                     bool silhouette = false) const;
+    /// Draws a frame stretched to fill `dst` (layer pixel coordinates, corner snapped to whole
+    /// pixels as draw() does); used to squash and stretch a figure for a moment.
+    void drawStretched(SpriteId id, int frame, Rectangle dst, bool flipX, Color tint = WHITE, bool emissive = false,
+                       bool silhouette = false) const;
     /// Draws centred at `center`, rotated by `degrees` (used for spinning items).
     void drawRotated(SpriteId id, int frame, Vector2 center, float degrees, Color tint = WHITE) const;
 

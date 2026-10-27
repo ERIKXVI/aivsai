@@ -115,6 +115,17 @@ void SpriteBank::drawScaled(SpriteId id, int frame, Vector2 pos, int scale, bool
     DrawTexturePro(tex, frameRect(in, frame, flipX), dst, Vector2{0.0f, 0.0f}, 0.0f, tint);
 }
 
+void SpriteBank::drawStretched(SpriteId id, int frame, Rectangle dst, bool flipX, Color tint, bool emissive, bool silhouette) const {
+    const int i = static_cast<int>(id);
+    if (emissive && !hasEmissive_[i]) return;
+    const SpriteInfo& in = info_[i];
+    const Texture2D& tex = silhouette ? silhouette_[i] : (emissive ? emissive_[i] : color_[i]);
+    if (tex.id == 0 || in.frames == 0) return;
+    dst.x = static_cast<float>(roundToInt(dst.x));
+    dst.y = static_cast<float>(roundToInt(dst.y));
+    DrawTexturePro(tex, frameRect(in, frame, flipX), dst, Vector2{0.0f, 0.0f}, 0.0f, tint);
+}
+
 void SpriteBank::drawRotated(SpriteId id, int frame, Vector2 center, float degrees, Color tint) const {
     int i = static_cast<int>(id);
     const SpriteInfo& in = info_[i];
