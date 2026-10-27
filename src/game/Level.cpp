@@ -16,6 +16,7 @@ constexpr float kEnemyActiveRange = 380.0f;
 constexpr float kFloatTextLife = 1.1f; ///< seconds a float text lingers
 constexpr float kMergeWindow = 0.4f;   ///< a hit this soon after the last adds into its number
 constexpr uint32_t kHitNumberColor = 0xffffff, kCritNumberColor = 0xffe040;
+constexpr float kFoeHealthPerStage = 0.32f; ///< each stage deeper, foes have this much more of their base health
 
 /// The spawn point where the stage's lair guardian waits, or nullptr when the stage has no lair.
 const SpawnPoint* lairKeeperSpawn(const LevelLayout& layout) {
@@ -174,8 +175,8 @@ void Level::populate() {
 Enemy& Level::spawnEnemy(EnemyType type, Vec2 pos) {
     // Foes harden with depth and with the difficulty. The final boss's health is set for its
     // stage already, so it takes only the difficulty; the alchemist's homunculus takes neither.
-    const float difficulty = run_.difficulty == Difficulty::Apprentice ? 0.8f : run_.difficulty == Difficulty::Archmage ? 1.3f : 1.0f;
-    float scale = (type == EnemyType::Boss ? 1.0f : 1.0f + 0.32f * static_cast<float>(layout_.levelIndex)) * difficulty;
+    float scale = (type == EnemyType::Boss ? 1.0f : 1.0f + kFoeHealthPerStage * static_cast<float>(layout_.levelIndex)) *
+                  run_.foeHealthMul();
     if (type == EnemyType::Companion) scale = 1.0f;
     // Ordeals harden every foe (the alchemist's homunculus aside), and the keepers most of all.
     const bool foe = type != EnemyType::Companion;

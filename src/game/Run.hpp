@@ -110,6 +110,8 @@ struct RunState {
 
     float damageDealtMul() const;
     float damageTakenMul() const;
+    /// Foes' health relative to Adept (difficultyDetail's "frailer" and "hardier").
+    float foeHealthMul() const;
     float moveSpeedMul() const { return 1.0f + 0.25f * static_cast<float>(perkCount(PerkId::Swiftness)); }
     float manaRegenMul() const { return 1.0f + 0.6f * static_cast<float>(perkCount(PerkId::ArcaneFlow)); }
     float castSpeedMul() const;

@@ -82,7 +82,7 @@ const char* difficultyName(Difficulty d) {
 }
 
 const char* difficultyDetail(Difficulty d) {
-    // Keep in step with damageDealtMul, damageTakenMul, newRun and Level::spawnEnemy.
+    // Keep in step with damageDealtMul, damageTakenMul, foeHealthMul and newRun.
     switch (d) {
     case Difficulty::Apprentice:
         return "50 more health, foes deal 45% less damage and are 20% frailer, your spells hit 25% harder, "
@@ -104,6 +104,15 @@ float RunState::damageTakenMul() const {
     case Difficulty::Apprentice: return 0.55f;
     case Difficulty::Adept: return 1.0f;
     case Difficulty::Archmage: return 1.5f;
+    }
+    return 1.0f;
+}
+
+float RunState::foeHealthMul() const {
+    switch (difficulty) {
+    case Difficulty::Apprentice: return 0.8f;
+    case Difficulty::Adept: return 1.0f;
+    case Difficulty::Archmage: return 1.3f;
     }
     return 1.0f;
 }
