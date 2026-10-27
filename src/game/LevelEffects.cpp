@@ -469,18 +469,13 @@ void Level::creditAlchemy(const Enemy& e) {
     if (alchemyChain_ == 1) {
         addFloatText(at, kind->label, kind->color, 1.1f);
     } else {
-        FloatText* chain = nullptr;
-        for (FloatText& t : floatTexts_)
-            if (t.owner == kChainText) chain = &t;
-        if (!chain) {
-            addFloatText(at, "", 0xffd870, 1.2f);
-            chain = &floatTexts_.back();
-            chain->owner = kChainText;
-        }
-        chain->text = "Chain reaction x" + std::to_string(alchemyChain_);
-        chain->life = 1.4f;
-        chain->pop = 1.0f;
-        chain->pos = at;
+        FloatText& chain = taggedFloatText(kChainText, at);
+        chain.text = "Chain reaction x" + std::to_string(alchemyChain_);
+        chain.color = 0xffd870;
+        chain.scale = 1.2f;
+        chain.life = 1.4f;
+        chain.pop = 1.0f;
+        chain.pos = at;
     }
     audio_.playAt(Sfx::Coin, e.body.pos, 0.45f, 1.3f + 0.08f * static_cast<float>(std::min(alchemyChain_, 6)));
     // The world's work pays a little extra gold, within a limit per stage.

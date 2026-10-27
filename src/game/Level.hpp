@@ -218,6 +218,9 @@ public:
 private:
     void populate();
     Affix rollAffix();
+    /// The float text tagged `owner` whose life is at least `minLife`, or else a new one so tagged at `pos` (its text and look
+    /// are the caller's to set).
+    FloatText& taggedFloatText(uint32_t owner, Vec2 pos, float minLife = 0.0f);
     /// Bursts up to `budget` of a sprite frame's pixels (drawn at `topLeft`, `scale`, `flip`,
     /// tinted) outward from `centre` and along `away`. Cosmetic randomness only.
     void shatterPixels(const SpriteFrame& frame, Vec2 topLeft, float scale, bool flip, Vec2 centre, Rgba tint, Vec2 away,

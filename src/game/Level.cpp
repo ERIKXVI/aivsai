@@ -13,6 +13,9 @@ namespace pm {
 namespace {
 constexpr float kInteractRange = 16.0f;
 constexpr float kEnemyActiveRange = 380.0f;
+constexpr float kFloatTextLife = 1.1f; ///< seconds a float text lingers
+constexpr float kMergeWindow = 0.4f;   ///< a hit this soon after the last adds into its number
+constexpr uint32_t kHitNumberColor = 0xffffff, kCritNumberColor = 0xffe040;
 } // namespace
 
 Level::Level(LevelLayout layout, RunState& run, Audio& audio, ThreadPool& pool)
@@ -513,7 +516,16 @@ void Level::addFlash(Vec2 pos, uint32_t color, float intensity, float radius, fl
 
 void Level::addFloatText(Vec2 pos, const std::string& text, uint32_t color, float scale) {
     if (floatTexts_.size() > 60) floatTexts_.erase(floatTexts_.begin());
-    floatTexts_.push_back({pos, text, color, 1.1f, scale});
+    floatTexts_.push_back({pos, text, color, kFloatTextLife, scale});
+}
+
+FloatText& Level::taggedFloatText(uint32_t owner, Vec2 pos, float minLife) {
+    const auto it = std::find_if(floatTexts_.begin(), floatTexts_.end(),
+                                 [&](const FloatText& t) { return t.owner == owner && t.life >= minLife; });
+    if (it != floatTexts_.end()) return *it;
+    addFloatText(pos, {}, 0);
+    floatTexts_.back().owner = owner;
+    return floatTexts_.back();
 }
 
 void Level::critPunch(Vec2 pos) {
@@ -527,27 +539,15 @@ void Level::critPunch(Vec2 pos) {
 }
 
 void Level::addDamageNumber(uint32_t owner, Vec2 pos, float amount, bool crit) {
-    constexpr float kLife = 1.1f, kMergeWindow = 0.4f;
-    auto label = [](const FloatText& t) { return std::to_string(static_cast<int>(std::ceil(t.value))) + (t.crit ? "!" : ""); };
-    for (FloatText& t : floatTexts_) {
-        if (t.owner != owner || t.life < kLife - kMergeWindow) continue;
-        t.value += amount;
-        t.crit = t.crit || crit;
-        t.text = label(t);
-        t.color = t.crit ? 0xffe040 : 0xffffff;
-        t.scale = t.crit ? 1.3f : 1.0f;
-        t.life = kLife;
-        t.pop = 1.0f;
-        t.pos = pos; // back over the creature: a long fight must not float its tally away
-        return;
-    }
-    addFloatText(pos, "", crit ? 0xffe040 : 0xffffff, crit ? 1.3f : 1.0f);
-    FloatText& t = floatTexts_.back();
-    t.owner = owner;
-    t.value = amount;
-    t.crit = crit;
-    t.text = label(t);
+    FloatText& t = taggedFloatText(owner, pos, kFloatTextLife - kMergeWindow);
+    t.value += amount;
+    t.crit = t.crit || crit;
+    t.text = std::to_string(static_cast<int>(std::ceil(t.value))) + (t.crit ? "!" : "");
+    t.color = t.crit ? kCritNumberColor : kHitNumberColor;
+    t.scale = t.crit ? 1.3f : 1.0f;
+    t.life = kFloatTextLife;
     t.pop = 1.0f;
+    t.pos = pos; // back over the creature: a long fight must not float its tally away
 }
 
 void Level::offerEssence(const Enemy& keeper) {

@@ -841,6 +841,33 @@ TEST_CASE("kills the world makes are counted, chained and paid") {
                       [](const FloatText& t) { return t.text == "Chain reaction x3"; }));
 }
 
+TEST_CASE("hits on one creature add up into one number until the moment passes") {
+    initMaterials();
+    ThreadPool pool(2);
+    Audio audio;
+    RunState run = newRun(12, Difficulty::Adept, false);
+    Level level(generateSanctum(0, 12u, pool), run, audio, pool);
+    constexpr uint32_t kOwner = 0xABCDu; // no actor has this id
+    const Vec2 p = level.player().body.pos + Vec2{30.0f, -10.0f};
+    auto numbers = [&] {
+        std::vector<const FloatText*> out;
+        for (const FloatText& t : level.floatTexts())
+            if (t.owner == kOwner) out.push_back(&t);
+        return out;
+    };
+    level.addDamageNumber(kOwner, p, 4.0f, false);
+    level.addDamageNumber(kOwner, p, 5.0f, true);
+    std::vector<const FloatText*> shown = numbers();
+    CHECK(shown.size() == 1);
+    CHECK(shown.front()->text == "9!");
+    CHECK(shown.front()->color == 0xffe040u);
+    for (int i = 0; i < 30; ++i) level.tick(PlayerInput{}); // half a second: past the moment
+    level.addDamageNumber(kOwner, p, 2.0f, false);
+    shown = numbers();
+    CHECK(shown.size() == 2);
+    CHECK(shown.back()->text == "2");
+}
+
 TEST_CASE("reaching a stage is a goal met or not, never a count") {
     Milestones m; // a first run that ended on stage I still counts as having reached stage I
     m.deepest = 1;
