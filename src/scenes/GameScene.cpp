@@ -422,8 +422,8 @@ void GameScene::frame(float dt) {
     if (mode_ != Mode::Playing) aim = pl.body.pos;
     camera_.kick(level_->player().takeRecoil());
     updateLens(dt);
-    camera_.update(pl.body.pos, aim, dt, {static_cast<float>(level_->world().width()), static_cast<float>(level_->world().height())},
-                   viewSize);
+    const Vec2 worldSize{static_cast<float>(level_->world().width()), static_cast<float>(level_->world().height())};
+    camera_.update(pl.body.pos, aim, mode_ == Mode::Playing ? pl.body.vel.y : 0.0f, dt, worldSize, viewSize);
     const BiomeDef& b = biomeDef(level_->biome());
     audio.setMusicMood(b.musicRoot, b.musicMode, level_->combatIntensity());
 }

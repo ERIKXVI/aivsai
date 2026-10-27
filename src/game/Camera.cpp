@@ -6,12 +6,16 @@
 
 namespace pm {
 
-void FollowCamera::update(Vec2 target, Vec2 aim, float dt, Vec2 worldSize, Vec2 viewSize) {
+void FollowCamera::update(Vec2 target, Vec2 aim, float fallSpeed, float dt, Vec2 worldSize, Vec2 viewSize) {
     // Look a little towards the cursor so the player sees where they are aiming.
     Vec2 look = (aim - target) * 0.22f;
     float len = look.length();
     if (len > 55.0f) look = look * (55.0f / len);
     Vec2 desired = target + look;
+    // Lead a fall: past a jump's own descent, the view runs ahead of the alchemist (the follow's
+    // damping already smooths it, so it needs none of its own and does not overshoot a landing).
+    constexpr float kFallLeadFrom = 120.0f, kFallLeadGain = 0.2f, kFallLeadMax = 60.0f;
+    desired.y += clamp((fallSpeed - kFallLeadFrom) * kFallLeadGain, 0.0f, kFallLeadMax);
     pos_ = damp(pos_, desired, 9.0f, dt);
     kick_ = kick_ * std::exp(-19.0f * dt); // to a tenth in 0.12 s
 
