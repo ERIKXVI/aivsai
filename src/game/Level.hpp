@@ -204,6 +204,9 @@ public:
     void onEnemyKilled(Enemy& e);
     /// Applies a perk to the run and rebuilds the player's derived stats, with fanfare.
     void grantPerk(PerkId perk, const char* reason);
+    /// A slain keeper's essence: two perk altars in its lair, its signature gift and one other.
+    void offerEssence(const Enemy& keeper);
+    static constexpr int kEssenceAltars = 1; ///< altar group of a keeper's essence (the sanctum's is 0)
     /// A random perk the player can still benefit from.
     PerkId rollPerk(const std::vector<PerkId>& exclude);
     /// Testing aid: moves the player to the next main-path waypoint beyond its position.

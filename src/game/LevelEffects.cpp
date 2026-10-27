@@ -529,10 +529,10 @@ void Level::onEnemyKilled(Enemy& e) {
         }
         if (rng_.chance(0.06f)) pickups_.push_back(makeHeart(e.body.pos));
         if (d.guardian) {
-            // A guardian's essence passes to the alchemist as a perk, if they lived to claim it.
-            // Gathered from all four keepers in one run, the essences make the Quintessence.
+            // A guardian's essence is the alchemist's, if they lived to claim it: a choice of two
+            // perks. Gathered from all four keepers in one run, the essences make the Quintessence.
             if (player_->alive()) {
-                grantPerk(rollPerk({}), "A guardian's essence");
+                offerEssence(e);
                 if (const int stage = guardianStage(e.type()); stage >= 0) run_.essences |= static_cast<uint8_t>(1u << stage);
                 const int held = std::popcount(static_cast<unsigned>(run_.essences));
                 addFloatText(e.body.pos - Vec2{0.0f, e.body.halfH + 18.0f},

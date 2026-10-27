@@ -46,8 +46,8 @@ constexpr HintText kTexts[] = {
      "Pick up the glowing spell with A and place it in the glowing slot with A"},
     {"Shoot a lantern down onto your foes - it shatters into burning oil",
      "Shoot a lantern down onto your foes - it shatters into burning oil"},
-    {"A guardian's lair: slay its keeper for a perk, a hoard and its essence - or leave it be, the fight is optional",
-     "A guardian's lair: slay its keeper for a perk, a hoard and its essence - or leave it be, the fight is optional"},
+    {"A guardian's lair: slay its keeper for a choice of perks, a hoard and its essence - or leave it be, the fight is optional",
+     "A guardian's lair: slay its keeper for a choice of perks, a hoard and its essence - or leave it be, the fight is optional"},
     {"An elixir! Drink it with F: quicksilver lends haste, ichor lends your spells fury",
      "An elixir! Drink it with X: quicksilver lends haste, ichor lends your spells fury"},
 };

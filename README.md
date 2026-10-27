@@ -84,7 +84,8 @@ Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-p
 - **Guardians:** each of the first four stages hides a lair, marked on the map, where a giant
   keeps a hoard (its wand always carries a rare spell) - the Black Toad, the White Wraith,
   the Mine King and the Red Colossus. The
-  fight is optional; win it and the guardian's essence becomes a perk and circles you. Gather
+  fight is optional; win it and its essence circles you, and two altars rise in the lair: the
+  keeper's own gift (Toxic Blood, Feather Soul, Blast Shield, Salamander Skin) or another perk. Gather
   all four essences in one run (the sockets under the stage name) and completing the Work
   earns the *Quintessence* ending.
 - **Sanctums** between stages fully heal you and offer a shop stocked from the coming

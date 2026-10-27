@@ -550,6 +550,30 @@ void Level::addDamageNumber(uint32_t owner, Vec2 pos, float amount, bool crit) {
     t.pop = 1.0f;
 }
 
+void Level::offerEssence(const Enemy& keeper) {
+    // Each keeper's signature gift answers its own stage; the second altar draws at random, but
+    // never a perk that can turn on the alchemist.
+    PerkId signature = PerkId::Vitality;
+    switch (keeper.type()) {
+    case EnemyType::BlackToad: signature = PerkId::ToxicBlood; break;
+    case EnemyType::WhiteWraith: signature = PerkId::Levitation; break;
+    case EnemyType::MineKing: signature = PerkId::BlastShield; break;
+    case EnemyType::RedColossus: signature = PerkId::Fireproof; break;
+    default: break;
+    }
+    std::vector<PerkId> exclude{PerkId::GlassCannon, PerkId::PhoenixStep};
+    if (!perkDef(signature).stackable && run_.hasPerk(signature)) signature = rollPerk(exclude);
+    exclude.push_back(signature);
+    const PerkId other = rollPerk(exclude);
+    // On the lair's floor where the keeper waited, or under it if it had no lair.
+    Vec2 floor{keeper.body.pos.x, keeper.body.pos.y + keeper.body.halfH};
+    for (const SpawnPoint& s : layout_.spawns)
+        if (s.kind == SpawnKind::LairGuardian) floor = s.pos;
+    pickups_.push_back(makePerkAltar(floor + Vec2{-10.0f, -5.0f}, signature, kEssenceAltars));
+    pickups_.push_back(makePerkAltar(floor + Vec2{10.0f, -5.0f}, other, kEssenceAltars));
+    addFloatText(floor - Vec2{0.0f, 30.0f}, "Choose its essence", 0xe0d0ff, 1.4f);
+}
+
 PerkId Level::rollPerk(const std::vector<PerkId>& exclude) {
     PerkId perk = PerkId::Vitality;
     for (int guard = 0; guard < 60; ++guard) {
@@ -602,7 +626,8 @@ void Level::updateTransmuters() {
         particles_.burst(t.pos - Vec2{0.0f, 4.0f}, 80, 180.0f, col, {255, 230, 180, 255}, 1.0f, rng_, -0.1f);
         addShake(0.3f);
         audio_.play(Sfx::Portal, 0.6f, 1.6f);
-        if (player_->alive() && (player_->body.pos - t.pos).length() < 400.0f) grantPerk(rollPerk({}), "Transmutation!");
+        if (player_->alive() && (player_->body.pos - t.pos).length() < 400.0f)
+            grantPerk(rollPerk({PerkId::GlassCannon, PerkId::PhoenixStep}), "Transmutation!"); // nothing that turns on you
     }
 }
 

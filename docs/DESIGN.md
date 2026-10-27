@@ -52,8 +52,9 @@ The descent follows the four stages of the alchemical Great Work:
   later), which glints and shines gold; 5% of chest rolls are rare finds as well.
 - **Guardians' lairs** (one on each of stages I-IV) are larger vaults holding an optional
   mini-boss: a giant of the stage's own kind, too big for the door and leashed to its
-  hall, so the fight is always the player's choice. Each slain keeper also yields its
-  essence: four sockets under the stage name track them and the gathered ones orbit the
+  hall, so the fight is always the player's choice. A slain keeper leaves a choice of two
+  perk altars, its signature gift (fitting its stage's hazard) and one drawn at random that
+  can never turn on the alchemist. It also yields its essence: four sockets under the stage name track them and the gathered ones orbit the
   alchemist; holding all four when the Rebis falls crowns the run with the Quintessence
   ending (and a feat). The Black Toad leaps with quakes and
   sheds slimes, the White Wraith looses fans of ice, the Mine King lobs dynamite and the

@@ -473,9 +473,27 @@ TEST_CASE("guardians rage, the toad sheds its brood and the slayer earns a perk"
     Enemy* t = find();
     REQUIRE(t != nullptr);
     t->applyDamage(level, {1.0e6f, DamageType::Physical, {}, Team::Player, false, false, "test"});
+    // The essence is a choice: two altars, the toad's own gift among them, and nothing yet granted.
+    std::vector<const Pickup*> altars;
+    for (const Pickup& p : level.pickups())
+        if (p.type == PickupType::PerkAltar && p.altarGroup == 1 && !p.dead) altars.push_back(&p); // the sanctum's are group 0
+    REQUIRE(altars.size() == 2);
+    CHECK((altars[0]->perk == PerkId::ToxicBlood || altars[1]->perk == PerkId::ToxicBlood));
+    for (const Pickup* a : altars) CHECK(a->perk != PerkId::GlassCannon && a->perk != PerkId::PhoenixStep);
     int after = 0;
     for (uint8_t n : run.perks) after += n;
+    CHECK(after == perks);
+    // Claiming one grants it and clears the other.
+    level.debugTeleport(altars[0]->body.pos);
+    PlayerInput claim;
+    claim.interactPressed = true;
+    level.tick(claim);
+    after = 0;
+    for (uint8_t n : run.perks) after += n;
     CHECK(after == perks + 1);
+    int standing = 0;
+    for (const Pickup& p : level.pickups()) standing += p.type == PickupType::PerkAltar && p.altarGroup == 1 && !p.dead ? 1 : 0;
+    CHECK(standing == 0);
 }
 
 TEST_CASE("feats are described and kills earn them") {
