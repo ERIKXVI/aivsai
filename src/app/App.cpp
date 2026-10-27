@@ -136,11 +136,12 @@ void App::applyFrameCap() {
     // one above the panel's rate because Windows rounds 143.98 Hz down to 143, and a cap at the
     // reported rate would starve vsync and repeat a frame about once a second. In the background
     // the (paused) game needs no more than 30 frames a second.
+    capMonitor_ = GetCurrentMonitor();
     if (options_.turbo) {
         SetTargetFPS(0);
         return;
     }
-    const int refresh = GetMonitorRefreshRate(GetCurrentMonitor());
+    const int refresh = GetMonitorRefreshRate(capMonitor_);
     SetTargetFPS(!focused_ && !options_.automated() ? 30 : (refresh > 0 ? std::max(refresh + 1, 60) : 144));
 }
 
@@ -216,6 +217,13 @@ int App::run() {
             screenH_ = GetScreenHeight();
             applyFrameCap();
             if (scene_) scene_->onResize(screenW_, screenH_);
+        }
+        // A window dragged onto a monitor with another refresh rate keeps its size: re-cap it.
+        const Vector2 windowPos = GetWindowPosition();
+        if (windowPos.x != windowX_ || windowPos.y != windowY_) {
+            windowX_ = windowPos.x;
+            windowY_ = windowPos.y;
+            if (GetCurrentMonitor() != capMonitor_) applyFrameCap();
         }
 
         // Fixed-rate simulation. If the machine falls behind we drop time rather than

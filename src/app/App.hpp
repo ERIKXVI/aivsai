@@ -100,6 +100,8 @@ private:
     uint64_t frameCount_ = 0;
     bool quit_ = false;
     bool focused_ = false; ///< the window had focus at the last noteFocus()
+    int capMonitor_ = -1;  ///< the monitor whose refresh rate the frame limiter follows
+    float windowX_ = 0.0f, windowY_ = 0.0f; ///< where the window was last frame, to notice it moving
 };
 
 } // namespace pm

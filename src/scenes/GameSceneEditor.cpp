@@ -32,6 +32,28 @@ const char* spellTypeName(SpellType type) {
     return "";
 }
 
+/// The rules of wands, each beside a card of the kind it describes.
+struct Rule {
+    SpellId sample;
+    const char* text;
+};
+constexpr Rule kRules[] = {
+    {SpellId::SparkBolt, "Spells cast from left to right; when the deck runs out the wand recharges."},
+    {SpellId::DamageUp, "Green modifiers boost the projectile that follows them."},
+    {SpellId::DoubleCast, "Gold multicasts fire the next spells together."},
+    {SpellId::SparkTrigger, "Triggers (the pink dot) cast the next spell where they land."},
+};
+
+/// Height the rules card needs at `cardWidth`, so the editor panel can grow to hold it.
+float rulesHeight(float cardWidth) {
+    const float s = static_cast<float>(ui::scale());
+    const int small = ui::smallFontSize();
+    const float icon = 12.0f * s, textW = cardWidth - 16.0f * s - icon - 4.0f * s;
+    float h = 8.0f * s + static_cast<float>(small) + 6.0f * s;
+    for (const Rule& rule : kRules) h += std::max(icon, ui::wrappedHeight(rule.text, textW, small)) + 5.0f * s;
+    return h + 8.0f * s;
+}
+
 /// The wand editor's info card: details of `shown`, or the rules of wands when nothing is
 /// under the cursor.
 void drawSpellCard(Rectangle card, SpellId shown) {
@@ -52,17 +74,6 @@ void drawSpellCard(Rectangle card, SpellId shown) {
     }
     ui::text("The art of wands", cx, cy, small, ui::color::kGold);
     cy += static_cast<float>(small) + 6.0f * s;
-    // Each rule beside a card of the kind it describes.
-    struct Rule {
-        SpellId sample;
-        const char* text;
-    };
-    static constexpr Rule kRules[] = {
-        {SpellId::SparkBolt, "Spells cast from left to right; when the deck runs out the wand recharges."},
-        {SpellId::DamageUp, "Green modifiers boost the projectile that follows them."},
-        {SpellId::DoubleCast, "Gold multicasts fire the next spells together."},
-        {SpellId::SparkTrigger, "Triggers (the pink dot) cast the next spell where they land."},
-    };
     const float icon = 12.0f * s;
     for (const Rule& rule : kRules) {
         ui::spellIcon(rule.sample, {cx, cy, icon, icon});
@@ -149,9 +160,13 @@ void GameScene::drawInventory() {
     ui::dimScreen(160);
 
     const float slot = 16.0f * s, gap = 2.0f * s;
-    const float wandRowH = slot * 1.9f + 6.0f * s; // one wand row: its slots, then the first-cast line
-    // Tall enough for every wand row, the satchel and the info card.
-    const float panelH = std::max(200.0f * s, 104.0f * s + wandRowH * static_cast<float>(run_.wands.size()));
+    // One wand row: its slots and first-cast line, or its four lines of figures if those are taller
+    // (at the smallest UI scale).
+    const float wandRowH = std::max(slot * 1.9f + 6.0f * s, 4.0f * (static_cast<float>(small) + s) + 4.0f * s);
+    // Tall enough for every wand row, the satchel and the info card with the rules of wands.
+    constexpr float kCardW = 130.0f;
+    const float panelH = std::max({200.0f * s, 104.0f * s + wandRowH * static_cast<float>(run_.wands.size()),
+                                   56.0f * s + rulesHeight(kCardW * s)});
     Rectangle panelR{sw * 0.5f - 260.0f * s, sh * 0.5f - panelH * 0.5f, 520.0f * s, panelH};
     ui::panel(panelR);
     ui::text("SATCHEL OF SPELLS", panelR.x + panelR.width * 0.5f, panelR.y + 6.0f * s, size, ui::color::kGold, ui::Align::Center);
@@ -181,6 +196,13 @@ void GameScene::drawInventory() {
     };
     std::string wandTip, wandTipTitle;
     const Color statColor{140, 130, 150, 255};
+    auto timingLine = [](const Wand& w) { return TextFormat("delay %.2fs  recharge %.2fs", w.castDelay, w.rechargeTime); };
+    // The figures column fits its widest line: at the smallest UI scale the small font is large
+    // for the layout. The slots and the first-cast line start after it and end before the card.
+    float figuresW = 104.0f * s;
+    for (const Wand& w : run_.wands) figuresW = std::max(figuresW, static_cast<float>(ui::measure(timingLine(w), small)));
+    const float sx = panelR.x + 14.0f * s + figuresW;
+    const float slotsW = panelR.x + panelR.width - (kCardW + 16.0f) * s - sx;
 
     float y = panelR.y + 32.0f * s;
     for (size_t wi = 0; wi < run_.wands.size(); ++wi) {
@@ -188,8 +210,7 @@ void GameScene::drawInventory() {
         float x = panelR.x + 10.0f * s;
         const Rectangle nameR{x, y, 104.0f * s, slot};
         ui::text(w.name, x, y, small, static_cast<int>(wi) == run_.activeWand ? ui::color::kText : ui::color::kTextDim);
-        ui::text(TextFormat("delay %.2fs  recharge %.2fs", w.castDelay, w.rechargeTime), x, y + static_cast<float>(small) + 1.0f * s,
-                 small, statColor);
+        ui::text(timingLine(w), x, y + static_cast<float>(small) + 1.0f * s, small, statColor);
         const float statLine = static_cast<float>(small) + 1.0f * s;
         ui::text(TextFormat("mana %d (+%d/s)", static_cast<int>(w.manaMax), static_cast<int>(w.manaCharge)), x, y + statLine * 2.0f, small,
                  statColor);
@@ -200,14 +221,15 @@ void GameScene::drawInventory() {
             fx += static_cast<float>(ui::measure("shuffle  ", small));
         }
         if (w.spellsPerCast > 1) ui::text("multicast", fx, y + statLine * 3.0f, small, ui::color::kAccent);
-        if (!pad && ui::hovered({nameR.x, nameR.y, nameR.width, slot * 1.6f})) {
+        if (!pad && ui::hovered({nameR.x, nameR.y, nameR.width, statLine * 4.0f})) {
             wandTipTitle = w.name;
             wandTip = TextFormat("Spread %.1f deg. Spells per cast %d. Capacity %d.%s", w.spreadDeg, w.spellsPerCast, w.capacity,
                                  w.shuffle ? " Shuffle: casts spells in random order." : "");
         }
-        const float sx = panelR.x + 118.0f * s;
+        // A wand widened past the room left (Expansion perks) gets smaller slots.
+        const float cell = std::min(slot + gap, slotsW / static_cast<float>(std::max(1, w.capacity)));
         for (int i = 0; i < w.capacity; ++i) {
-            const Rectangle r{sx + static_cast<float>(i) * (slot + gap), y, slot, slot};
+            const Rectangle r{sx + static_cast<float>(i) * cell, y, cell - gap, cell - gap};
             const SpellId sp = w.slots[static_cast<size_t>(i)];
             const bool isDragSrc = drag_.active && drag_.wand == static_cast<int>(wi) && drag_.slot == i;
             const bool pointed = pointedAt(r, static_cast<int>(wi), i);
@@ -231,12 +253,12 @@ void GameScene::drawInventory() {
         // A booster at the end of an ordered deck is wasted; say so in place of the preview.
         const SpellId dangling = w.shuffle ? SpellId::None : trailingBooster(w.slots);
         if (dangling != SpellId::None)
-            ui::text(TextFormat("%s has nothing after it to work on", spellDef(dangling).name), sx, y + slot + 3.0f * s, small,
-                     ui::color::kDanger);
+            ui::textWrapped(TextFormat("%s has nothing after it to work on", spellDef(dangling).name), sx, y + slot + 3.0f * s, slotsW,
+                            small, ui::color::kDanger);
         else if (count > 0)
-            ui::text(TextFormat("first cast: %d projectile%s, %d damage, %d mana", count, count == 1 ? "" : "s", static_cast<int>(damage),
-                                static_cast<int>(first.mana)),
-                     sx, y + slot + 3.0f * s, small, firstColor);
+            ui::textWrapped(TextFormat("first cast: %d projectile%s, %d damage, %d mana", count, count == 1 ? "" : "s",
+                                       static_cast<int>(damage), static_cast<int>(first.mana)),
+                            sx, y + slot + 3.0f * s, slotsW, small, firstColor);
         y += wandRowH;
     }
 
@@ -287,7 +309,7 @@ void GameScene::drawInventory() {
              ui::color::kTextDim, ui::Align::Right);
 
     // Info card: the spell under the cursor, or the rules of wands.
-    drawSpellCard({panelR.x + panelR.width - 140.0f * s, panelR.y + 32.0f * s, 130.0f * s, panelR.height - 56.0f * s},
+    drawSpellCard({panelR.x + panelR.width - (kCardW + 10.0f) * s, panelR.y + 32.0f * s, kCardW * s, panelR.height - 56.0f * s},
                   drag_.active ? drag_.spell : hover.spell);
 
     if (guide.active() && !drag_.active) {
@@ -306,7 +328,8 @@ void GameScene::drawInventory() {
         if (guide.booster)
             caption = pad ? "Pick up the glowing booster with A and place it on the glowing spell - it boosts the spell after it"
                           : "Drag the glowing booster onto the glowing spell - it goes in front and boosts the spell after it";
-        ui::text(caption, panelR.x + 10.0f * s, satchelBottom + 3.0f * s, small, ui::color::kGold);
+        ui::textWrapped(caption, panelR.x + 10.0f * s, satchelBottom + 3.0f * s, panelR.width - (kCardW + 30.0f) * s, small,
+                        ui::color::kGold);
     }
     if (pad && !hints_.seen(Hint::WandGuide) && cursorR.width <= 0.0f) cursorR = guideFromR;
     if (pad && cursorR.width > 0.0f) {

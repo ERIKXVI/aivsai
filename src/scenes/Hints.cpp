@@ -228,11 +228,14 @@ void HintTracker::draw(float screenW, float screenH, bool gamepad) const {
     const int size = ui::fontSize(ui::scale());
     const char* text = HintTracker::text(active_, gamepad);
     const float a = clamp(std::min((kShowTime - timer_) * 3.0f, timer_ * 1.5f), 0.0f, 1.0f);
-    const float w = static_cast<float>(ui::measure(text, size)) + 20.0f * s, hgt = static_cast<float>(size) + 10.0f * s;
-    Rectangle r{screenW * 0.5f - w * 0.5f, screenH - 64.0f * s - (1.0f - a) * 6.0f * s, w, hgt};
+    // One line where it fits; on a narrow window the hint wraps and its box grows upwards.
+    const float textW = std::min(screenW - 40.0f * s, static_cast<float>(ui::measure(text, size)));
+    const float w = textW + 20.0f * s, hgt = ui::wrappedHeight(text, textW, size) + 10.0f * s;
+    const float bottom = screenH - 54.0f * s + static_cast<float>(size) - (1.0f - a) * 6.0f * s;
+    Rectangle r{screenW * 0.5f - w * 0.5f, bottom - hgt, w, hgt};
     DrawRectangleRec(r, Color{14, 10, 22, static_cast<unsigned char>(210.0f * a)});
     DrawRectangleLinesEx(r, 1.0f, withAlpha(ui::color::kGold, static_cast<uint8_t>(150.0f * a)));
-    ui::text(text, screenW * 0.5f, r.y + 5.0f * s, size, Color{240, 230, 210, static_cast<unsigned char>(255.0f * a)}, ui::Align::Center);
+    ui::textWrapped(text, r.x + 10.0f * s, r.y + 5.0f * s, textW, size, Color{240, 230, 210, static_cast<unsigned char>(255.0f * a)});
 }
 
 } // namespace pm
