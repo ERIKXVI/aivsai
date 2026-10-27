@@ -7,6 +7,16 @@
 
 #include "app/App.hpp"
 
+#if defined(_WIN32)
+// Ask NVIDIA Optimus and AMD switchable-graphics drivers to run the game on the discrete GPU
+// of a hybrid-graphics laptop. They must live in the executable itself (not the game library)
+// to be exported.
+extern "C" {
+__declspec(dllexport) unsigned long NvOptimusEnablement = 0x00000001;
+__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
+#endif
+
 namespace {
 
 pm::LaunchOptions parseArgs(int argc, char** argv) {

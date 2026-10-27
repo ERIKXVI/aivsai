@@ -35,6 +35,15 @@ jobs:
       - name: Unit tests
         run: ctest --test-dir build -C Release --output-on-failure
 
+      - name: Check discrete-GPU exports
+        shell: pwsh
+        run: |
+          # Hybrid-graphics drivers look these names up in the executable's export table.
+          $text = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes("build/Release/PrimaMateria.exe"))
+          foreach ($name in "NvOptimusEnablement", "AmdPowerXpressRequestHighPerformance") {
+            if (-not $text.Contains($name)) { throw "PrimaMateria.exe does not export $name" }
+          }
+
       - name: Package
         shell: pwsh
         run: |

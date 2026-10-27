@@ -144,7 +144,9 @@ albedo and emission layers. A light pass ray-marches up to 64 point lights per p
 through the occlusion field for soft shadows - lava pools, fires and glowing fungus
 automatically become shadow-casting lights - and a dual-Kawase pyramid provides glow and
 bloom. The final composite runs at screen resolution with sub-pixel camera scrolling,
-sharp-bilinear scaling, solid-depth shading, ACES tonemapping and screen effects.
+sharp-bilinear scaling, solid-depth shading, ACES tonemapping and screen effects. On
+hybrid-graphics laptops the executable asks NVIDIA and AMD drivers for the discrete GPU, and
+a machine that still cannot hold its frame rate steps down to Low graphics once, by itself.
 
 **Game (`src/game`).** Data-driven spells, wands and creatures; 17 monster types with 11
 behaviours (including a worm that tunnels through rock, four lair guardians and a
