@@ -79,8 +79,7 @@ App::App(const LaunchOptions& options) : options_(options) {
         }
     }
 
-    int refresh = GetMonitorRefreshRate(GetCurrentMonitor());
-    SetTargetFPS(options_.turbo ? 0 : (refresh > 0 ? std::max(refresh, 60) : 144));
+    applyFrameCap();
 
     InitAudioDevice();
     initMaterials();
@@ -104,6 +103,7 @@ App::~App() {
     sprites_.reset();
     audio_.reset();
     if (IsAudioDeviceReady()) CloseAudioDevice();
+    platform::keepDisplayAwake(false);
     CloseWindow();
 }
 
@@ -128,6 +128,29 @@ void App::toggleFullscreen() {
     else enterBorderless();
     settings_.fullscreen = IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE);
     if (!options_.automated()) saveSettings(settings_);
+    applyFrameCap(); // the window may now be on another monitor
+}
+
+void App::applyFrameCap() {
+    // Vsync paces the frames; the limiter only guards against a driver that ignores it. It sits
+    // one above the panel's rate because Windows rounds 143.98 Hz down to 143, and a cap at the
+    // reported rate would starve vsync and repeat a frame about once a second. In the background
+    // the (paused) game needs no more than 30 frames a second.
+    if (options_.turbo) {
+        SetTargetFPS(0);
+        return;
+    }
+    const int refresh = GetMonitorRefreshRate(GetCurrentMonitor());
+    SetTargetFPS(!focused_ && !options_.automated() ? 30 : (refresh > 0 ? std::max(refresh + 1, 60) : 144));
+}
+
+void App::noteFocus() {
+    const bool focused = IsWindowFocused() && !IsWindowMinimized();
+    if (focused == focused_) return;
+    focused_ = focused;
+    if (options_.automated()) return;
+    platform::keepDisplayAwake(focused);
+    applyFrameCap();
 }
 
 void App::applySettings() {
@@ -159,6 +182,7 @@ int App::run() {
     double last = GetTime();
     bool wasMinimized = false;
     while (!quit_ && !WindowShouldClose()) {
+        noteFocus();
         double now = GetTime();
         double frameDt = std::min(now - last, 0.25);
         last = now;
@@ -190,6 +214,7 @@ int App::run() {
         if (GetScreenWidth() != screenW_ || GetScreenHeight() != screenH_) {
             screenW_ = GetScreenWidth();
             screenH_ = GetScreenHeight();
+            applyFrameCap();
             if (scene_) scene_->onResize(screenW_, screenH_);
         }
 

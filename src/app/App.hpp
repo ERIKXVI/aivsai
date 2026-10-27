@@ -81,6 +81,10 @@ public:
 private:
     void applyPendingScene();
     void enterBorderless();
+    /// Sets the frame limiter for the current monitor, or 30 fps while in the background.
+    void applyFrameCap();
+    /// On focus changes: keeps the display awake while focused and throttles the background.
+    void noteFocus();
 
     LaunchOptions options_;
     ThreadPool pool_;
@@ -95,6 +99,7 @@ private:
     double time_ = 0.0;
     uint64_t frameCount_ = 0;
     bool quit_ = false;
+    bool focused_ = false; ///< the window had focus at the last noteFocus()
 };
 
 } // namespace pm

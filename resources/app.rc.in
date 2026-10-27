@@ -3,7 +3,9 @@
 // edit the template, not the generated copy.
 #include <winver.h>
 
-IDI_ICON1 ICON "@PROJECT_SOURCE_DIR@/resources/icon.ico"
+// GLFW gives its window class the icon resource named GLFW_ICON, so the running game shows it on the
+// taskbar, in Alt+Tab and in the title bar (Explorer uses the first icon group, this same one).
+GLFW_ICON ICON "@PROJECT_SOURCE_DIR@/resources/icon.ico"
 
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION     @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
