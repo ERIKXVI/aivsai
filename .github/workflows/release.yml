@@ -77,5 +77,7 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: Prima Materia ${{ steps.tag.outputs.name }}
           body_path: docs/RELEASE_NOTES.md
+          # A suffixed tag (v1.0.0-rc.1) is a pre-release and never displaces the latest release.
+          prerelease: ${{ contains(steps.tag.outputs.name, '-') }}
           files: PrimaMateria-${{ steps.tag.outputs.name }}-windows-x64.zip
           fail_on_unmatched_files: true
