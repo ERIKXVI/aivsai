@@ -774,7 +774,7 @@ void GameScene::drawPauseMenu() {
         return;
     }
     if (ui::hovered(last))
-        ui::tooltip("Return to Title", "The run is kept: Continue the Work resumes it at the start of this stage.", ui::color::kGold);
+        ui::tooltipBeside(last, "Return to Title", "The run is kept: Continue the Work resumes it at the start of this stage.", ui::color::kGold);
     // Ending the run or closing the game takes a second press.
     if (item(confirmAbandon_ ? "Abandon the run?" : "Abandon Run")) {
         if (!confirmAbandon_) {
@@ -787,14 +787,14 @@ void GameScene::drawPauseMenu() {
     }
     if (!hot()) confirmAbandon_ = false;
     if (confirmAbandon_ && ui::hovered(last))
-        ui::tooltip("Abandon Run", "Press again to end this run; it is recorded as lost.", ui::color::kDanger);
+        ui::tooltipBeside(last, "Abandon Run", "Press again to end this run; it is recorded as lost.", ui::color::kDanger);
     if (item(confirmQuit_ ? "Quit the game?" : "Quit Game")) {
         if (!confirmQuit_) confirmQuit_ = true;
         else app_.requestQuit(); // the run stays suspended at the start of this stage
     }
     if (!hot()) confirmQuit_ = false;
     if (ui::hovered(last))
-        ui::tooltip("Quit Game", "Closes the game. The run is kept for Continue the Work.", ui::color::kGold);
+        ui::tooltipBeside(last, "Quit Game", "Closes the game. The run is kept for Continue the Work.", ui::color::kGold);
 }
 
 void GameScene::drawEndScreen(bool victory) {

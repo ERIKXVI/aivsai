@@ -23,6 +23,8 @@ struct PendingTooltip {
     bool active = false;
     std::string title, body;
     Color color{};
+    bool anchored = false; ///< placed beside `anchor` instead of at the mouse
+    Rectangle anchor{};
 } g_tooltip;
 
 bool sameRect(Rectangle a, Rectangle b) {
@@ -47,7 +49,10 @@ void setAudio(Audio* audio) { g_audio = audio; }
 
 int fontSize(int step) { return 10 * std::max(1, step); }
 
-int smallFontSize() { return fontSize(g_scale - 1); }
+// Two thirds of the body size, rounded down to the 10-pixel font steps: 10 px at 720p and 20 px
+// at 1080p as before, but never proportionally larger than at 1080p, so small text stays inside
+// boxes laid out in design units at 1440p and 4K.
+int smallFontSize() { return fontSize(std::max(1, g_scale * 2 / 3)); }
 
 int measure(const std::string& s, int size) { return MeasureText(s.c_str(), size); }
 
@@ -301,7 +306,7 @@ void spellIcon(SpellId spell, Rectangle r, bool highlight) {
 
 namespace {
 
-void drawTooltip(const std::string& title, const std::string& body, Color titleColor) {
+void drawTooltip(const std::string& title, const std::string& body, Color titleColor, const Rectangle* anchor) {
     const float s = static_cast<float>(g_scale);
     const int titleSize = fontSize(g_scale);
     const int bodySize = smallFontSize();
@@ -310,7 +315,13 @@ void drawTooltip(const std::string& title, const std::string& body, Color titleC
     const float h = static_cast<float>(titleSize) + 10.0f * s + wrappedHeight(body, bodyW, bodySize);
     const Vector2 m = GetMousePosition();
     Rectangle r{m.x + 12.0f * s, m.y + 12.0f * s, width, h};
-    if (r.x + r.width > static_cast<float>(g_screenW)) r.x = m.x - r.width - 6.0f * s;
+    if (anchor) {
+        // Beside the control it explains, so it never covers the next one's label.
+        r = {anchor->x + anchor->width + 6.0f * s, anchor->y, width, h};
+        if (r.x + r.width > static_cast<float>(g_screenW)) r.x = anchor->x - r.width - 6.0f * s;
+    } else if (r.x + r.width > static_cast<float>(g_screenW)) {
+        r.x = m.x - r.width - 6.0f * s;
+    }
     if (r.y + r.height > static_cast<float>(g_screenH)) r.y = static_cast<float>(g_screenH) - r.height - 4.0f;
     panel(r, Color{12, 10, 18, 245});
     text(title, r.x + 4.0f * s, r.y + 3.0f * s, titleSize, titleColor);
@@ -323,9 +334,13 @@ void tooltip(const std::string& title, const std::string& body, Color titleColor
     g_tooltip = PendingTooltip{true, title, body, titleColor};
 }
 
+void tooltipBeside(Rectangle anchor, const std::string& title, const std::string& body, Color titleColor) {
+    g_tooltip = PendingTooltip{true, title, body, titleColor, true, anchor};
+}
+
 void endFrame() {
     if (!g_tooltip.active) return;
-    drawTooltip(g_tooltip.title, g_tooltip.body, g_tooltip.color);
+    drawTooltip(g_tooltip.title, g_tooltip.body, g_tooltip.color, g_tooltip.anchored ? &g_tooltip.anchor : nullptr);
     g_tooltip.active = false;
 }
 

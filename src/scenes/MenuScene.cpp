@@ -265,12 +265,12 @@ void MenuScene::drawMain() {
             const RunState& r = *suspended_;
             std::string where = r.inSanctum ? std::string("Sanctum after ") + biomeDef(biomeForDepth(r.levelIndex)).name
                                             : std::string(stageNumeral(r.levelIndex)) + ". " + biomeDef(biomeForDepth(r.levelIndex)).name;
-            ui::tooltip("Continue the Work", where + TextFormat("  -  %s, %d gold", loadoutDef(r.loadout).name, r.gold), ui::color::kGold);
+            ui::tooltipBeside(last, "Continue the Work", where + TextFormat("  -  %s, %d gold", loadoutDef(r.loadout).name, r.gold), ui::color::kGold);
         }
     }
     if (item("Begin the Great Work")) panel_ = Panel::Loadout;
     if (suspended_ && ui::hovered(last))
-        ui::tooltip("Begin the Great Work", "Starting anew abandons your suspended run.", ui::color::kDanger);
+        ui::tooltipBeside(last, "Begin the Great Work", "Starting anew abandons your suspended run.", ui::color::kDanger);
     // Everyone attempts the daily rite with the same seed and the same kit. With a run
     // suspended, the first press only asks for confirmation.
     const int dailyIndex = index;
@@ -282,10 +282,10 @@ void MenuScene::drawMain() {
     if (!dailyHot) confirmDaily_ = false;
     if (ui::hovered(last)) {
         if (suspended_)
-            ui::tooltip("Daily Rite", "Today's seed with the Apprentice's kit. Starting it abandons your suspended run.",
+            ui::tooltipBeside(last, "Daily Rite", "Today's seed with the Apprentice's kit. Starting it abandons your suspended run.",
                         ui::color::kDanger);
         else
-            ui::tooltip("Daily Rite", "Today's seed, the same for every alchemist, with the Apprentice's kit.", ui::color::kGold);
+            ui::tooltipBeside(last, "Daily Rite", "Today's seed, the same for every alchemist, with the Apprentice's kit.", ui::color::kGold);
     }
     Settings& st = app_.settings();
     const int d = clamp(st.difficulty, 0, kDifficultyCount - 1);
@@ -293,7 +293,7 @@ void MenuScene::drawMain() {
         st.difficulty = (d + 1) % kDifficultyCount;
         saveSettings(st);
     }
-    if (ui::hovered(last)) ui::tooltip(difficultyName(difficultyFromIndex(d)), difficultyDetail(difficultyFromIndex(d)), ui::color::kGold);
+    if (ui::hovered(last)) ui::tooltipBeside(last, difficultyName(difficultyFromIndex(d)), difficultyDetail(difficultyFromIndex(d)), ui::color::kGold);
     if (item("Alchemy Sandbox")) app_.setScene(std::make_unique<SandboxScene>(app_));
     if (item("Grimoire")) panel_ = Panel::Grimoire;
     if (item("How to Play")) panel_ = Panel::Help;

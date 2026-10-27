@@ -179,6 +179,7 @@ void GameScene::updateLens(float dt) {
     } else {
         lens_.rest += dt;
     }
+    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) lens_.rest = 0.0f; // casting is not looking
     lens_.mouse = m;
     std::string title, body;
     Color color = WHITE;
@@ -189,15 +190,21 @@ void GameScene::updateLens(float dt) {
     if (mode_ == Mode::Playing && !exiting_ && fade_ < 0.3f && app_.settings().matterLens && !usingGamepad_ && looking &&
         !IsMouseButtonDown(MOUSE_BUTTON_LEFT) && (at - level_->player().body.pos).lengthSq() < 120.0f * 120.0f) {
         eligible = true;
+        bool fighting = false;
         for (const auto& e : level_->enemies()) {
             const Rectf b = e->bounds();
             if (!e->alive() || e->disguised() || at.x < b.x - 2.0f || at.x > b.x + b.w + 2.0f || at.y < b.y - 2.0f || at.y > b.y + b.h + 2.0f) continue;
+            // In a fight the lens keeps quiet: the boss bar and the creature's own reactions say enough.
+            if ((e->aggro() && e->team == Team::Monster) || e.get() == level_->bossBarTarget()) {
+                fighting = true;
+                break;
+            }
             title = e->elite() ? std::string(affixName(e->affix())) + " " + e->def().name : std::string(e->def().name);
             body = TextFormat("%d / %d health", static_cast<int>(std::ceil(e->hp)), static_cast<int>(e->maxHp));
             color = e->team == Team::Player ? ui::color::kAccent : ui::color::kDanger;
             break;
         }
-        if (title.empty()) {
+        if (title.empty() && !fighting) {
             const MatId mt = level_->world().matAt(floorToInt(at.x), floorToInt(at.y));
             body = matDescription(mt);
             if (!body.empty()) {
