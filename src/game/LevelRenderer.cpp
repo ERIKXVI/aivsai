@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 
 #include "core/Profiler.hpp"
 #include "game/Level.hpp"
@@ -20,6 +21,33 @@ Color spellColor(SpellId s) {
     case SpellType::Multicast: return Color{255, 220, 110, 255};
     }
     return WHITE;
+}
+
+constexpr int kMaxProjectileLights = 25; ///< projectile lights in view beyond this many are not registered
+constexpr int kMaxLootLights = 12;       ///< likewise for treasure glints
+
+PointLight colorLight(Vec2 pos, Color c, float k, float radius, float bodySkip, float priority) {
+    return PointLight{pos, c.r / 255.0f * k, c.g / 255.0f * k, c.b / 255.0f * k, radius, bodySkip, priority};
+}
+
+/// The glint a pickup casts to catch the eye in the dark, if any.
+std::optional<PointLight> lootLight(const Pickup& pk, Vec2 at, float time) {
+    switch (pk.type) {
+    case PickupType::PerkAltar:
+        return colorLight(at - Vec2{0.0f, 12.0f}, hexColor(perkDef(pk.perk).color), 1.0f, 45.0f, 3.0f, 0.5f);
+    case PickupType::Spell:
+    case PickupType::Wand: {
+        const float pulse = 0.55f + 0.2f * std::sin(time * 3.0f + at.x);
+        // Rare finds shine gold, and further.
+        if (pk.rare) return PointLight{at, 1.0f * pulse, 0.8f * pulse, 0.4f * pulse, 40.0f, 2.0f, 0.5f};
+        const Color c = pk.type == PickupType::Spell ? spellColor(pk.spell) : hexColor(pk.wand ? pk.wand->gemColor : 0xffffff);
+        return colorLight(at, c, pulse, 28.0f, 2.0f, 0.5f);
+    }
+    case PickupType::Chest:
+        if (pk.opened) return std::nullopt;
+        return PointLight{at - Vec2{0.0f, 3.0f}, 0.7f, 0.55f, 0.25f, 30.0f, 3.0f, 0.5f};
+    default: return std::nullopt;
+    }
 }
 
 constexpr float kDeathDesaturation = 0.8f; ///< share of the biome's saturation a finished death fade drains
@@ -302,11 +330,11 @@ void LevelRenderer::addLights(const Level& level, float alpha, float time) {
     // Only lights that reach the view count towards the caps below.
     int projLights = 0;
     for (const Projectile& p : level.projectiles()) {
-        if (projLights >= 25) break;
+        if (projLights >= kMaxProjectileLights) break;
         Color c = hexColor(p.def.color);
         float k = p.def.flags & projflag::kHitscan ? 3.0f : 1.4f;
         Vec2 pos = (p.def.flags & projflag::kHitscan) ? lerp(p.pos, p.beamEnd, 0.5f) : lerp(p.prevPos, p.pos, alpha);
-        if (scene_.addLight(PointLight{pos, c.r / 255.0f * k, c.g / 255.0f * k, c.b / 255.0f * k, p.def.lightRadius, 1.5f, 1.0f})) ++projLights;
+        if (scene_.addLight(colorLight(pos, c, k, p.def.lightRadius, 1.5f, 1.0f))) ++projLights;
     }
 
     // Fixtures outrank the projectiles of a busy fight and fade if they ever lose their slot.
@@ -328,33 +356,9 @@ void LevelRenderer::addLights(const Level& level, float alpha, float time) {
     // Treasure glints so it catches the eye in the dark.
     int lootLights = 0;
     for (const Pickup& pk : level.pickups()) {
-        if (lootLights >= 12) break;
-        const Vec2 at = pk.body.interpolated(alpha);
-        switch (pk.type) {
-        case PickupType::PerkAltar: {
-            Color c = hexColor(perkDef(pk.perk).color);
-            if (scene_.addLight(PointLight{at - Vec2{0.0f, 12.0f}, c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, 45.0f, 3.0f, 0.5f})) ++lootLights;
-            break;
-        }
-        case PickupType::Spell:
-        case PickupType::Wand: {
-            Color c = pk.type == PickupType::Spell ? spellColor(pk.spell) : hexColor(pk.wand ? pk.wand->gemColor : 0xffffff);
-            float pulse = 0.55f + 0.2f * std::sin(time * 3.0f + at.x);
-            if (pk.rare) {
-                // Rare finds shine gold, and further.
-                if (scene_.addLight(PointLight{at, 1.0f * pulse, 0.8f * pulse, 0.4f * pulse, 40.0f, 2.0f, 0.5f})) ++lootLights;
-                break;
-            }
-            if (scene_.addLight(PointLight{at, c.r / 255.0f * pulse, c.g / 255.0f * pulse, c.b / 255.0f * pulse, 28.0f, 2.0f, 0.5f})) ++lootLights;
-            break;
-        }
-        case PickupType::Chest:
-            if (!pk.opened) {
-                if (scene_.addLight(PointLight{at - Vec2{0.0f, 3.0f}, 0.7f, 0.55f, 0.25f, 30.0f, 3.0f, 0.5f})) ++lootLights;
-            }
-            break;
-        default: break;
-        }
+        if (lootLights >= kMaxLootLights) break;
+        const std::optional<PointLight> glint = lootLight(pk, pk.body.interpolated(alpha), time);
+        if (glint && scene_.addLight(*glint)) ++lootLights;
     }
 
     // Brightest emissive regions (lava, fires, glowing fungus) cast shadowed light.
