@@ -342,40 +342,47 @@ void MenuScene::drawLoadouts() {
         const bool hover = unlocked && ui::hovered(row);
         ui::panel(row, isSelected ? Color{58, 42, 86, 240} : Color{24, 19, 32, 230},
                   isSelected ? ui::color::kGold : (hover ? ui::color::kAccent : ui::color::kPanelBorder));
-        const float tx = row.x + 8.0f * s;
+        const float tx = row.x + 8.0f * s, infoY = row.y + 7.0f * s + static_cast<float>(size);
         if (unlocked) {
             ui::text(def.name, tx, row.y + 5.0f * s, size, isSelected ? ui::color::kGold : ui::color::kText);
-            ui::text(def.description, tx, row.y + 7.0f * s + static_cast<float>(size), small, ui::color::kTextDim);
-            // Starting kit preview: the first wand's spells.
-            const float icon = 14.0f * s;
-            float ix = row.x + row.width - 8.0f * s - icon;
-            if (def.randomKit) {
-                ui::text("?", ix + icon * 0.5f, row.y + (rowH - static_cast<float>(size)) * 0.5f, size, ui::color::kAccent,
-                         ui::Align::Center);
-            } else {
-                const std::vector<SpellId>& slots = kitPreview_[static_cast<size_t>(i)];
-                for (auto it = slots.rbegin(); it != slots.rend(); ++it) {
-                    if (*it == SpellId::None) continue;
-                    Rectangle ir{ix, row.y + (rowH - icon) * 0.5f, icon, icon};
-                    ui::spellIcon(*it, ir);
-                    if (ui::hovered(ir)) {
-                        tipTitle = spellDef(*it).name;
-                        tipBody = spellDetails(*it);
-                    }
-                    ix -= icon + 3.0f * s;
-                }
-            }
-            if (hover && input::mousePressed(MOUSE_BUTTON_LEFT)) {
-                if (isSelected) {
-                    startRun(false, id);
-                    return;
-                }
-                st.loadout = i;
-                saveSettings(st);
-            }
+            ui::text(def.description, tx, infoY, small, ui::color::kTextDim);
         } else {
-            ui::text("Sealed", tx, row.y + 5.0f * s, size, Color{110, 100, 120, 255});
-            ui::text(loadoutRequirement(id, m), tx, row.y + 7.0f * s + static_cast<float>(size), small, ui::color::kTextDim);
+            // A sealed path still shows what it offers and how far along the way to it you are.
+            ui::text(def.name, tx, row.y + 5.0f * s, size, Color{110, 100, 120, 255});
+            ui::text("SEALED", tx + static_cast<float>(ui::measure(def.name, size)) + 6.0f * s,
+                     row.y + 5.0f * s + static_cast<float>(size - small) * 0.5f, small, ui::color::kTextDim);
+            ui::text(loadoutRequirement(id, m), tx, infoY, small, ui::color::kTextDim);
+            if (const UnlockProgress p = loadoutProgress(id, m); p.target > 1)
+                ui::bar({tx, infoY + static_cast<float>(small) + 3.0f * s, 120.0f * s, 3.0f * s},
+                        static_cast<float>(p.value) / static_cast<float>(p.target), Color{150, 120, 70, 255});
+        }
+        // Starting kit preview: the first wand's spells, shaded while the path is sealed.
+        const float icon = 14.0f * s;
+        float ix = row.x + row.width - 8.0f * s - icon;
+        if (def.randomKit) {
+            ui::text("?", ix + icon * 0.5f, row.y + (rowH - static_cast<float>(size)) * 0.5f, size,
+                     unlocked ? ui::color::kAccent : ui::color::kTextDim, ui::Align::Center);
+        } else {
+            const std::vector<SpellId>& slots = kitPreview_[static_cast<size_t>(i)];
+            for (auto it = slots.rbegin(); it != slots.rend(); ++it) {
+                if (*it == SpellId::None) continue;
+                Rectangle ir{ix, row.y + (rowH - icon) * 0.5f, icon, icon};
+                ui::spellIcon(*it, ir);
+                if (!unlocked) DrawRectangleRec(ir, Color{14, 12, 20, 170});
+                if (ui::hovered(ir)) {
+                    tipTitle = spellDef(*it).name;
+                    tipBody = spellDetails(*it);
+                }
+                ix -= icon + 3.0f * s;
+            }
+        }
+        if (unlocked && hover && input::mousePressed(MOUSE_BUTTON_LEFT)) {
+            if (isSelected) {
+                startRun(false, id);
+                return;
+            }
+            st.loadout = i;
+            saveSettings(st);
         }
         y += rowH + rowGap;
     }
