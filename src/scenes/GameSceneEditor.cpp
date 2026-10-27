@@ -20,6 +20,9 @@ namespace {
 constexpr float kStickFlick = 0.6f; ///< left-stick deflection that counts as one step of the slot cursor
 int stickStep(float axis) { return axis < -kStickFlick ? -1 : (axis > kStickFlick ? 1 : 0); }
 
+constexpr int kSatchelCols = RunState::kInventorySize / 2; ///< the satchel grid: two rows
+constexpr int kSatchelRows = RunState::kInventorySize / kSatchelCols;
+
 const char* spellTypeName(SpellType type) {
     switch (type) {
     case SpellType::Projectile: return "Projectile";
@@ -93,11 +96,10 @@ void GameScene::updateEditorPad() {
     if (!IsGamepadAvailable(0)) return;
     // The cursor walks a grid: one row per wand, then the satchel's two rows of eight.
     const int wands = static_cast<int>(run_.wands.size());
-    const int satchelCols = RunState::kInventorySize / 2;
-    auto rowWidth = [&](int row) { return row < wands ? run_.wands[static_cast<size_t>(row)].capacity : satchelCols; };
-    int row = padCursor_.wand >= 0 ? padCursor_.wand : wands + padCursor_.slot / satchelCols;
-    int col = padCursor_.wand >= 0 ? padCursor_.slot : padCursor_.slot % satchelCols;
-    row = std::clamp(row, 0, wands + 1);
+    auto rowWidth = [&](int row) { return row < wands ? run_.wands[static_cast<size_t>(row)].capacity : kSatchelCols; };
+    int row = padCursor_.wand >= 0 ? padCursor_.wand : wands + padCursor_.slot / kSatchelCols;
+    int col = padCursor_.wand >= 0 ? padCursor_.slot : padCursor_.slot % kSatchelCols;
+    row = std::clamp(row, 0, wands + kSatchelRows - 1);
     col = std::clamp(col, 0, rowWidth(row) - 1);
 
     int dx = 0, dy = 0;
@@ -106,18 +108,16 @@ void GameScene::updateEditorPad() {
     if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_UP)) dy = -1;
     if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN)) dy = 1;
     // A flick of the left stick moves one slot.
-    const int sx = stickStep(GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X));
-    const int sy = stickStep(GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y));
-    if (sx != stickX_ && sx != 0) dx = sx;
-    if (sy != stickY_ && sy != 0) dy = sy;
-    stickX_ = sx;
-    stickY_ = sy;
+    const int prevX = stickX_, prevY = stickY_;
+    syncStickFlick();
+    if (stickX_ != prevX && stickX_ != 0) dx = stickX_;
+    if (stickY_ != prevY && stickY_ != 0) dy = stickY_;
     if (dx != 0 || dy != 0) {
-        row = std::clamp(row + dy, 0, wands + 1);
+        row = std::clamp(row + dy, 0, wands + kSatchelRows - 1);
         col = std::clamp(col + dx, 0, rowWidth(row) - 1);
         app_.audio().play(Sfx::UiHover, 0.4f);
     }
-    padCursor_ = row < wands ? SlotRef{row, col} : SlotRef{-1, (row - wands) * satchelCols + col};
+    padCursor_ = row < wands ? SlotRef{row, col} : SlotRef{-1, (row - wands) * kSatchelCols + col};
 
     SpellId& at = editorSlot(padCursor_.wand, padCursor_.slot);
     if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN)) {
@@ -139,8 +139,9 @@ void GameScene::drawInventory() {
     ui::dimScreen(160);
 
     const float slot = 16.0f * s, gap = 2.0f * s;
+    const float wandRowH = slot * 1.9f + 6.0f * s; // one wand row: its slots, then the first-cast line
     // Tall enough for every wand row, the satchel and the info card.
-    const float panelH = std::max(200.0f, 104.0f + 36.4f * static_cast<float>(run_.wands.size())) * s;
+    const float panelH = std::max(200.0f * s, 104.0f * s + wandRowH * static_cast<float>(run_.wands.size()));
     Rectangle panelR{sw * 0.5f - 260.0f * s, sh * 0.5f - panelH * 0.5f, 520.0f * s, panelH};
     ui::panel(panelR);
     ui::text("SATCHEL OF SPELLS", panelR.x + panelR.width * 0.5f, panelR.y + 6.0f * s, size, ui::color::kGold, ui::Align::Center);
@@ -173,9 +174,9 @@ void GameScene::drawInventory() {
 
     float y = panelR.y + 32.0f * s;
     for (size_t wi = 0; wi < run_.wands.size(); ++wi) {
-        Wand& w = run_.wands[wi];
+        const Wand& w = run_.wands[wi];
         float x = panelR.x + 10.0f * s;
-        Rectangle nameR{x, y, 104.0f * s, slot};
+        const Rectangle nameR{x, y, 104.0f * s, slot};
         ui::text(w.name, x, y, small, static_cast<int>(wi) == run_.activeWand ? ui::color::kText : ui::color::kTextDim);
         ui::text(TextFormat("delay %.2fs  recharge %.2fs", w.castDelay, w.rechargeTime), x, y + static_cast<float>(small) + 1.0f * s,
                  small, statColor);
@@ -189,9 +190,9 @@ void GameScene::drawInventory() {
         }
         const float sx = panelR.x + 118.0f * s;
         for (int i = 0; i < w.capacity; ++i) {
-            Rectangle r{sx + static_cast<float>(i) * (slot + gap), y, slot, slot};
-            SpellId sp = w.slots[static_cast<size_t>(i)];
-            bool isDragSrc = drag_.active && drag_.wand == static_cast<int>(wi) && drag_.slot == i;
+            const Rectangle r{sx + static_cast<float>(i) * (slot + gap), y, slot, slot};
+            const SpellId sp = w.slots[static_cast<size_t>(i)];
+            const bool isDragSrc = drag_.active && drag_.wand == static_cast<int>(wi) && drag_.slot == i;
             const bool pointed = pointedAt(r, static_cast<int>(wi), i);
             ui::spellIcon(isDragSrc ? SpellId::None : sp, r, pointed);
             if (pointed) {
@@ -219,17 +220,18 @@ void GameScene::drawInventory() {
             ui::text(TextFormat("first cast: %d projectile%s, %d damage, %d mana", count, count == 1 ? "" : "s", static_cast<int>(damage),
                                 static_cast<int>(first.mana)),
                      sx, y + slot + 3.0f * s, small, firstColor);
-        y += slot * 1.9f + 6.0f * s;
+        y += wandRowH;
     }
 
     // Satchel grid, right under the wands.
     y += static_cast<float>(small) + 4.0f * s;
     ui::text("Satchel", panelR.x + 10.0f * s, y - static_cast<float>(small) - 2.0f * s, small, ui::color::kTextDim);
     for (int i = 0; i < RunState::kInventorySize; ++i) {
-        int col = i % 8, row = i / 8;
-        Rectangle r{panelR.x + 10.0f * s + static_cast<float>(col) * (slot + gap), y + static_cast<float>(row) * (slot + gap), slot, slot};
-        SpellId sp = run_.inventory[static_cast<size_t>(i)];
-        bool isDragSrc = drag_.active && drag_.wand == -1 && drag_.slot == i;
+        const int col = i % kSatchelCols, row = i / kSatchelCols;
+        const Rectangle r{panelR.x + 10.0f * s + static_cast<float>(col) * (slot + gap), y + static_cast<float>(row) * (slot + gap),
+                          slot, slot};
+        const SpellId sp = run_.inventory[static_cast<size_t>(i)];
+        const bool isDragSrc = drag_.active && drag_.wand == -1 && drag_.slot == i;
         const bool pointed = pointedAt(r, -1, i);
         ui::spellIcon(isDragSrc ? SpellId::None : sp, r, pointed);
         if (pointed) {
@@ -238,17 +240,17 @@ void GameScene::drawInventory() {
         }
         if (guide.active() && guide.from == i) guideFromR = r;
     }
-    const float satchelBottom = y + 2.0f * (slot + gap);
+    const float satchelBottom = y + static_cast<float>(kSatchelRows) * (slot + gap);
 
     // Perks beside the satchel.
-    float px = panelR.x + 10.0f * s + 8.0f * (slot + gap) + 14.0f * s;
+    float px = panelR.x + 10.0f * s + static_cast<float>(kSatchelCols) * (slot + gap) + 14.0f * s;
     ui::text("Perks", px, y - static_cast<float>(small) - 2.0f * s, small, ui::color::kTextDim);
     float py = y;
     for (int p = 0; p < kPerkCount; ++p) {
-        int n = run_.perkCount(static_cast<PerkId>(p));
+        const int n = run_.perkCount(static_cast<PerkId>(p));
         if (n == 0) continue;
         const PerkDef& d = perkDef(static_cast<PerkId>(p));
-        std::string label = n > 1 ? std::string(d.name) + " x" + std::to_string(n) : d.name;
+        const std::string label = n > 1 ? std::string(d.name) + " x" + std::to_string(n) : d.name;
         ui::text(label, px, py, small, hexColor(d.color));
         if (!pad && ui::hovered({px, py, 100.0f * s, static_cast<float>(small)})) {
             wandTipTitle = d.name;
