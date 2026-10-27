@@ -20,6 +20,8 @@ public:
     void drawAlbedo(DrawContext& ctx) const override;
     void drawEmission(DrawContext& ctx) const override;
     void addLights(DrawContext& ctx) const override;
+    /// The alchemist's light dying with them: `k` runs from 1 down to 0 over the death fade.
+    void addFadingLight(DrawContext& ctx, float k) const;
 
     float levitation() const { return levitation_; }
     float breath() const { return breath_; }

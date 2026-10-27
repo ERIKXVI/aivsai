@@ -310,7 +310,10 @@ void LevelRenderer::drawPickup(const Level& level, const Pickup& pk, float alpha
 
 void LevelRenderer::addLights(const Level& level, float alpha, float time) {
     DrawContext ctx{sprites_, scene_, alpha, time};
+    // The alchemist's light gutters out with the death fade rather than cutting off, so their
+    // shattering stays lit.
     if (level.player().alive()) level.player().addLights(ctx);
+    else if (deathFade_ < 1.0f) level.player().addFadingLight(ctx, (1.0f - deathFade_) * (1.0f - deathFade_));
 
     for (const LightFlash& f : level.flashes()) {
         float k = f.life / f.maxLife;

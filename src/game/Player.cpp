@@ -78,6 +78,9 @@ CastVoice castVoice(const CastShot& shot) {
     return v;
 }
 
+/// The light the alchemist carries, at strength `k`; it always gets a slot.
+PointLight lampLight(Vec2 p, float k) { return PointLight{{p.x, p.y - 3.0f}, 2.6f * k, 2.2f * k, 1.75f * k, 150.0f, 3.0f, 100.0f}; }
+
 } // namespace
 
 Player::Player(Vec2 pos, RunState& run) : run_(run) {
@@ -599,9 +602,11 @@ void Player::drawEmission(DrawContext& ctx) const {
     }
 }
 
+void Player::addFadingLight(DrawContext& ctx, float k) const { ctx.scene.addLight(lampLight(body.pos, k)); }
+
 void Player::addLights(DrawContext& ctx) const {
     const Vec2 p = body.interpolated(ctx.alpha);
-    ctx.scene.addLight(PointLight{{p.x, p.y - 3.0f}, 2.6f, 2.2f, 1.75f, 150.0f, 3.0f, 100.0f}); // always gets a slot
+    ctx.scene.addLight(lampLight(p, 1.0f));
     if (status.fury > 0.0f) ctx.scene.addLight(PointLight{p, 1.6f, 0.55f, 0.15f, 28.0f, 1.0f, 40.0f});
     if (const Wand* w = run_.currentWand(); castFlash_ > 0.0f && w) {
         Color g = hexColor(w->gemColor);
