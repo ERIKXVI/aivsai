@@ -20,7 +20,8 @@ switches to a window.
 - Found attack spells slot straight into your wand; every spell's card says what it does
   and where it will go, and a HUD badge counts the spells waiting in your satchel. The wand
   editor guides your first edit, drops a modifier in front of the spell it boosts, warns
-  about a booster with nothing after it, and works with a gamepad.
+  about a booster with nothing after it, and works with a gamepad, a mouse drag or a
+  touchpad tap (tap to pick a spell up, tap to put it down).
 - A matter lens: rest the cursor on any substance or creature to learn what it does, and
   prompts that say what a potion does, how to feed a transmutation circle, which perk each
   altar holds, and when a drink from the flask would put out your flames or heal you.
@@ -46,5 +47,7 @@ Controls: `A/D` move · `W/Space` jump (hold to levitate) · mouse aim · `LMB` 
 `E` interact · `M` map · `Esc` pause · `F11` fullscreen. Gamepads are supported, and
 button prompts follow the device you use.
 
-Settings and progress are stored in `%APPDATA%\PrimaMateria`. On a hybrid-graphics laptop
-the game asks for the discrete GPU.
+Settings and progress are stored in `%APPDATA%\PrimaMateria`; each save keeps the previous
+copy as a backup, so a power cut just after saving cannot wipe your progress. On a
+hybrid-graphics laptop the game asks for the discrete GPU. Minimised, the game pauses the run
+and lets the PC sleep.
