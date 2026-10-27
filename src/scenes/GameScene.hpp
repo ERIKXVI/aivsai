@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "app/InputLatch.hpp"
 #include "app/RunRecords.hpp"
 #include "app/Scene.hpp"
 #include "game/Bot.hpp"
@@ -167,6 +168,7 @@ private:
     // Input pressed between ticks is latched so nothing is lost at high frame rates.
     bool latchJump_ = false, latchInteract_ = false, latchDrink_ = false, latchCast_ = false;
     int latchWand_ = -1, latchCycle_ = 0;
+    input::WheelStepper wheel_; ///< mouse wheel to wand steps
 
     // Inventory drag & drop. With a gamepad a slot cursor stands in for the mouse.
     struct Drag {

@@ -1,5 +1,6 @@
 #include "app/InputLatch.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 
@@ -77,6 +78,21 @@ bool usingGamepad(bool wasGamepad) {
     if (std::fabs(lx) > 0.4f || std::fabs(ly) > 0.4f || rx * rx + ry * ry > 0.2f || GetGamepadButtonPressed() != GAMEPAD_BUTTON_UNKNOWN)
         return true;
     return wasGamepad;
+}
+
+int WheelStepper::step(float delta, float dt) {
+    cooldown_ = std::max(0.0f, cooldown_ - dt);
+    if (delta != 0.0f) {
+        accum_ = std::clamp(accum_ + delta, -1.5f, 1.5f);
+        idle_ = 0.0f;
+    } else if ((idle_ += dt) > kForget) {
+        accum_ = 0.0f;
+    }
+    if (std::fabs(accum_) < 0.99f || cooldown_ > 0.0f) return 0;
+    const int dir = accum_ > 0.0f ? 1 : -1;
+    accum_ -= static_cast<float>(dir);
+    cooldown_ = kCooldown;
+    return dir;
 }
 
 } // namespace pm::input

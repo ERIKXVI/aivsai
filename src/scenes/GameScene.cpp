@@ -169,9 +169,8 @@ void GameScene::latchInput() {
     if (input::mousePressed(MOUSE_BUTTON_LEFT)) latchCast_ = true; // a tap shorter than a frame still casts
     for (int i = 0; i < RunState::kMaxWands; ++i)
         if (input::keyPressed(KEY_ONE + i)) latchWand_ = i;
-    float wheel = GetMouseWheelMove();
-    if (wheel > 0.0f) latchCycle_ -= 1;
-    if (wheel < 0.0f) latchCycle_ += 1;
+    // Vertical only (a sideways swipe does not cycle); wheel up is the previous wand.
+    latchCycle_ -= wheel_.step(GetMouseWheelMoveV().y, GetFrameTime());
     if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_TRIGGER_1)) latchCycle_ -= 1;
     if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_1)) latchCycle_ += 1;
 }

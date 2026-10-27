@@ -25,4 +25,19 @@ void consumeKey(int key);
 /// Returns `wasGamepad` when nothing was touched this frame.
 bool usingGamepad(bool wasGamepad);
 
+/// Turns vertical wheel motion into whole steps: one per notch of an ordinary wheel, and one
+/// per notch's worth of the many small deltas a touchpad swipe or a smooth-scrolling wheel
+/// sends over several frames. Steps are at least kCooldown apart; a pause forgets a partial notch.
+class WheelStepper {
+public:
+    static constexpr float kCooldown = 0.12f; ///< seconds between two steps
+    static constexpr float kForget = 0.2f;    ///< seconds without motion that drop a partial notch
+    /// `delta` is this frame's wheel motion (positive is up). Returns +1 for a notch up, -1 for
+    /// a notch down, 0 otherwise.
+    int step(float delta, float dt);
+
+private:
+    float accum_ = 0.0f, idle_ = 0.0f, cooldown_ = 0.0f;
+};
+
 } // namespace pm::input
