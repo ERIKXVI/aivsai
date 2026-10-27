@@ -13,7 +13,7 @@ namespace {
 
 /// Keyboard and gamepad focus over the panel's rows: the three sliders, the toggles and Back.
 ui::NavList g_nav;
-constexpr int kRows = 10;
+constexpr int kRows = 3 + 6 + 1; ///< the sliders, the toggle rows (Fullscreen among them) and Back
 
 /// Horizontal slider; returns true while the value changes. With the focus, left and right
 /// step it by 5%.
@@ -63,27 +63,30 @@ bool drawSettingsPanel(App& app) {
     y += 20.0f * s;
 
     const float bw = panelR.width - 32.0f * s, bh = 16.0f * s;
-    // One full-width "Name: On/Off" row: flips `flag` on click, advances y, returns the row's rect.
-    auto toggle = [&](const char* name, bool& flag, const char* on = "On", const char* off = "Off") {
-        const Rectangle r{x, y, bw, bh};
+    // One full-width button row at y: keeps its rect in `last`, advances y and returns whether it
+    // was clicked or activated with the focus. toggle makes it a "Name: On/Off" row that flips
+    // `flag` and returns the row's rect.
+    Rectangle last{};
+    auto pressRow = [&](const std::string& label) {
+        last = {x, y, bw, bh};
         const int index = row++;
-        if (ui::button(r, std::string(name) + ": " + (flag ? on : off), true, g_nav.focused(index)) || g_nav.activated(index)) {
+        y += bh + 4.0f * s;
+        return ui::button(last, label, true, g_nav.focused(index)) || g_nav.activated(index);
+    };
+    auto toggle = [&](const char* name, bool& flag, const char* on = "On", const char* off = "Off") {
+        if (pressRow(std::string(name) + ": " + (flag ? on : off))) {
             flag = !flag;
             changed = true;
         }
-        y += bh + 4.0f * s;
-        return r;
+        return last;
     };
 
     toggle("Screen shake", st.screenShake);
     const bool fullscreen = IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE);
-    const int fullscreenRow = row++;
-    if (ui::button({x, y, bw, bh}, std::string("Fullscreen: ") + (fullscreen ? "On" : "Off"), true, g_nav.focused(fullscreenRow)) ||
-        g_nav.activated(fullscreenRow)) {
+    if (pressRow(std::string("Fullscreen: ") + (fullscreen ? "On" : "Off"))) {
         app.toggleFullscreen();
         changed = true;
     }
-    y += bh + 4.0f * s;
     toggle("Show FPS", st.showFps);
     if (ui::hovered(toggle("Graphics", st.highQuality, "High", "Low")))
         ui::tooltip("Graphics", "Low shortens shadow rays and uses fewer lights, for weaker GPUs.");

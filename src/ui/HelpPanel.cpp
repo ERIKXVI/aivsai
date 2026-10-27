@@ -34,8 +34,13 @@ constexpr Binding kGamepad[] = {
 };
 static_assert(std::size(kKeyboard) == std::size(kGamepad), "every action has a key and a button");
 
+struct Tip {
+    const char* title;
+    const char* body;
+};
+
 // The rules of matter, one short paragraph each.
-constexpr Binding kTips[] = {
+constexpr Tip kTips[] = {
     {"Matter", "Every pixel is simulated. Fire spreads through wood, oil and gunpowder; water cools lava into obsidian; "
                "acid eats stone. Blast gold ore and walk over the dust to collect it."},
     {"Wands", "Spells cast in order. Modifiers boost the next projectile, multicasts fire several at once and triggers "
@@ -54,6 +59,7 @@ bool drawHelpPanel(App& app, bool gamepad) {
     const float s = static_cast<float>(ui::scale());
     const int size = ui::fontSize(ui::scale());
     const int small = ui::smallFontSize();
+    const float margin = 12.0f * s, header = 30.0f * s; // shared by the measuring pass and the drawing
     const auto& bindings = gamepad ? kGamepad : kKeyboard;
 
     const float rowH = static_cast<float>(small) * 1.45f;
@@ -62,9 +68,9 @@ bool drawHelpPanel(App& app, bool gamepad) {
     // Size the panel from its content: at small UI scales the body font does not shrink, so the
     // panel widens (fewer wrapped lines) and grows instead of letting text run over the Back button.
     auto contentHeight = [&](float width) {
-        float h = 30.0f * s + tableH;
-        for (const Binding& tip : kTips)
-            h += static_cast<float>(size) + 1.0f * s + ui::wrappedHeight(tip.action, width - 24.0f * s, small) + 4.0f * s;
+        float h = header + tableH;
+        for (const Tip& tip : kTips)
+            h += static_cast<float>(size) + 1.0f * s + ui::wrappedHeight(tip.body, width - 2.0f * margin, small) + 4.0f * s;
         return h + 28.0f * s; // room for the Back button
     };
     float width = 420.0f * s;
@@ -80,19 +86,19 @@ bool drawHelpPanel(App& app, bool gamepad) {
     ui::panel(r);
     ui::text("HOW TO PLAY", sw * 0.5f, r.y + 8.0f * s, ui::fontSize(ui::scale() + 1), ui::color::kGold, ui::Align::Center);
 
-    const float colW = (r.width - 24.0f * s) * 0.5f, keyW = 62.0f * s;
-    float y = r.y + 30.0f * s;
+    const float colW = (r.width - 2.0f * margin) * 0.5f, keyW = 62.0f * s;
+    float y = r.y + header;
     for (size_t i = 0; i < std::size(bindings); ++i) {
-        const float cx = r.x + 12.0f * s + static_cast<float>(i % 2) * colW, cy = y + static_cast<float>(i / 2) * rowH;
+        const float cx = r.x + margin + static_cast<float>(i % 2) * colW, cy = y + static_cast<float>(i / 2) * rowH;
         ui::text(bindings[i].keys, cx + keyW, cy, small, ui::color::kGold, ui::Align::Right);
         ui::text(bindings[i].action, cx + keyW + 8.0f * s, cy, small, ui::color::kText);
     }
     y += tableH;
 
-    for (const Binding& tip : kTips) {
-        ui::text(tip.keys, r.x + 12.0f * s, y, size, ui::color::kAccent);
+    for (const Tip& tip : kTips) {
+        ui::text(tip.title, r.x + margin, y, size, ui::color::kAccent);
         y += static_cast<float>(size) + 1.0f * s;
-        y += ui::textWrapped(tip.action, r.x + 12.0f * s, y, r.width - 24.0f * s, small, ui::color::kTextDim) + 4.0f * s;
+        y += ui::textWrapped(tip.body, r.x + margin, y, r.width - 2.0f * margin, small, ui::color::kTextDim) + 4.0f * s;
     }
     return ui::button({sw * 0.5f - 50.0f * s, r.y + r.height - 24.0f * s, 100.0f * s, 16.0f * s}, "Back") || ui::backPressed();
 }

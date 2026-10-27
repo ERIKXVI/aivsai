@@ -1,4 +1,5 @@
-// Presentation and input logic that needs no window: the health bar's damage chip and wheel stepping between wands.
+// Presentation and input logic that needs no window: the health bar's damage chip, the UI's text sizes and wheel
+// stepping between wands.
 #include <cmath>
 
 #include "app/InputLatch.hpp"
@@ -52,4 +53,16 @@ TEST_CASE("a health bar's damage chip holds, drains, and snaps up on a heal") {
     CHECK(std::fabs(trail.shown - 0.6f) < 1e-4f); // drained down to the bar, never below it
     trail.update(0.9f, 0.016f); // a heal snaps the chip up with the bar
     CHECK(trail.shown == 0.9f);
+}
+
+TEST_CASE("small text is two thirds of the body size in 10 px steps") {
+    const struct {
+        int w, h, scale, small;
+    } cases[] = {{800, 600, 1, 10}, {1280, 720, 2, 10}, {1920, 1080, 3, 20}, {2560, 1440, 4, 20}, {3840, 2160, 6, 40}};
+    for (const auto& c : cases) {
+        ui::beginFrame(c.w, c.h);
+        CHECK(ui::scale() == c.scale);
+        CHECK(ui::smallFontSize() == c.small);
+    }
+    ui::beginFrame(1280, 720); // the defaults other tests see
 }
