@@ -13,14 +13,16 @@ switches to a window.
 - Four optional guardians - the Black Toad, the White Wraith, the Mine King and the Red
   Colossus - each keeping a lair and a hoard; slay one to choose its gift or another perk and claim its essence, and
   gather all four in one run for the Quintessence ending.
-- Eight stacking Ordeals for after your first Great Work, unlockable starting paths, 26 feats to earn, a Grimoire of everything you have
+- Eight stacking Ordeals for after your first Great Work, unlockable starting paths (a run
+  that opens one offers to begin it at once), 26 feats to earn, a Grimoire of everything you have
   discovered with a chronicle of recent runs (replay any seed), a Daily Rite seed, three difficulties and an Alchemy
   Sandbox to experiment freely.
 - Found attack spells slot straight into your wand; every spell's card says what it does
   and where it will go, and a HUD badge counts the spells waiting in your satchel. The wand
   editor guides your first edit, drops a modifier in front of the spell it boosts, warns
   about a booster with nothing after it, and works with a gamepad.
-- A matter lens: rest the cursor on any substance or creature to learn what it does.
+- A matter lens: rest the cursor on any substance or creature to learn what it does, and
+  prompts that say what a potion does and how to feed a transmutation circle.
 - Lanterns you can shoot down onto foes, and elites with Burning, Swift or Gilded affixes.
 - The world is a weapon: creatures slain by fire, lava, acid, blasts or cave-ins are named
   as they fall and chain into reactions that pay extra gold.
@@ -41,4 +43,5 @@ Controls: `A/D` move · `W/Space` jump (hold to levitate) · mouse aim · `LMB` 
 `E` interact · `M` map · `Esc` pause · `F11` fullscreen. Gamepads are supported, and
 button prompts follow the device you use.
 
-Settings and progress are stored in `%APPDATA%\PrimaMateria`.
+Settings and progress are stored in `%APPDATA%\PrimaMateria`. On a hybrid-graphics laptop
+the game asks for the discrete GPU.
