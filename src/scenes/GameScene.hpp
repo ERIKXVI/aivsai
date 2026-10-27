@@ -70,6 +70,10 @@ private:
     void recordProfile(bool victory);
 
     void drawWorldOverlays(float alpha) const;
+    /// Transmutation circles near the alchemist: the matter each craves and how to pour it.
+    void drawTransmuterPrompts() const;
+    /// The focused pickup's label and details card (spell, perk, potion, wand).
+    void drawPickupPrompt(const Pickup& p) const;
     void drawHud() const;
     /// Top left: the health, mana, reload, levitation and breath bars, and the status chips.
     void drawVitals() const;

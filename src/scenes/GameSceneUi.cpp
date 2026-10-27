@@ -48,6 +48,14 @@ void drawStoneSigil(Vector2 c, float r, float time, Color color) {
     ring(r * 0.5f * 0.7071f);                  // circle inscribed in the square
 }
 
+constexpr Color kPlateColor{10, 8, 16, 190}; ///< dark backing for world prompts and cards
+
+/// World prompts sit on a dark plate so they read over lit rock and lantern glow.
+void drawPlate(float cx, float top, float w, float h) {
+    const float fs = static_cast<float>(ui::scale());
+    DrawRectangleRec({cx - w * 0.5f - 4.0f * fs, top - 2.0f * fs, w + 8.0f * fs, h + 4.0f * fs}, kPlateColor);
+}
+
 } // namespace
 
 void GameScene::drawWorldOverlays(float alpha) const {
@@ -68,12 +76,28 @@ void GameScene::drawWorldOverlays(float alpha) const {
         int size = ui::fontSize(std::max(1, static_cast<int>(std::round(static_cast<float>(s) * popScale))));
         ui::text(t.text, sp.x, sp.y, size, hexColor(t.color, static_cast<uint8_t>(255 * k)), ui::Align::Center);
     }
+    drawTransmuterPrompts();
+
+    if (mode_ != Mode::Playing || !level_->player().alive()) return;
+    const int small = ui::smallFontSize();
+    const Pickup* focused = level_->focusedPickup();
+    // Price tags under the shop's wares, gold when affordable.
+    for (const Pickup& p : level_->pickups()) {
+        if (p.price <= 0 || &p == focused || (p.body.pos - level_->player().body.pos).length() > 160.0f) continue;
+        const Vector2 tp = scene_.worldToScreen({p.body.pos.x, p.body.pos.y + 14.0f});
+        ui::text(TextFormat("%d", p.price), tp.x, tp.y, small, run_.gold >= p.price ? ui::color::kGold : ui::color::kDanger,
+                 ui::Align::Center);
+    }
+
+    // Interaction prompt: the label, and for a spell what it is, what it does and where it goes.
+    if (focused) drawPickupPrompt(*focused);
+}
+
+void GameScene::drawTransmuterPrompts() const {
+    const int s = ui::scale();
     const float fs = static_cast<float>(s);
     const int small = ui::smallFontSize();
-    // World prompts sit on a dark plate so they read over lit rock and lantern glow.
-    auto plate = [&](float cx, float top, float w, float h) {
-        DrawRectangleRec({cx - w * 0.5f - 4.0f * fs, top - 2.0f * fs, w + 8.0f * fs, h + 4.0f * fs}, Color{10, 8, 16, 190});
-    };
+    const int size = ui::fontSize(s);
     // Transmutation circles explain themselves when the alchemist comes close.
     for (const Transmuter& t : level_->transmuters()) {
         if ((t.pos - level_->player().body.pos).length() > 110.0f) continue;
@@ -85,31 +109,26 @@ void GameScene::drawWorldOverlays(float alpha) const {
         // Name the control, and whether the flask already holds what the circle craves.
         const char* want = matDef(t.wants).name;
         const bool ready = !run_.flask.empty() && run_.flask.mat == t.wants;
-        const std::string pour = ready ? TextFormat(usingGamepad_ ? "Hold LT to pour your %s in for a perk" : "Hold right-click to pour your %s in for a perk", want)
-                                       : TextFormat(usingGamepad_ ? "Fill your flask with %s (hold Y), then pour it in" : "Fill your flask with %s (hold Q), then pour it in", want);
-        plate(sp.x, sp.y, static_cast<float>(std::max(ui::measure("Transmutation Circle", ui::fontSize(s)), ui::measure(pour, small))),
-              static_cast<float>(ui::fontSize(s) + small) + 6.0f + 3.0f * fs);
-        ui::text("Transmutation Circle", sp.x, sp.y, ui::fontSize(s), Color{200, 170, 255, 255}, ui::Align::Center);
-        ui::text(pour, sp.x, sp.y + static_cast<float>(ui::fontSize(s)) + 2.0f, small, ui::color::kText, ui::Align::Center);
+        const char* fmt = ready ? (usingGamepad_ ? "Hold LT to pour your %s in for a perk"
+                                                 : "Hold right-click to pour your %s in for a perk")
+                                : (usingGamepad_ ? "Fill your flask with %s (hold Y), then pour it in"
+                                                 : "Fill your flask with %s (hold Q), then pour it in");
+        const std::string pour = TextFormat(fmt, want);
+        drawPlate(sp.x, sp.y, static_cast<float>(std::max(ui::measure("Transmutation Circle", size), ui::measure(pour, small))),
+                  static_cast<float>(size + small) + 6.0f + 3.0f * fs);
+        ui::text("Transmutation Circle", sp.x, sp.y, size, Color{200, 170, 255, 255}, ui::Align::Center);
+        ui::text(pour, sp.x, sp.y + static_cast<float>(size) + 2.0f, small, ui::color::kText, ui::Align::Center);
         const float w = 50.0f * s, h = 3.0f * s;
         Rgba m = materialColor(t.wants);
-        ui::bar({sp.x - w * 0.5f, sp.y + static_cast<float>(ui::fontSize(s) + small) + 6.0f, w, h},
+        ui::bar({sp.x - w * 0.5f, sp.y + static_cast<float>(size + small) + 6.0f, w, h},
                 static_cast<float>(t.progress) / static_cast<float>(t.required), Color{m.r, m.g, m.b, 255});
     }
+}
 
-    if (mode_ != Mode::Playing || !level_->player().alive()) return;
-    const Pickup* focused = level_->focusedPickup();
-    // Price tags under the shop's wares, gold when affordable.
-    for (const Pickup& p : level_->pickups()) {
-        if (p.price <= 0 || &p == focused || (p.body.pos - level_->player().body.pos).length() > 160.0f) continue;
-        const Vector2 tp = scene_.worldToScreen({p.body.pos.x, p.body.pos.y + 14.0f});
-        ui::text(TextFormat("%d", p.price), tp.x, tp.y, small, run_.gold >= p.price ? ui::color::kGold : ui::color::kDanger,
-                 ui::Align::Center);
-    }
-
-    // Interaction prompt: the label, and for a spell what it is, what it does and where it goes.
-    if (!focused) return;
-    const Pickup& p = *focused;
+void GameScene::drawPickupPrompt(const Pickup& p) const {
+    const int s = ui::scale();
+    const float fs = static_cast<float>(s);
+    const int small = ui::smallFontSize();
     const Vector2 sp = scene_.worldToScreen({p.body.pos.x, p.body.pos.y - 16.0f});
     std::string label = (usingGamepad_ ? "[B] " : "[E] ") + p.label();
     if (p.rare) label += " - a rare find";
@@ -130,8 +149,10 @@ void GameScene::drawWorldOverlays(float alpha) const {
         const bool satchelRoom = std::find(run_.inventory.begin(), run_.inventory.end(), SpellId::None) != run_.inventory.end();
         if (run_.canAutoSlot(p.spell) && wand) lines.push_back({"Goes into " + wand->name, ui::color::kAccent});
         else if (satchelRoom)
-            lines.push_back({usingGamepad_ ? "Goes to your satchel - Back to place it" : "Goes to your satchel - Tab to place it", ui::color::kTextDim});
-        else lines.push_back({usingGamepad_ ? "Satchel full - make room with Back" : "Satchel full - make room with Tab", ui::color::kDanger});
+            lines.push_back({usingGamepad_ ? "Goes to your satchel - Back to place it" : "Goes to your satchel - Tab to place it",
+                             ui::color::kTextDim});
+        else lines.push_back({usingGamepad_ ? "Satchel full - make room with Back" : "Satchel full - make room with Tab",
+                              ui::color::kDanger});
     } else if (p.type == PickupType::PerkAltar) {
         lines.push_back({perkDef(p.perk).description, ui::color::kText});
     } else if (p.type == PickupType::Potion) {
@@ -139,7 +160,8 @@ void GameScene::drawWorldOverlays(float alpha) const {
         lines.push_back({matDescription(p.mat), ui::color::kText});
         const Flask& f = run_.flask;
         if (f.empty() || f.mat == p.mat) lines.push_back({"Fills your flask", ui::color::kAccent});
-        else lines.push_back({std::string("Swaps with your flask of ") + matDef(f.mat).name + ", left here in its place", ui::color::kTextDim});
+        else lines.push_back({std::string("Swaps with your flask of ") + matDef(f.mat).name + ", left here in its place",
+                              ui::color::kTextDim});
     }
     const int size = ui::fontSize(s);
     const float lineH = static_cast<float>(small) + 2.0f * fs;
@@ -152,7 +174,7 @@ void GameScene::drawWorldOverlays(float alpha) const {
     const float cx = halfW * 2.0f < swF ? clamp(sp.x, halfW, swF - halfW) : swF * 0.5f;
     const float details = lines.empty() ? 0.0f : 3.0f * fs + lineH * static_cast<float>(lines.size());
     const float top = sp.y - details;
-    plate(cx, top, static_cast<float>(widest), static_cast<float>(size) + details);
+    drawPlate(cx, top, static_cast<float>(widest), static_cast<float>(size) + details);
     ui::text(label, cx, top, size, labelColor, ui::Align::Center);
     float y = top + static_cast<float>(size) + 3.0f * fs;
     for (const Line& l : lines) {
@@ -176,10 +198,13 @@ void GameScene::drawWandCard(const Wand& w, float cx, float bottom) const {
     using Segment = std::pair<std::string, Color>;
     const std::vector<Segment> timing = {
         {"delay ", ui::color::kTextDim}, {TextFormat("%.2fs", w.castDelay), judge(w.castDelay, held ? held->castDelay : 0.0f, true)},
-        {"  recharge ", ui::color::kTextDim}, {TextFormat("%.2fs", w.rechargeTime), judge(w.rechargeTime, held ? held->rechargeTime : 0.0f, true)}};
+        {"  recharge ", ui::color::kTextDim},
+        {TextFormat("%.2fs", w.rechargeTime), judge(w.rechargeTime, held ? held->rechargeTime : 0.0f, true)}};
     std::vector<Segment> mana = {
-        {"mana ", ui::color::kTextDim}, {TextFormat("%d", static_cast<int>(w.manaMax)), judge(w.manaMax, held ? held->manaMax : 0.0f, false)},
-        {" (+", ui::color::kTextDim}, {TextFormat("%d", static_cast<int>(w.manaCharge)), judge(w.manaCharge, held ? held->manaCharge : 0.0f, false)},
+        {"mana ", ui::color::kTextDim},
+        {TextFormat("%d", static_cast<int>(w.manaMax)), judge(w.manaMax, held ? held->manaMax : 0.0f, false)},
+        {" (+", ui::color::kTextDim},
+        {TextFormat("%d", static_cast<int>(w.manaCharge)), judge(w.manaCharge, held ? held->manaCharge : 0.0f, false)},
         {"/s)", ui::color::kTextDim}};
     if (w.spellsPerCast > 1) mana.push_back({"  multicast", ui::color::kAccent});
     if (w.shuffle) mana.push_back({"  shuffle", ui::color::kTextDim});
@@ -198,7 +223,7 @@ void GameScene::drawWandCard(const Wand& w, float cx, float bottom) const {
     const float cardH = 4.0f * s + icon + 3.0f * s + lineH * (swap.empty() ? 2.0f : 3.0f) + 2.0f * s;
     Rectangle card{cx - cardW * 0.5f, std::max(4.0f * s, bottom - cardH), cardW, cardH};
     card.x = clamp(card.x, 4.0f * s, static_cast<float>(app_.screenWidth()) - cardW - 4.0f * s);
-    DrawRectangleRec(card, Color{10, 8, 16, 190});
+    DrawRectangleRec(card, kPlateColor);
     const float mid = card.x + cardW * 0.5f;
     float y = card.y + 4.0f * s;
     for (int i = 0; i < w.capacity; ++i) {
