@@ -28,10 +28,12 @@ struct Requirement {
 
 constexpr Requirement kRequirements[] = {
     {"", nullptr, 0},
-    {"Reach the third stage", &Milestones::deepest, 3},
-    {"Open chests", &Milestones::chestsOpened, 12},
-    {"Slay creatures", &Milestones::totalKills, 250},
-    {"Complete the Great Work", &Milestones::victories, 1},
+    // Paced so a first session opens one or two paths: an unlock at the end of a run is the
+    // best reason to start another.
+    {"Reach the second stage", &Milestones::deepest, 2},
+    {"Open chests", &Milestones::chestsOpened, 8},
+    {"Slay creatures", &Milestones::totalKills, 100},
+    {"Slay a stage guardian", &Milestones::guardiansSlain, 1},
 };
 static_assert(std::size(kRequirements) == kLoadoutCount, "a Requirement for every LoadoutId");
 

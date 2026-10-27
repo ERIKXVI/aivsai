@@ -7,6 +7,7 @@
 #include <limits>
 #include <sstream>
 
+#include "game/Enemy.hpp"
 #include "gen/Biome.hpp"
 
 namespace pm {
@@ -109,7 +110,11 @@ RunRecord recordRun(Profile& profile, const RunState& run, bool victory, const s
     return record;
 }
 
-Milestones milestonesOf(const Profile& p) { return {p.deepest, p.victories, p.chestsOpened, p.totalKills}; }
+Milestones milestonesOf(const Profile& p) {
+    int guardians = 0;
+    for (int i = 0; i < kGuardianCount; ++i) guardians += p.creatureKills[static_cast<size_t>(guardianFor(i))];
+    return {p.deepest, p.victories, p.chestsOpened, p.totalKills, guardians};
+}
 
 RunRecord foldRun(Profile& p, const RunState& run, bool victory, const std::string& fate) {
     const Profile before = p;

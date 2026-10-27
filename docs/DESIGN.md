@@ -95,8 +95,9 @@ The descent follows the four stages of the alchemical Great Work:
   taken, browsable from the title screen, plus a chronicle of the last ten runs (path,
   depth, time and fate); any of them can be replayed on the same seed.
 - **Paths** (starting loadouts) unlock through milestones and change the opening:
-  Pyromancer (reach stage 3), Geomancer (open 12 chests), Stormcaller (slay 250
-  creatures) and Hermeticist (complete the Great Work, rolls a powerful wand per seed).
+  Pyromancer (reach stage II), Geomancer (open 8 chests), Stormcaller (slay 100
+  creatures) and Hermeticist (slay a stage guardian; rolls a powerful wand per seed),
+  paced so a first session opens one or two of them.
 - **Ordeals** (after the first victory): eight stacking trials chosen when beginning the
   Work, each adding a rule to those beneath it - foes with more health, twice the elites,
   sanctums that heal only half, dearer shops, harder blows, a restless mountain (stage

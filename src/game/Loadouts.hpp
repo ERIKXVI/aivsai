@@ -19,6 +19,7 @@ struct Milestones {
     int victories = 0;
     int chestsOpened = 0;
     int totalKills = 0;
+    int guardiansSlain = 0; ///< stage guardians slain over all runs
 };
 
 struct LoadoutDef {

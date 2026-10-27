@@ -148,7 +148,7 @@ TEST_CASE("loadouts unlock through milestones") {
         CHECK(!loadoutUnlocked(static_cast<LoadoutId>(l), fresh));
         CHECK(!loadoutRequirement(static_cast<LoadoutId>(l), fresh).empty());
     }
-    Milestones veteran{5, 1, 40, 1000};
+    Milestones veteran{5, 1, 40, 1000, 2};
     for (int l = 0; l < kLoadoutCount; ++l) CHECK(loadoutUnlocked(static_cast<LoadoutId>(l), veteran));
     // The profile's lifetime counters feed the same fields (all ints, so a swap would compile).
     Profile p;
@@ -156,8 +156,14 @@ TEST_CASE("loadouts unlock through milestones") {
     p.victories = 1;
     p.chestsOpened = 40;
     p.totalKills = 1000;
+    p.creatureKills[static_cast<size_t>(EnemyType::MineKing)] = 2;
+    p.creatureKills[static_cast<size_t>(EnemyType::Ghoul)] = 30; // not a guardian
     const Milestones m = milestonesOf(p);
-    CHECK(m.deepest == 5 && m.victories == 1 && m.chestsOpened == 40 && m.totalKills == 1000);
+    CHECK(m.deepest == 5 && m.victories == 1 && m.chestsOpened == 40 && m.totalKills == 1000 && m.guardiansSlain == 2);
+    // The Hermeticist opens to a guardian's slayer, before any victory.
+    Milestones slayer;
+    slayer.guardiansSlain = 1;
+    CHECK(loadoutUnlocked(LoadoutId::Hermeticist, slayer));
 }
 
 TEST_CASE("suspended runs survive a save and load") {
@@ -234,18 +240,18 @@ TEST_CASE("the death screen names the killer and offers advice") {
 TEST_CASE("the end screen shows the nearest locked path and personal bests") {
     Profile profile;
     profile.runs = 3;
-    profile.deepest = 1;
-    profile.chestsOpened = 9;
+    profile.deepest = 0;
+    profile.chestsOpened = 5;
     profile.bestKills = 10;
     RunState run = newRun(9, Difficulty::Adept, false);
-    run.levelIndex = 1;
+    run.levelIndex = 0;
     run.stats.kills = 14;
     run.stats.chestsOpened = 2;
     const RunRecord record = foldRun(profile, run, false, "Slain by a Fire Imp");
-    // Chests 11/12 beats reaching the third stage (2/3) and slaying 14/250.
+    // Chests 7/8 beats reaching the second stage (1/2) and slaying 14/100.
     CHECK(record.nearestPath.has_value());
     CHECK(record.nearestPath->name == "Geomancer");
-    CHECK(record.nearestPath->was == 9 && record.nearestPath->now == 11 && record.nearestPath->target == 12);
+    CHECK(record.nearestPath->was == 5 && record.nearestPath->now == 7 && record.nearestPath->target == 8);
     CHECK(std::find(record.records.begin(), record.records.end(), "Deepest descent yet") != record.records.end());
     CHECK(std::find(record.records.begin(), record.records.end(), "Most creatures slain in a run") != record.records.end());
     CHECK(profile.bestKills == 14 && profile.runs == 4 && profile.history.size() == 1);
