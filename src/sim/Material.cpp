@@ -215,7 +215,7 @@ void defineMaterials() {
     react(Lava, Toxic, kKeep, ToxicGas, 60);
     react(Lava, Slime, kKeep, Smoke, 30);
     react(Water, Salt, kKeep, Brine, 10);
-    react(Water, SaltRock, kKeep, Brine, 1);
+    react(Water, SaltRock, Brine, kKeep, 1); // water saturates; the walls stay (and the pool settles)
     react(Salt, Ice, kKeep, Water, 12);
     react(Vitae, Toxic, Water, Water, 120);
     react(Vitae, Acid, Water, Water, 120);

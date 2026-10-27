@@ -94,6 +94,23 @@ TEST_CASE("wood burns away") {
     CHECK(countMat(w, mat::Wood) < before / 4);
 }
 
+TEST_CASE("a pool in a salt basin turns to brine and settles to sleep") {
+    // Salt walls must not keep dissolving into an ever-growing pool: the stage II caverns are
+    // lined with salt, and a pool that never settles keeps its chunks simulating forever.
+    initMaterials();
+    ThreadPool pool(3);
+    World w(256, 128, 4);
+    buildBox(w);
+    for (int y = 60; y < 127; ++y)
+        for (int x = 1; x < 255; ++x) w.place(x, y, mat::SaltRock);
+    for (int y = 60; y < 110; ++y)
+        for (int x = 40; x < 120; ++x) w.place(x, y, mat::Water);
+    const int salt = countMat(w, mat::SaltRock);
+    for (int i = 0; i < 4000; ++i) w.step(pool);
+    CHECK(countMat(w, mat::SaltRock) == salt);
+    CHECK(w.activeChunkCount() <= 4);
+}
+
 TEST_CASE("idle world sleeps") {
     initMaterials();
     ThreadPool pool(3);
