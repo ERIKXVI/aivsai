@@ -584,6 +584,14 @@ void GameScene::render(float alpha) {
     }
     drawFeatToast();
 
+    if (exiting_ && level_) {
+        // Stepping through the portal: a violet bloom swells from it and swallows the screen
+        // as it fades to black.
+        const Vector2 c = scene_.worldToScreen(level_->exitPos() - Vec2{0.0f, 9.0f});
+        const auto glow = static_cast<unsigned char>(210.0f * std::sin(fade_ * PI));
+        DrawCircleGradient(static_cast<int>(c.x), static_cast<int>(c.y), (0.1f + 1.3f * fade_) * static_cast<float>(app_.screenWidth()),
+                           Color{235, 215, 255, glow}, Color{235, 215, 255, 0});
+    }
     if (fade_ > 0.0f) ui::dimScreen(static_cast<unsigned char>(fade_ * 255.0f));
     if (mode_ == Mode::Loading) drawLoading();
     if (app_.settings().showFps || debugOverlay_) drawDebugOverlay();
