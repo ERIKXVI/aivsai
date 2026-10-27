@@ -318,4 +318,15 @@ Wand makeRandomWand(int tier, Rng& rng) {
     return w;
 }
 
+Wand makeHoardWand(int tier, Rng& rng) {
+    Wand w = makeRandomWand(std::min(kMaxTier, tier + 2), rng);
+    // Beating a keeper always pays a showpiece.
+    const auto slot = std::find(w.slots.begin(), w.slots.end(), SpellId::None);
+    if (slot != w.slots.end()) {
+        *slot = randomRareSpell(tier, rng);
+        w.resetDeck();
+    }
+    return w;
+}
+
 } // namespace pm

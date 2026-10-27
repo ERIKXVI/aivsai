@@ -772,6 +772,19 @@ TEST_CASE("rare finds are attack spells from deeper down") {
     }
 }
 
+TEST_CASE("a hoard wand always carries a rare attack spell") {
+    for (uint32_t seed = 1; seed <= 50; ++seed) {
+        for (int tier = 0; tier <= 3; ++tier) {
+            Rng rng(seed);
+            const Wand w = makeHoardWand(tier, rng);
+            CHECK(std::any_of(w.slots.begin(), w.slots.end(), [&](SpellId s) {
+                const SpellDef& d = spellDef(s);
+                return d.type == SpellType::Projectile && !d.trigger && d.tier >= std::clamp(tier + 1, 2, 4);
+            }));
+        }
+    }
+}
+
 TEST_CASE("floor and chest finds reach one tier deeper, and spare the kit's staples") {
     Rng rng(9);
     int deeper = 0, spark = 0;

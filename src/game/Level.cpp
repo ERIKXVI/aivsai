@@ -16,6 +16,13 @@ constexpr float kEnemyActiveRange = 380.0f;
 constexpr float kFloatTextLife = 1.1f; ///< seconds a float text lingers
 constexpr float kMergeWindow = 0.4f;   ///< a hit this soon after the last adds into its number
 constexpr uint32_t kHitNumberColor = 0xffffff, kCritNumberColor = 0xffe040;
+
+/// The spawn point where the stage's lair guardian waits, or nullptr when the stage has no lair.
+const SpawnPoint* lairKeeperSpawn(const LevelLayout& layout) {
+    const auto it = std::find_if(layout.spawns.begin(), layout.spawns.end(),
+                                 [](const SpawnPoint& s) { return s.kind == SpawnKind::LairGuardian; });
+    return it != layout.spawns.end() ? &*it : nullptr;
+}
 } // namespace
 
 Level::Level(LevelLayout layout, RunState& run, Audio& audio, ThreadPool& pool)
@@ -39,10 +46,9 @@ void Level::populate() {
     std::vector<PerkId> offered;
     // A guardian's lair: the wand in its hoard is a finer one.
     const Rectf* lair = nullptr;
-    for (const SpawnPoint& s : layout_.spawns)
-        if (s.kind == SpawnKind::LairGuardian)
-            for (const Rectf& v : layout_.vaults)
-                if (v.contains(s.pos)) lair = &v;
+    if (const SpawnPoint* keeper = lairKeeperSpawn(layout_))
+        for (const Rectf& v : layout_.vaults)
+            if (v.contains(keeper->pos)) lair = &v;
     for (const SpawnPoint& s : layout_.spawns) {
         switch (s.kind) {
         case SpawnKind::GroundEnemy:
@@ -74,15 +80,7 @@ void Level::populate() {
         }
         case SpawnKind::Wand: {
             const bool hoard = lair && lair->contains(s.pos);
-            Wand w = makeRandomWand(std::min(kMaxTier, tier + (hoard ? 2 : 1)), rng_);
-            if (hoard) {
-                // Beating a keeper always pays a showpiece, set in the hoard wand's first free slot.
-                const auto slot = std::find(w.slots.begin(), w.slots.end(), SpellId::None);
-                if (slot != w.slots.end()) {
-                    *slot = randomRareSpell(tier, rng_);
-                    w.resetDeck();
-                }
-            }
+            Wand w = hoard ? makeHoardWand(tier, rng_) : makeRandomWand(std::min(kMaxTier, tier + 1), rng_);
             pickups_.push_back(makeWandPickup(s.pos - Vec2{0.0f, 6.0f}, std::move(w)));
             break;
         }
@@ -566,9 +564,8 @@ void Level::offerEssence(const Enemy& keeper) {
     exclude.push_back(signature);
     const PerkId other = rollPerk(exclude);
     // On the lair's floor where the keeper waited, or under it if it had no lair.
-    Vec2 floor{keeper.body.pos.x, keeper.body.pos.y + keeper.body.halfH};
-    for (const SpawnPoint& s : layout_.spawns)
-        if (s.kind == SpawnKind::LairGuardian) floor = s.pos;
+    const SpawnPoint* lairSpawn = lairKeeperSpawn(layout_);
+    const Vec2 floor = lairSpawn ? lairSpawn->pos : Vec2{keeper.body.pos.x, keeper.body.pos.y + keeper.body.halfH};
     pickups_.push_back(makePerkAltar(floor + Vec2{-10.0f, -5.0f}, signature, kEssenceAltars));
     pickups_.push_back(makePerkAltar(floor + Vec2{10.0f, -5.0f}, other, kEssenceAltars));
     addFloatText(floor - Vec2{0.0f, 30.0f}, "Choose its essence", 0xe0d0ff, 1.4f);

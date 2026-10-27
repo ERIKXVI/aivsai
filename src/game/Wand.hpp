@@ -94,5 +94,8 @@ SpellId randomFind(int tier, Rng& rng);
 /// A rare find: an attack spell from deeper down than `tier` (tiers 2-3 even on the first
 /// stage), so the spells that bend the world turn up within the first hour. One draw.
 SpellId randomRareSpell(int tier, Rng& rng);
+/// The wand in a guardian's hoard on a stage of depth tier `tier`: a tier deeper than an
+/// ordinary find, with a rare attack spell (randomRareSpell) set in its first free slot.
+Wand makeHoardWand(int tier, Rng& rng);
 
 } // namespace pm
