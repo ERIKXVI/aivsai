@@ -157,12 +157,7 @@ void GameScene::advanceStage() {
         run_.inSanctum = false;
         run_.levelIndex++;
     } else if (run_.levelIndex >= kFinalStage) {
-        mode_ = Mode::Victory;
-        exiting_ = false; // the portal's fade is spent; the end screen fades in on its own
-        endTimer_ = 0.0f;
-        endInputArmed_ = false;
-        titleTimer_ = 0.0f;
-        recordProfile(true);
+        enterEndScreen(true);
         return;
     } else {
         run_.inSanctum = true;
@@ -171,6 +166,15 @@ void GameScene::advanceStage() {
     // loading screen then resumes at the next stage, as promised.
     if (!app_.options().previewOnly()) saveSuspendedRun(run_);
     requestLevel();
+}
+
+void GameScene::enterEndScreen(bool victory) {
+    mode_ = victory ? Mode::Victory : Mode::Dead;
+    exiting_ = false; // a portal fade in progress is spent; the end screen fades in on its own
+    endTimer_ = 0.0f;
+    endInputArmed_ = false;
+    titleTimer_ = 0.0f;
+    recordProfile(victory);
 }
 
 void GameScene::latchInput() {
@@ -342,14 +346,9 @@ void GameScene::stepLevel() {
         if (autoplay)
             logAutoplay(TextFormat("died on stage %d at %.1fs, kills %d - %s", run_.levelIndex, run_.stats.time, run_.stats.kills,
                                    deathCause(level_->player()).c_str()));
-        mode_ = Mode::Dead;
-        exiting_ = false;
-        endTimer_ = 0.0f;
-        endInputArmed_ = false;
-        titleTimer_ = 0.0f;
         eventNotice_ = {};
         slowMo_ = 0.35f;
-        recordProfile(false);
+        enterEndScreen(false);
         break;
     default: break;
     }

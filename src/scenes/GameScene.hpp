@@ -50,6 +50,8 @@ private:
     /// Command-line testing hooks (--at, --ui): teleport, open a screen, force the death preview.
     void applyLaunchOptions();
     void advanceStage();
+    /// Ends the run on its death or victory screen and records it in the profile.
+    void enterEndScreen(bool victory);
     PlayerInput gatherInput();
     void latchInput();
     void updateLens(float dt);
