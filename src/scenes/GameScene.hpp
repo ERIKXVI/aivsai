@@ -37,11 +37,12 @@ public:
 private:
     enum class Mode { Loading, Playing, Inventory, Map, Paused, Settings, Help, Dead, Victory };
 
-    // Durations shared by the update half (GameScene.cpp) and the drawing half (GameSceneUi.cpp).
-    static constexpr float kTitleCardSeconds = 4.0f;  ///< how long a stage/guardian title card shows
-    static constexpr float kToastSeconds = 3.5f;      ///< how long one feat toast shows
-    static constexpr float kGoldPopSeconds = 0.25f;   ///< HUD gold counter pop after gold comes in
-    static constexpr float kDeathScreenDelay = 1.6f;  ///< seconds after death before the end screen fades in
+    // Durations shared by the update half (GameScene.cpp) and the drawing files (GameSceneUi.cpp, GameSceneMenus.cpp).
+    static constexpr float kTitleCardSeconds = 4.0f;   ///< how long a stage/guardian title card shows
+    static constexpr float kToastSeconds = 3.5f;       ///< how long one feat toast shows
+    static constexpr float kGoldPopSeconds = 0.25f;    ///< HUD gold counter pop after gold comes in
+    static constexpr float kDeathScreenDelay = 1.6f;   ///< seconds after death before the end screen fades in
+    static constexpr float kVictoryScreenDelay = 0.5f; ///< seconds after victory before the end screen fades in
 
     void requestLevel();
     void stepLevel();
@@ -84,6 +85,10 @@ private:
     void drawInventory();
     void drawPauseMenu();
     void drawEndScreen(bool victory);
+    /// The end screen's lasting progress (records, Grimoire, unlocks, the next path's bar) from y; returns the y under it.
+    float drawEndProgress(float y, unsigned char alpha) const;
+    /// The end screen's buttons and pad/Enter shortcuts, armed once the face buttons are released.
+    void drawEndActions(bool victory, float y);
     /// The death screen's descent strip at `y`: the five stages, filled as far as the alchemist
     /// got, with a caption naming what lies below. Returns the y under it.
     float drawDescent(float y, unsigned char alpha) const;

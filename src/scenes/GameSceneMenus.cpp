@@ -8,7 +8,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <utility>
 
 #include "app/App.hpp"
 #include "app/InputLatch.hpp"
@@ -36,7 +35,8 @@ void GameScene::drawPauseMenu() {
         ui::tooltip(ordealLabel(run_.ordeal), ordealRules(run_.ordeal), Color{255, 140, 110, 255});
     float bw = 140.0f * s, bh = 18.0f * s, x = sw * 0.5f - bw * 0.5f, y = panelR.y + 30.0f * s;
     // The destructive entries sit at the bottom and the focus does not wrap onto them.
-    pauseNav_.update(6, false);
+    constexpr int kPauseItems = 6; // Resume, How to Play, Settings, Return to Title, Abandon Run, Quit Game
+    pauseNav_.update(kPauseItems, false);
     int index = 0;
     Rectangle last{};
     auto item = [&](const char* label) {
@@ -119,10 +119,11 @@ float GameScene::drawDescent(float y, unsigned char alpha) const {
 void GameScene::drawEndScreen(bool victory) {
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
     const float s = static_cast<float>(ui::scale());
-    float a = clamp((endTimer_ - (victory ? 0.5f : kDeathScreenDelay)) * 1.5f, 0.0f, 1.0f);
+    const float shownAt = victory ? kVictoryScreenDelay : kDeathScreenDelay;
+    const float a = clamp((endTimer_ - shownAt) * 1.5f, 0.0f, 1.0f);
     ui::dimScreen(static_cast<unsigned char>(170.0f * a));
     if (a <= 0.0f) return;
-    unsigned char al = static_cast<unsigned char>(255.0f * a);
+    const unsigned char al = static_cast<unsigned char>(255.0f * a);
     const int font = ui::fontSize(ui::scale());
     const float fontH = static_cast<float>(font);
     // Gathering all four guardians' essences on the way crowns the Work with the Quintessence.
@@ -184,49 +185,66 @@ void GameScene::drawEndScreen(bool victory) {
     y += lineH * static_cast<float>(std::size(left)) + lineH * 0.3f;
     if (!victory) y = drawDescent(y, al);
 
+    y = drawEndProgress(y, al);
+    if (a < 1.0f) return;
+    drawEndActions(victory, y);
+}
+
+float GameScene::drawEndProgress(float y, unsigned char alpha) const {
+    const float sw = static_cast<float>(app_.screenWidth()), s = static_cast<float>(ui::scale());
+    const int font = ui::fontSize(ui::scale());
+    const float fontH = static_cast<float>(font);
+    const float lineH = fontH * 1.35f;
     // Lasting progress: personal bests, new Grimoire entries, unlocked paths and the next one.
     if (!record_.records.empty()) {
         std::string line;
         for (const std::string& r : record_.records) line += (line.empty() ? "" : "  -  ") + r;
-        ui::text(line, sw * 0.5f, y, font, Color{255, 220, 120, al}, ui::Align::Center);
+        ui::text(line, sw * 0.5f, y, font, Color{255, 220, 120, alpha}, ui::Align::Center);
         y += lineH;
     }
     if (!record_.discoveries.empty()) {
-        ui::text("New in the Grimoire: " + record_.discoveries, sw * 0.5f, y, font, Color{190, 160, 255, al}, ui::Align::Center);
+        ui::text("New in the Grimoire: " + record_.discoveries, sw * 0.5f, y, font, Color{190, 160, 255, alpha}, ui::Align::Center);
         y += lineH;
     }
     for (const LoadoutId path : record_.unlockedPaths) {
-        ui::text(std::string("Path unlocked: the ") + loadoutDef(path).name, sw * 0.5f, y, font, Color{255, 210, 110, al}, ui::Align::Center);
+        ui::text(std::string("Path unlocked: the ") + loadoutDef(path).name, sw * 0.5f, y, font, Color{255, 210, 110, alpha},
+                 ui::Align::Center);
         y += lineH;
     }
     if (record_.unlockedOrdeal > 0) {
         ui::text(ordealLabel(record_.unlockedOrdeal) + " unlocked: " + ordealDef(record_.unlockedOrdeal).name, sw * 0.5f, y, font,
-                 Color{255, 140, 110, al}, ui::Align::Center);
+                 Color{255, 140, 110, alpha}, ui::Align::Center);
         y += lineH;
     }
     if (record_.nearestPath) {
         const PathProgress& np = *record_.nearestPath;
         // A yes/no goal (target 1) reads as the goal alone; counted ones show how far along they are.
-        std::string label = np.target > 1 ? TextFormat("Next path, the %s: %s %d/%d", np.name.c_str(), np.requirement.c_str(), np.now, np.target)
-                                          : TextFormat("Next path, the %s: %s", np.name.c_str(), np.requirement.c_str());
+        std::string label = np.target > 1
+                                ? TextFormat("Next path, the %s: %s %d/%d", np.name.c_str(), np.requirement.c_str(), np.now, np.target)
+                                : TextFormat("Next path, the %s: %s", np.name.c_str(), np.requirement.c_str());
         if (np.target > 1 && np.now > np.was) label += TextFormat("  (+%d this run)", np.now - np.was);
-        ui::text(label, sw * 0.5f, y, font, Color{200, 190, 170, al}, ui::Align::Center);
+        ui::text(label, sw * 0.5f, y, font, Color{200, 190, 170, alpha}, ui::Align::Center);
         y += fontH * 1.25f;
         // The bar: earlier progress dim, this run's gain bright.
         const Rectangle bar{sw * 0.5f - 110.0f * s, y, 220.0f * s, 4.0f * s};
         const float target = static_cast<float>(std::max(1, np.target));
         const float wasW = bar.width * std::min(1.0f, static_cast<float>(np.was) / target);
         const float nowW = bar.width * std::min(1.0f, static_cast<float>(np.now) / target);
-        DrawRectangleRec(bar, Color{40, 34, 52, al});
-        DrawRectangleRec({bar.x, bar.y, wasW, bar.height}, Color{150, 120, 70, al});
-        DrawRectangleRec({bar.x + wasW, bar.y, nowW - wasW, bar.height}, Color{255, 210, 110, al});
+        DrawRectangleRec(bar, Color{40, 34, 52, alpha});
+        DrawRectangleRec({bar.x, bar.y, wasW, bar.height}, Color{150, 120, 70, alpha});
+        DrawRectangleRec({bar.x + wasW, bar.y, nowW - wasW, bar.height}, Color{255, 210, 110, alpha});
         y += bar.height + lineH * 0.5f;
     }
-    if (a < 1.0f) return;
+    return y;
+}
+
+void GameScene::drawEndActions(bool victory, float y) {
+    const float sw = static_cast<float>(app_.screenWidth()), s = static_cast<float>(ui::scale());
     // The pad's face buttons double as jump, interact, absorb and drink: a player still mashing
     // them from the fight must not skip this screen unread. Its pad and Enter shortcuts wake a
     // moment after the fade, once those buttons have been let go.
-    const bool settled = endTimer_ > (victory ? 0.5f : kDeathScreenDelay) + 1.1f;
+    constexpr float kArmDelay = 1.1f; // after the fade, before pad/Enter shortcuts wake
+    const bool settled = endTimer_ > (victory ? kVictoryScreenDelay : kDeathScreenDelay) + kArmDelay;
     const bool held = IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN) || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT) ||
                       IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_UP) || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT) ||
                       IsKeyDown(KEY_ENTER);
@@ -236,19 +254,22 @@ void GameScene::drawEndScreen(bool victory) {
     const float bw = 100.0f * s, bh = 18.0f * s, gap = 6.0f * s;
     float bx = sw * 0.5f - bw * 1.5f - gap;
     y += 6.0f * s;
-    auto startRun = [&](uint32_t seed) {
-        RunState fresh = newRun(seed, run_.difficulty, false, run_.loadout, run_.daily ? 0 : run_.ordeal);
-        app_.setScene(std::make_unique<GameScene>(app_, std::move(fresh)));
+    const int carriedOrdeal = run_.daily ? 0 : run_.ordeal;
+    auto startRun = [&](uint32_t seed, Difficulty difficulty, LoadoutId loadout, int ordeal) {
+        app_.setScene(std::make_unique<GameScene>(app_, newRun(seed, difficulty, false, loadout, ordeal)));
+    };
+    auto rememberSettings = [&] {
+        if (!app_.options().automated()) saveSettings(app_.settings());
     };
     const char* again = victory ? (usingGamepad_ ? "New Work (A)" : "New Work (R)") : (usingGamepad_ ? "Try Again (A)" : "Try Again (R)");
     if (ui::button({bx, y, bw, bh}, again) || (armed && ui::confirmPressed()) || input::keyPressed(KEY_R)) {
-        startRun(randomRunSeed());
+        startRun(randomRunSeed(), run_.difficulty, run_.loadout, carriedOrdeal);
         return;
     }
     bx += bw + gap;
     const bool retryKey = input::keyPressed(KEY_T) || (armed && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_UP));
     if (ui::button({bx, y, bw, bh}, usingGamepad_ ? "Retry Seed (Y)" : "Retry Seed (T)") || retryKey) {
-        startRun(run_.seed); // the same stages and treasures, outside the Daily Rite
+        startRun(run_.seed, run_.difficulty, run_.loadout, carriedOrdeal); // the same stages and treasures, outside the Daily Rite
         return;
     }
     if (ui::hovered({bx, y, bw, bh}))
@@ -265,10 +286,11 @@ void GameScene::drawEndScreen(bool victory) {
         const LoadoutDef& def = loadoutDef(fresh);
         const Rectangle offer{sw * 0.5f - bw, y + bh + gap, bw * 2.0f, bh};
         const bool offerKey = input::keyPressed(KEY_N) || (armed && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT));
-        if (ui::button(offer, TextFormat(usingGamepad_ ? "Begin as the %s (X)" : "Begin as the %s (N)", def.name), true, true) || offerKey) {
+        const char* offerLabel = TextFormat(usingGamepad_ ? "Begin as the %s (X)" : "Begin as the %s (N)", def.name);
+        if (ui::button(offer, offerLabel, true, true) || offerKey) {
             app_.settings().loadout = static_cast<int>(fresh); // Choose Your Path remembers it too
-            if (!app_.options().automated()) saveSettings(app_.settings());
-            app_.setScene(std::make_unique<GameScene>(app_, newRun(randomRunSeed(), run_.difficulty, false, fresh, run_.daily ? 0 : run_.ordeal)));
+            rememberSettings();
+            startRun(randomRunSeed(), run_.difficulty, fresh, carriedOrdeal);
             return;
         }
         if (ui::hovered(offer)) ui::tooltip(def.name, def.description, ui::color::kGold);
@@ -284,8 +306,8 @@ void GameScene::drawEndScreen(bool victory) {
         const bool easierKey = input::keyPressed(KEY_P) || (armed && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT));
         if (ui::button(easier, usingGamepad_ ? "Try as Apprentice (X)" : "Try as Apprentice (P)") || easierKey) {
             app_.settings().difficulty = static_cast<int>(Difficulty::Apprentice);
-            if (!app_.options().automated()) saveSettings(app_.settings());
-            app_.setScene(std::make_unique<GameScene>(app_, newRun(randomRunSeed(), Difficulty::Apprentice, false, run_.loadout, 0)));
+            rememberSettings();
+            startRun(randomRunSeed(), Difficulty::Apprentice, run_.loadout, 0);
             return;
         }
         if (ui::hovered(easier))
