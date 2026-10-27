@@ -703,6 +703,38 @@ TEST_CASE("a mimic poses as a chest until approached, and pays out like one") {
     CHECK(!other.disguised());
 }
 
+TEST_CASE("a transmutation circle dissolves stray matter but keeps the alchemist's offering") {
+    initMaterials();
+    ThreadPool pool(2);
+    Audio audio;
+    RunState run = newRun(21, Difficulty::Adept, false);
+    run.levelIndex = 1;
+    Level level(generateLevel(biomeForDepth(1), 1, 21u, pool), run, audio, pool);
+    level.player().invulnerable = 1.0e6f;
+    REQUIRE(!level.transmuters().empty());
+    const Transmuter& t = level.transmuters().front();
+    const int cx = floorToInt(t.pos.x), floorY = floorToInt(t.pos.y);
+    World& w = level.world();
+    // Oil (or water) that ran in from a far pool, and ten cells of the wanted matter poured by the alchemist.
+    const MatId stray = t.wants == mat::Oil ? mat::Water : mat::Oil;
+    for (int x = cx - 9; x <= cx + 9; ++x) w.place(x, floorY - 2, stray);
+    for (int x = cx - 4; x <= cx + 5; ++x) {
+        Cell c = makeCell(t.wants, static_cast<uint32_t>(x));
+        c.flags |= cellflag::kPlayerMade;
+        w.set(x, floorY, c);
+    }
+    for (int i = 0; i < 12; ++i) level.tick(PlayerInput{});
+    int strays = 0, offered = 0;
+    for (int y = floorY - 6; y <= floorY; ++y)
+        for (int x = cx - 9; x <= cx + 9; ++x) {
+            strays += w.at(x, y).mat == stray ? 1 : 0;
+            offered += w.at(x, y).mat == t.wants && (w.at(x, y).flags & cellflag::kPlayerMade) ? 1 : 0;
+        }
+    CHECK(strays == 0);
+    CHECK(offered >= 8); // a liquid offering may spread, but stays in the basin
+    CHECK(level.transmuters().front().progress == offered);
+}
+
 TEST_CASE("stage events are announced, telegraphed, then land") {
     initMaterials();
     ThreadPool pool(4);

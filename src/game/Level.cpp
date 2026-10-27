@@ -621,10 +621,21 @@ void Level::updateTransmuters() {
         const int cx = floorToInt(t.pos.x), floorY = floorToInt(t.pos.y);
         // Only matter the alchemist brought counts: a circle beside a natural pool must
         // not fill itself. The box is the basin's inside (placeTransmuter builds the rim to match).
+        // Any other liquid or powder that runs or falls in (oil from a far pool, a cave-in's
+        // sand) dissolves, so the basin always has room for the offering.
         int count = 0;
         for (int y = floorY - 6; y <= floorY; ++y)
-            for (int x = cx - 9; x <= cx + 9; ++x)
-                if (w.inBounds(x, y) && w.at(x, y).mat == t.wants && (w.at(x, y).flags & cellflag::kPlayerMade)) ++count;
+            for (int x = cx - 9; x <= cx + 9; ++x) {
+                if (!w.inBounds(x, y)) continue;
+                const Cell& c = w.at(x, y);
+                if (c.flags & cellflag::kPlayerMade) {
+                    count += c.mat == t.wants ? 1 : 0;
+                } else if (const Phase ph = phaseOf(c.mat); ph == Phase::Liquid || ph == Phase::Powder) {
+                    w.clear(x, y);
+                    if (fxRng_.chance(0.1f)) particles_.addVisual({static_cast<float>(x) + 0.5f, static_cast<float>(y)}, {0.0f, -20.0f},
+                                                                  {200, 190, 255, 200}, {120, 100, 220, 255}, 0.4f, -0.2f, partflag::kFade);
+                }
+            }
         t.progress = count;
         if (count < t.required) continue;
         // The offering is accepted: the matter vanishes in a burst of light.

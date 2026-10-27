@@ -288,6 +288,9 @@ void Generator::placePools(World& world) {
         if (dangerous && distanceToPath({static_cast<float>(x), static_cast<float>(fy)}) < 40.0f) liquid = mat::Water;
         if (biome_ == BiomeId::Rubedo && liquid == mat::Water && !flooded) liquid = mat::Oil;
         int r = rng_.rangeInt(6, 15) + (molten && liquid == mat::Lava ? 5 : 0) + (flooded ? 6 : 0);
+        // Never in the hollow the alchemist starts in (checked after the draws, so other pools keep their rolls).
+        const Vec2 centre{static_cast<float>(x), static_cast<float>(fy - r)};
+        if ((centre - start_).length() < static_cast<float>(r) + 40.0f) continue;
         for (int dy = -r; dy <= r; ++dy)
             for (int dx = -r; dx <= r; ++dx)
                 if (dx * dx + dy * dy <= r * r) world.placeIfEmpty(x + dx, fy - r + dy, liquid);
