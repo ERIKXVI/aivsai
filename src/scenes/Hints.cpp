@@ -2,9 +2,12 @@
 
 #include <algorithm>
 #include <iterator>
+#include <utility>
+#include <vector>
 
 #include "game/Level.hpp"
 #include "game/Run.hpp"
+#include "game/Wand.hpp"
 #include "ui/Ui.hpp"
 
 namespace pm {
@@ -12,6 +15,43 @@ namespace pm {
 bool guideCandidate(SpellId s) {
     if (s == SpellId::None) return false;
     return spellDef(s).type != SpellType::Projectile || safeToAutoSlot(s);
+}
+
+WandGuide pickWandGuide(const RunState& run) {
+    WandGuide guide;
+    const auto from = std::find_if(run.inventory.begin(), run.inventory.end(), guideCandidate);
+    if (from != run.inventory.end()) {
+        guide.from = static_cast<int>(from - run.inventory.begin());
+        guide.booster = spellDef(*from).type != SpellType::Projectile;
+    }
+    std::vector<std::pair<float, int>> byDamage; // (first-cast damage, wand), hardest first
+    for (size_t wi = 0; wi < run.wands.size(); ++wi) {
+        int pos = 0;
+        const Wand& w = run.wands[wi];
+        float damage = 0.0f;
+        for (const ProjectileLaunch& l : buildShot(w.slots, w.order, pos, w.spellsPerCast).projectiles) damage += l.def.damage;
+        byDamage.emplace_back(-damage, static_cast<int>(wi));
+    }
+    std::stable_sort(byDamage.begin(), byDamage.end());
+    const auto isAttack = [](SpellId s) { return s != SpellId::None && spellDef(s).type == SpellType::Projectile; };
+    for (const auto& entry : byDamage) {
+        const int wi = entry.second;
+        const auto& slots = run.wands[static_cast<size_t>(wi)].slots;
+        const auto empty = std::find(slots.begin(), slots.end(), SpellId::None);
+        if (empty == slots.end()) continue;
+        auto to = empty;
+        if (guide.booster) {
+            // Onto the first attack spell that has room behind it to move along; a shuffle
+            // wand has no "after it" to boost.
+            if (run.wands[static_cast<size_t>(wi)].shuffle) continue;
+            to = std::find_if(slots.begin(), slots.end(), isAttack);
+            if (to == slots.end() || std::find(to + 1, slots.end(), SpellId::None) == slots.end()) continue;
+        }
+        guide.wand = wi;
+        guide.slot = static_cast<int>(to - slots.begin());
+        break;
+    }
+    return guide;
 }
 
 namespace {

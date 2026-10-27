@@ -16,6 +16,19 @@ struct RunState;
 /// hand, or a modifier or multicast to put in front of one (never the kit's bomb).
 bool guideCandidate(SpellId s);
 
+/// The wand editor's guided first edit: which satchel spell to lift and where it goes.
+struct WandGuide {
+    int from = -1;        ///< satchel slot of the spell; -1 when none is worth guiding with
+    int wand = -1;        ///< destination wand
+    int slot = -1;        ///< an empty slot for an attack spell; for a booster, the attack spell it goes in front of
+    bool booster = false; ///< the spell is a modifier or multicast
+    bool active() const { return from >= 0 && slot >= 0; }
+};
+/// The first guideCandidate in the satchel, onto the wand whose first cast hits hardest (direct damage;
+/// ties keep wand order) that has room. A booster needs an attack spell with an empty slot after it,
+/// and never goes on a shuffle wand.
+WandGuide pickWandGuide(const RunState& run);
+
 // Values are bit positions in the seen-mask. WandGuide is not a banner: it marks the wand
 // editor's guided first drop as done, and its text captions that guide.
 enum class Hint : uint8_t { Absorb, Satchel, Heal, Sanctum, Transmuter, Compass, Gold, Burning, EditWands, WandGuide, Lantern, Lair, Elixir, Count };

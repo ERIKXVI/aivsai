@@ -136,6 +136,32 @@ TEST_CASE("a booster dropped onto a spell goes in front of it") {
     CHECK(trailingBooster(std::vector<SpellId>(3, SpellId::None)) == SpellId::None);
 }
 
+TEST_CASE("the guided first edit takes a worthy satchel spell to the hardest-hitting wand with room") {
+    RunState run = newRun(1, Difficulty::Adept, false);
+    run.wands = {makeStarterWand(0), makeStarterWand(1)}; // Rod: 3 Spark Bolts and an empty slot; Delver's: Digging Bolt, 2 empty
+    run.inventory.fill(SpellId::None);
+    run.inventory[2] = SpellId::DamageUp;
+    WandGuide g = pickWandGuide(run);
+    CHECK(g.active());
+    CHECK(g.from == 2);
+    CHECK(g.booster);
+    CHECK(g.wand == 0); // Spark Bolts outhit the Digging Bolt
+    CHECK(g.slot == 0); // in front of the Rod's first attack spell
+    run.wands[0].shuffle = true; // a shuffle wand takes no booster
+    g = pickWandGuide(run);
+    CHECK(g.wand == 1);
+    CHECK(g.slot == 0);
+    run.wands[0].shuffle = false;
+    run.inventory[2] = SpellId::SparkBolt; // an attack spell goes into an empty slot
+    g = pickWandGuide(run);
+    CHECK(!g.booster);
+    CHECK(g.wand == 0);
+    CHECK(g.slot == 3);
+    run.wands[0].slots[3] = SpellId::SparkBolt;
+    run.wands[1].slots = {SpellId::DiggingBolt, SpellId::SparkBolt, SpellId::SparkBolt};
+    CHECK(!pickWandGuide(run).active()); // no room on any wand
+}
+
 TEST_CASE("the Apprentice's first satchel card varies with the seed") {
     std::vector<SpellId> seen;
     for (uint32_t seed = 1; seed <= 40; ++seed) {

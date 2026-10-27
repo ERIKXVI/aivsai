@@ -7,7 +7,6 @@
 #include <cmath>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include "app/App.hpp"
 #include "app/InputLatch.hpp"
@@ -158,42 +157,7 @@ void GameScene::drawInventory() {
     // spell goes into an empty slot; a modifier or multicast goes onto the wand's first attack
     // spell, which it then sits in front of. The hardest-hitting wand comes first, never the
     // digging wand by accident.
-    int guideFrom = -1, guideWand = -1, guideSlot = -1;
-    bool guideBooster = false;
-    if (!hints_.seen(Hint::WandGuide)) {
-        const auto from = std::find_if(run_.inventory.begin(), run_.inventory.end(), guideCandidate);
-        if (from != run_.inventory.end()) {
-            guideFrom = static_cast<int>(from - run_.inventory.begin());
-            guideBooster = spellDef(*from).type != SpellType::Projectile;
-        }
-        std::vector<std::pair<float, int>> byDamage; // (first-cast damage, wand), hardest first
-        for (size_t wi = 0; wi < run_.wands.size(); ++wi) {
-            int pos = 0;
-            const Wand& w = run_.wands[wi];
-            float damage = 0.0f;
-            for (const ProjectileLaunch& l : buildShot(w.slots, w.order, pos, w.spellsPerCast).projectiles) damage += l.def.damage;
-            byDamage.emplace_back(-damage, static_cast<int>(wi));
-        }
-        std::stable_sort(byDamage.begin(), byDamage.end());
-        for (const auto& entry : byDamage) {
-            const int wi = entry.second;
-            const auto& slots = run_.wands[static_cast<size_t>(wi)].slots;
-            const auto empty = std::find(slots.begin(), slots.end(), SpellId::None);
-            if (empty == slots.end()) continue;
-            auto to = empty;
-            if (guideBooster) {
-                // Onto the first attack spell that has room behind it to move along; a shuffle
-                // wand has no "after it" to boost.
-                if (run_.wands[static_cast<size_t>(wi)].shuffle) continue;
-                to = std::find_if(slots.begin(), slots.end(), [](SpellId s) { return s != SpellId::None && spellDef(s).type == SpellType::Projectile; });
-                if (to == slots.end() || std::find(to + 1, slots.end(), SpellId::None) == slots.end()) continue;
-            }
-            guideWand = wi;
-            guideSlot = static_cast<int>(to - slots.begin());
-            break;
-        }
-    }
-    const bool guide = guideFrom >= 0 && guideSlot >= 0;
+    const WandGuide guide = hints_.seen(Hint::WandGuide) ? WandGuide{} : pickWandGuide(run_);
     Rectangle guideFromR{}, guideToR{}, cursorR{};
 
     struct Hover {
@@ -237,7 +201,7 @@ void GameScene::drawInventory() {
                 hover = {sp, static_cast<int>(wi), i};
                 cursorR = r;
             }
-            if (guide && guideWand == static_cast<int>(wi) && guideSlot == i) guideToR = r;
+            if (guide.active() && guide.wand == static_cast<int>(wi) && guide.slot == i) guideToR = r;
         }
         // What the first cast of this deck does, so the effect of modifiers is visible. It
         // flashes gold after an edit changes it.
@@ -275,7 +239,7 @@ void GameScene::drawInventory() {
             hover = {sp, -1, i};
             cursorR = r;
         }
-        if (guide && guideFrom == i) guideFromR = r;
+        if (guide.active() && guide.from == i) guideFromR = r;
     }
     const float satchelBottom = y + 2.0f * (slot + gap);
 
@@ -305,7 +269,7 @@ void GameScene::drawInventory() {
     drawSpellCard({panelR.x + panelR.width - 140.0f * s, panelR.y + 32.0f * s, 130.0f * s, panelR.height - 56.0f * s},
                   drag_.active ? drag_.spell : hover.spell);
 
-    if (guide && !drag_.active) {
+    if (guide.active() && !drag_.active) {
         const float t = static_cast<float>(GetTime());
         const unsigned char glow = static_cast<unsigned char>(140.0f + 100.0f * std::sin(t * 6.0f));
         const Color gold{ui::color::kGold.r, ui::color::kGold.g, ui::color::kGold.b, glow};
@@ -315,10 +279,10 @@ void GameScene::drawInventory() {
         // The ghost eases from the satchel to the slot, fading in and out at the ends.
         const float k = std::fmod(t * 0.7f, 1.0f), e = k * k * (3.0f - 2.0f * k);
         const Rectangle ghost{guideFromR.x + (guideToR.x - guideFromR.x) * e, guideFromR.y + (guideToR.y - guideFromR.y) * e, slot, slot};
-        ui::spellIcon(run_.inventory[static_cast<size_t>(guideFrom)], ghost, false);
+        ui::spellIcon(run_.inventory[static_cast<size_t>(guide.from)], ghost, false);
         DrawRectangleRec(ghost, Color{14, 12, 20, static_cast<unsigned char>(255.0f * (1.0f - std::sin(k * PI)))});
         const char* caption = HintTracker::text(Hint::WandGuide, pad);
-        if (guideBooster)
+        if (guide.booster)
             caption = pad ? "Pick up the glowing booster with A and place it on the glowing spell - it boosts the spell after it"
                           : "Drag the glowing booster onto the glowing spell - it goes in front and boosts the spell after it";
         ui::text(caption, panelR.x + 10.0f * s, satchelBottom + 3.0f * s, small, ui::color::kGold);
