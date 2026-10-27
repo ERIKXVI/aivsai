@@ -78,7 +78,11 @@ void GameScene::drawWorldOverlays(float alpha) const {
             ui::text("The circle is spent", sp.x, sp.y, small, ui::color::kTextDim, ui::Align::Center);
             continue;
         }
-        const std::string pour = std::string("Pour in ") + matDef(t.wants).name + " to receive a perk";
+        // Name the control, and whether the flask already holds what the circle craves.
+        const char* want = matDef(t.wants).name;
+        const bool ready = !run_.flask.empty() && run_.flask.mat == t.wants;
+        const std::string pour = ready ? TextFormat(usingGamepad_ ? "Hold LT to pour your %s in for a perk" : "Hold right-click to pour your %s in for a perk", want)
+                                       : TextFormat(usingGamepad_ ? "Fill your flask with %s (hold Y), then pour it in" : "Fill your flask with %s (hold Q), then pour it in", want);
         plate(sp.x, sp.y, static_cast<float>(std::max(ui::measure("Transmutation Circle", ui::fontSize(s)), ui::measure(pour, small))),
               static_cast<float>(ui::fontSize(s) + small) + 6.0f + 3.0f * fs);
         ui::text("Transmutation Circle", sp.x, sp.y, ui::fontSize(s), Color{200, 170, 255, 255}, ui::Align::Center);
@@ -126,22 +130,32 @@ void GameScene::drawWorldOverlays(float alpha) const {
         else lines.push_back({usingGamepad_ ? "Satchel full - make room with Back" : "Satchel full - make room with Tab", ui::color::kDanger});
     } else if (p.type == PickupType::PerkAltar) {
         lines.push_back({perkDef(p.perk).description, ui::color::kText});
+    } else if (p.type == PickupType::Potion) {
+        // What the liquid does, and that a different one trades places with the flask's.
+        lines.push_back({matDescription(p.mat), ui::color::kText});
+        const Flask& f = run_.flask;
+        if (f.empty() || f.mat == p.mat) lines.push_back({"Fills your flask", ui::color::kAccent});
+        else lines.push_back({std::string("Swaps with your flask of ") + matDef(f.mat).name + ", left here in its place", ui::color::kTextDim});
     }
     const int size = ui::fontSize(s);
     const float lineH = static_cast<float>(small) + 2.0f * fs;
     int widest = ui::measure(label, size);
     for (const Line& l : lines) widest = std::max(widest, ui::measure(l.text, small));
-    // The card grows upwards from the label's place, clear of the wares beside it.
+    // The card grows upwards from the label's place, clear of the wares beside it, and stays on
+    // screen beside a wall where the camera stops.
+    const float swF = static_cast<float>(app_.screenWidth());
+    const float halfW = static_cast<float>(widest) * 0.5f + 6.0f * fs;
+    const float cx = halfW * 2.0f < swF ? clamp(sp.x, halfW, swF - halfW) : swF * 0.5f;
     const float details = lines.empty() ? 0.0f : 3.0f * fs + lineH * static_cast<float>(lines.size());
     const float top = sp.y - details;
-    plate(sp.x, top, static_cast<float>(widest), static_cast<float>(size) + details);
-    ui::text(label, sp.x, top, size, labelColor, ui::Align::Center);
+    plate(cx, top, static_cast<float>(widest), static_cast<float>(size) + details);
+    ui::text(label, cx, top, size, labelColor, ui::Align::Center);
     float y = top + static_cast<float>(size) + 3.0f * fs;
     for (const Line& l : lines) {
-        ui::text(l.text, sp.x, y, small, l.color, ui::Align::Center);
+        ui::text(l.text, cx, y, small, l.color, ui::Align::Center);
         y += lineH;
     }
-    if (p.type == PickupType::Wand && p.wand) drawWandCard(*p.wand, sp.x, sp.y - 3.0f * fs); // above the prompt, clear of the wand itself
+    if (p.type == PickupType::Wand && p.wand) drawWandCard(*p.wand, cx, sp.y - 3.0f * fs); // above the prompt, clear of the wand itself
 }
 
 void GameScene::drawWandCard(const Wand& w, float cx, float bottom) const {
