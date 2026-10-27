@@ -32,6 +32,8 @@ constexpr float kFuryTime = 12.0f;
 constexpr float kFuryDamage = 1.5f;
 constexpr float kCastFlashTime = 0.08f; ///< the gem flashes white and lights up this long after a cast
 constexpr Vec2 kHandOffset{1.5f, 0.5f}; ///< the wand's grip relative to the body centre, facing right
+constexpr float kStepInterval = 0.26f;  ///< a footfall's spacing at full running speed
+constexpr float kStepMinSpeed = 25.0f;  ///< slower than this, the alchemist shuffles silently
 
 Vec2 handPos(Vec2 bodyPos, bool facingRight) {
     return {bodyPos.x + (facingRight ? kHandOffset.x : -kHandOffset.x), bodyPos.y + kHandOffset.y};
@@ -48,6 +50,32 @@ Pose currentPose(const Body& body, bool jumpHeld, float animTime) {
     if (!body.onGround) return {SpriteId::PlayerAir, (jumpHeld && body.vel.y > -40.0f) ? static_cast<int>(animTime * 12.0f) % 2 : 0};
     if (std::fabs(body.vel.x) > 8.0f) return {SpriteId::PlayerRun, static_cast<int>(animTime * 11.0f) % 4};
     return {SpriteId::PlayerIdle, static_cast<int>(animTime / 0.6f) % 2};
+}
+
+struct CastVoice {
+    Sfx sfx = Sfx::CastSpark;
+    float weight = 0.0f;
+    uint32_t color = 0xffffff;
+};
+
+/// The cast's heaviest projectile (damage plus blast; later ones win ties) picks its sound and muzzle colour.
+CastVoice castVoice(const CastShot& shot) {
+    CastVoice v;
+    for (const ProjectileLaunch& l : shot.projectiles) {
+        float weight = l.def.explosionDamage + l.def.damage;
+        if (weight < v.weight) continue;
+        v.weight = weight;
+        v.color = l.def.color;
+        const ProjectileDef& d = l.def;
+        if (d.flags & projflag::kHitscan) v.sfx = Sfx::CastLightning;
+        else if (d.visual == ProjVisual::Bomb || d.explosionRadius > 15.0f) v.sfx = Sfx::CastHeavy;
+        else if (d.damageType == DamageType::Fire) v.sfx = Sfx::CastFire;
+        else if (d.flags & projflag::kDigs) v.sfx = Sfx::Dig;
+        else if (d.visual == ProjVisual::Orb || d.visual == ProjVisual::BigOrb || d.visual == ProjVisual::Star) v.sfx = Sfx::CastMagic;
+        else if (d.visual == ProjVisual::Bolt || d.visual == ProjVisual::Shard) v.sfx = Sfx::CastBolt;
+        else v.sfx = Sfx::CastSpark;
+    }
+    return v;
 }
 
 } // namespace
@@ -193,10 +221,10 @@ void Player::move(Level& level, const Environment& env) {
         // Variable jump: keep rising on the initial press, then levitate once falling.
         bool rising = body.vel.y < 0.0f && jumpedThisPress_;
         const bool lifting = !rising && levitation_ > 0.0f;
-        // Once per hold: lifting flickers on and off as the rise and the hover alternate.
-        if (lifting && !levitating_) level.audio().play(Sfx::Levitate, 0.35f, level.fxRng().range(0.9f, 1.1f));
-        if (lifting) levitating_ = true;
         if (lifting) {
+            // Once per hold: lifting flickers on and off as the rise and the hover alternate.
+            if (!levitating_) level.audio().play(Sfx::Levitate, 0.35f, level.fxRng().range(0.9f, 1.1f));
+            levitating_ = true;
             body.vel.y = approach(body.vel.y, -kLevitateSpeed, kLevitateAccel * dt);
             levitation_ = std::max(0.0f, levitation_ - dt / levMax);
             Rng& rng = level.rng();
@@ -216,18 +244,7 @@ void Player::move(Level& level, const Environment& env) {
     if (body.vel.y > kMaxFallSpeed) body.vel.y = kMaxFallSpeed;
     lastFallSpeed_ = body.vel.y;
     moveBody(body, level.world(), dt);
-    // Footfalls while walking: duller on soft ground, sharper on stone and metal.
-    if (body.onGround && std::fabs(body.vel.x) > 25.0f) {
-        footstepTimer_ -= dt * std::fabs(body.vel.x) / kRunSpeed;
-        if (footstepTimer_ <= 0.0f) {
-            footstepTimer_ = 0.26f;
-            const MaterialDef& under = matDef(level.world().matAt(floorToInt(body.pos.x), floorToInt(body.pos.y + body.halfH + 0.6f)));
-            const float pitch = under.phase == Phase::Powder || under.hardness < 50 ? 0.8f : (under.hardness >= 140 ? 1.25f : 1.0f);
-            level.audio().play(Sfx::Step, 0.22f, pitch * level.fxRng().range(0.92f, 1.08f));
-        }
-    } else if (body.onGround) {
-        footstepTimer_ = 0.0f; // the first step lands as soon as the alchemist sets off (not after a step down)
-    }
+    footsteps(level, dt);
     if (body.onGround && !grounded && lastFallSpeed_ > 150.0f) {
         level.audio().play(Sfx::Land, std::min(1.0f, lastFallSpeed_ / 400.0f));
         for (int i = 0; i < 4; ++i) {
@@ -236,6 +253,21 @@ void Player::move(Level& level, const Environment& env) {
                                         {rng.range(-40.0f, 40.0f), rng.range(-30.0f, -5.0f)}, {120, 110, 100, 200},
                                         {0, 0, 0, 0}, 0.35f, 0.8f);
         }
+    }
+}
+
+void Player::footsteps(Level& level, float dt) {
+    // Footfalls while walking: duller on soft ground, sharper on stone and metal.
+    if (body.onGround && std::fabs(body.vel.x) > kStepMinSpeed) {
+        footstepTimer_ -= dt * std::fabs(body.vel.x) / kRunSpeed;
+        if (footstepTimer_ <= 0.0f) {
+            footstepTimer_ = kStepInterval;
+            const MaterialDef& under = matDef(level.world().matAt(floorToInt(body.pos.x), floorToInt(body.pos.y + body.halfH + 0.6f)));
+            const float pitch = under.phase == Phase::Powder || under.hardness < 50 ? 0.8f : (under.hardness >= 140 ? 1.25f : 1.0f);
+            level.audio().play(Sfx::Step, 0.22f, pitch * level.fxRng().range(0.92f, 1.08f));
+        }
+    } else if (body.onGround) {
+        footstepTimer_ = 0.0f; // the first step lands as soon as the alchemist sets off (not after a step down)
     }
 }
 
@@ -285,14 +317,7 @@ void Player::handleWands(Level& level) {
         wand.cooldownTotal = wand.cooldown; // keeps the HUD reload bar honest
     }
     if (outcome.status == CastStatus::NoMana) {
-        // The wand coughs grey sparks instead of casting.
-        if (level.ticks() % 20 == 0) {
-            level.audio().play(Sfx::Fizzle, 0.3f);
-            Rng& fx = level.fxRng();
-            for (int i = 0; i < 4; ++i)
-                level.particles().addVisual(wandTip(), fromAngle(angleOf(aimDir_) + fx.range(-0.6f, 0.6f), fx.range(20.0f, 50.0f)),
-                                            {150, 145, 160, 220}, {0, 0, 0, 0}, fx.range(0.15f, 0.3f), 0.5f);
-        }
+        fizzle(level);
         return;
     }
     if (outcome.status != CastStatus::Cast) return;
@@ -301,36 +326,33 @@ void Player::handleWands(Level& level) {
     run_.stats.spellsCast++;
     castFlash_ = kCastFlashTime;
 
-    // Sound (and muzzle colour) keyed to the strongest projectile in the cast.
-    Sfx sfx = Sfx::CastSpark;
-    float heaviest = 0.0f;
-    uint32_t muzzle = 0xffffff;
-    for (const ProjectileLaunch& l : outcome.shot.projectiles) {
-        float weight = l.def.explosionDamage + l.def.damage;
-        if (weight < heaviest) continue;
-        heaviest = weight;
-        muzzle = l.def.color;
-        const ProjectileDef& d = l.def;
-        if (d.flags & projflag::kHitscan) sfx = Sfx::CastLightning;
-        else if (d.visual == ProjVisual::Bomb || d.explosionRadius > 15.0f) sfx = Sfx::CastHeavy;
-        else if (d.damageType == DamageType::Fire) sfx = Sfx::CastFire;
-        else if (d.flags & projflag::kDigs) sfx = Sfx::Dig;
-        else if (d.visual == ProjVisual::Orb || d.visual == ProjVisual::BigOrb || d.visual == ProjVisual::Star) sfx = Sfx::CastMagic;
-        else if (d.visual == ProjVisual::Bolt || d.visual == ProjVisual::Shard) sfx = Sfx::CastBolt;
-        else sfx = Sfx::CastSpark;
-    }
-    level.audio().play(sfx, 0.55f, level.rng().range(0.93f, 1.07f));
+    const CastVoice v = castVoice(outcome.shot);
+    level.audio().play(v.sfx, 0.55f, level.rng().range(0.93f, 1.07f));
     // A burst of sparks from the wand tip in the spell's colour (fewer for rapid-fire wands), and a
     // kick of the view that even the lightest spell makes visible.
     const bool rapid = wand.castDelay < 0.05f;
-    const Rgba spark = hexRgba(muzzle);
+    castSparks(level, angle, v.color, rapid);
+    recoil_ -= aimDir_ * clamp(0.15f + v.weight * 0.02f, rapid ? 0.25f : 0.6f, 1.5f);
+}
+
+void Player::fizzle(Level& level) {
+    if (level.ticks() % 20 == 0) {
+        level.audio().play(Sfx::Fizzle, 0.3f);
+        Rng& fx = level.fxRng();
+        for (int i = 0; i < 4; ++i)
+            level.particles().addVisual(wandTip(), fromAngle(angleOf(aimDir_) + fx.range(-0.6f, 0.6f), fx.range(20.0f, 50.0f)),
+                                        {150, 145, 160, 220}, {0, 0, 0, 0}, fx.range(0.15f, 0.3f), 0.5f);
+    }
+}
+
+void Player::castSparks(Level& level, float angle, uint32_t color, bool rapid) {
+    const Rgba spark = hexRgba(color);
     Rng& fx = level.fxRng();
     for (int i = 0, n = rapid ? 2 : 5; i < n; ++i) {
         const Vec2 dir = fromAngle(angle + fx.range(-0.22f, 0.22f));
         level.particles().addVisual(wandTip(), dir * fx.range(70.0f, 150.0f), spark, spark, fx.range(0.08f, 0.16f), 0.0f,
                                     partflag::kFade | partflag::kStreak | partflag::kDieOnHit | partflag::kNoGravity);
     }
-    recoil_ -= aimDir_ * clamp(0.15f + heaviest * 0.02f, rapid ? 0.25f : 0.6f, 1.5f);
 }
 
 void Player::handleFlask(Level& level) {

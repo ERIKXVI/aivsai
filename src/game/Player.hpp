@@ -43,7 +43,13 @@ protected:
 
 private:
     void move(Level& level, const Environment& env);
+    /// Footfall sounds while walking, pitched by the ground underfoot.
+    void footsteps(Level& level, float dt);
     void handleWands(Level& level);
+    /// The wand coughs grey sparks instead of casting: it lacks the mana.
+    void fizzle(Level& level);
+    /// A burst of sparks in the spell's colour from the wand tip (fewer for rapid-fire wands).
+    void castSparks(Level& level, float angle, uint32_t color, bool rapid);
     /// The plunge into a liquid: its sound, and droplets thrown up from the surface.
     void splash(Level& level, MatId liquid);
     void handleFlask(Level& level);
