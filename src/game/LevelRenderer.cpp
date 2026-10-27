@@ -52,10 +52,15 @@ void LevelRenderer::render(const Level& level, Vec2 camera, float alpha, float t
     const LevelLayout& layout = level.layout();
     sky_.draw(layout.skyline, layout.surfaceY, v.originX, v.originY, v.texW, v.texH, time, false);
     scene_.drawWorldAlbedo();
-    drawProps(level, alpha, time, false);
-    for (const auto& e : level.enemies())
-        if (e->alive()) e->drawAlbedo(ctx);
-    if (level.player().alive()) level.player().drawAlbedo(ctx);
+    {
+        // Figures and treasure mark themselves as foreground, so the composite does not dim
+        // and haze them like the back wall they stand against.
+        gpu::BlendScope foreground(gpu::Blend::Foreground);
+        drawProps(level, alpha, time, false);
+        for (const auto& e : level.enemies())
+            if (e->alive()) e->drawAlbedo(ctx);
+        if (level.player().alive()) level.player().drawAlbedo(ctx);
+    }
     scene_.endAlbedo();
 
     // Emission.

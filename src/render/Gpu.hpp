@@ -22,7 +22,9 @@ void drawQuad(const Texture2D& tex, float x, float y, float w, float h, float u0
 /// render-texture orientation preserved.
 void drawFullTarget(const Texture2D& src, int w, int h);
 
-enum class Blend { Alpha, Replace, Additive, AddColorKeepAlpha };
+/// Foreground blends colour like Alpha but drives the target's alpha towards 0 under opaque
+/// pixels, marking them for the composite as figures in front of the back wall.
+enum class Blend { Alpha, Replace, Additive, AddColorKeepAlpha, Foreground };
 
 /// RAII scope that switches the blend mode and restores alpha blending afterwards.
 class BlendScope {

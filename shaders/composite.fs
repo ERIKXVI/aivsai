@@ -73,16 +73,19 @@ void main() {
     vec4 light = texture(lightTex, uv);
     vec3 glow = texture(glowTex, uv).rgb;
 
-    // Solid interiors fade to darkness; open-air pixels (background) are lit a bit less.
+    // Solid interiors fade to darkness; open-air pixels (background) are lit a bit less, but
+    // figures and treasure (albedo alpha driven to 0 as they are drawn) stand in front of it.
     float solid = emission.a;
+    float actor = 1.0 - smoothstep(0.2, 0.5, albedo.a);
+    float fg = max(solid, actor);
     float depth = smoothstep(0.84, 1.0, light.a) * solid;
     float shade = mix(1.0, 0.42, depth);
-    float backgroundDim = mix(0.7, 1.0, solid);
+    float backgroundDim = mix(0.7, 1.0, fg);
 
     vec3 lighting = ambient + light.rgb + glow * glowLight;
     vec3 color = albedo.rgb * lighting * shade * backgroundDim;
     float row = (1.0 - uv.y) * texSize.y;
-    color += airColor * (1.0 - solid) * smoothstep(airTop, airTop + 40.0, row);
+    color += airColor * (1.0 - fg) * smoothstep(airTop, airTop + 40.0, row);
     color += emission.rgb * 1.25;
     color += glow * bloom;
 
