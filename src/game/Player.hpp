@@ -63,7 +63,8 @@ private:
     float castFlash_ = 0.0f;
     Vec2 recoil_;
     float sprayAccum_ = 0.0f;
-    float footstepTimer_ = 0.0f;
+    float footstepTimer_ = 0.0f; ///< counts down to the next footfall sound
+    bool levitating_ = false;     ///< lifting on the levitation this tick (the whoosh plays as it starts)
     float lastFallSpeed_ = 0.0f;
     bool wasInLiquid_ = false;
 };

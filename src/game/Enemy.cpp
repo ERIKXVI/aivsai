@@ -668,7 +668,9 @@ void Enemy::onDamaged(Level& level, const DamageInfo& info, float dealt) {
     }
     level.bleed(body.pos, def_->blood, std::min(10, 2 + static_cast<int>(dealt / 4.0f)), info.knockback);
     if (affix_ == Affix::Gilded) level.bleed(body.pos, mat::GoldDust, std::min(8, 1 + static_cast<int>(dealt / 6.0f)), info.knockback);
-    level.audio().playAt(Sfx::EnemyHurt, body.pos, 0.45f, level.rng().range(0.85f, 1.2f));
+    // Bigger creatures cry out lower.
+    const float size = def_->scale > 1 ? 0.55f : (body.halfH >= 7.0f ? 0.8f : 1.0f);
+    level.audio().playAt(Sfx::EnemyHurt, body.pos, 0.45f, size * level.rng().range(0.85f, 1.2f));
     level.addDamageNumber(id, body.pos + Vec2{level.rng().range(-3.0f, 3.0f), -body.halfH - 4.0f}, dealt, info.crit);
     if (flying || def_->behaviour == Behaviour::Burrower) body.vel += info.knockback * 0.5f * knockbackTaken();
     // Hit reactions: the knockback carries a moment before the creature recovers. A heavy blow

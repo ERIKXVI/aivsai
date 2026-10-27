@@ -87,6 +87,7 @@ void hitActor(Level& level, Projectile& p, Actor& a) {
     Vec2 kb = p.vel.lengthSq() > 1.0f ? p.vel.normalized() * d.knockback : Vec2{};
     if (dmg > 0.0f) a.applyDamage(level, {dmg, d.damageType, kb, p.team, crit, false, projectileCause(level, p)});
     if (crit && p.team == Team::Player) level.critPunch(a.body.pos);
+    else if (p.team == Team::Player && dmg > 0.0f) level.audio().playAt(Sfx::Hit, a.body.pos, 0.25f, level.fxRng().range(0.9f, 1.1f));
     if (((d.flags & kIncendiary) || d.damageType == DamageType::Fire) && a.status.wet <= 0.0f) a.status.burning = std::max(a.status.burning, 3.0f);
     if (d.flags & kFreezing) a.status.chilled = 2.5f;
     if (d.flags & kElectric) a.status.shocked = 0.4f;
@@ -299,6 +300,9 @@ void updateProjectile(Level& level, Projectile& p, float dt) {
                 if (d.visual == ProjVisual::Bomb && p.vel.length() > 60.0f) level.audio().playAt(Sfx::Land, p.pos, 0.3f, 1.5f);
                 break;
             }
+            // A thud as it strikes matter (blasts and diggers have their own sounds).
+            if (d.explosionRadius <= 0.0f && !(d.flags & kDigs))
+                level.audio().playAt(Sfx::Impact, p.pos, 0.22f, level.fxRng().range(0.85f, 1.15f));
             impact(level, p, p.pos);
             return;
         }

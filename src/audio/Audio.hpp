@@ -44,6 +44,10 @@ enum class Sfx : uint8_t {
     Roar,
     Heartbeat,
     Rumble,
+    Step,     ///< a footfall
+    Impact,   ///< a projectile striking matter without exploding
+    Fizzle,   ///< a cast with too little mana
+    Levitate, ///< the alchemist lifts off
     Count
 };
 

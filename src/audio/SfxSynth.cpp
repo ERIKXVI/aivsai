@@ -465,6 +465,55 @@ Wave build(Sfx sfx) {
         s.add(dub);
         return s.finish();
     }
+    case Sfx::Step: {
+        // A soft, low scuff: felt more than heard.
+        Synth s(0.06f);
+        Layer n = tone(Osc::Noise, 0.05f, 700, 250, 0.22f);
+        n.lowpassA = n.lowpassB = 0.12f;
+        n.decayPower = 3.0f;
+        s.add(n);
+        Layer t = tone(Osc::Sine, 0.04f, 140, 70, 0.12f);
+        t.decayPower = 2.5f;
+        s.add(t);
+        return s.finish();
+    }
+    case Sfx::Impact: {
+        Synth s(0.09f);
+        Layer n = tone(Osc::Noise, 0.07f, 1600, 500, 0.26f);
+        n.lowpassA = 0.35f;
+        n.lowpassB = 0.1f;
+        n.decayPower = 2.6f;
+        s.add(n);
+        Layer thump = tone(Osc::Sine, 0.06f, 190, 80, 0.2f);
+        thump.decayPower = 2.2f;
+        s.add(thump);
+        return s.finish();
+    }
+    case Sfx::Fizzle: {
+        // A dry sputter: the wand coughs instead of casting.
+        Synth s(0.2f);
+        Layer n = tone(Osc::Noise, 0.18f, 3200, 1400, 0.22f);
+        n.highpass = 0.7f;
+        n.crackle = 0.55f;
+        n.decayPower = 1.6f;
+        s.add(n);
+        Layer buzz = tone(Osc::Square, 0.1f, 180, 120, 0.06f);
+        buzz.duty = 0.2f;
+        buzz.lowpassA = buzz.lowpassB = 0.2f;
+        s.add(buzz);
+        return s.finish();
+    }
+    case Sfx::Levitate: {
+        // A soft rising whoosh of air.
+        Synth s(0.4f);
+        Layer n = tone(Osc::Noise, 0.38f, 600, 1300, 0.16f);
+        n.attack = 0.08f;
+        n.lowpassA = 0.06f;
+        n.lowpassB = 0.16f;
+        n.decayPower = 1.3f;
+        s.add(n);
+        return s.finish();
+    }
     case Sfx::Count: break;
     }
     return Wave{};

@@ -192,7 +192,10 @@ void Player::move(Level& level, const Environment& env) {
     } else if (!grounded && input_.jumpHeld) {
         // Variable jump: keep rising on the initial press, then levitate once falling.
         bool rising = body.vel.y < 0.0f && jumpedThisPress_;
-        if (!rising && levitation_ > 0.0f) {
+        const bool lifting = !rising && levitation_ > 0.0f;
+        if (lifting && !levitating_) level.audio().play(Sfx::Levitate, 0.35f, level.fxRng().range(0.9f, 1.1f));
+        levitating_ = lifting;
+        if (lifting) {
             body.vel.y = approach(body.vel.y, -kLevitateSpeed, kLevitateAccel * dt);
             levitation_ = std::max(0.0f, levitation_ - dt / levMax);
             Rng& rng = level.rng();
@@ -207,9 +210,23 @@ void Player::move(Level& level, const Environment& env) {
         body.vel.y *= 0.88f;
     }
 
+    if (grounded || swimming || !input_.jumpHeld) levitating_ = false;
+
     if (body.vel.y > kMaxFallSpeed) body.vel.y = kMaxFallSpeed;
     lastFallSpeed_ = body.vel.y;
     moveBody(body, level.world(), dt);
+    // Footfalls while walking: duller on soft ground, sharper on stone and metal.
+    if (body.onGround && std::fabs(body.vel.x) > 25.0f) {
+        footstepTimer_ -= dt * std::fabs(body.vel.x) / kRunSpeed;
+        if (footstepTimer_ <= 0.0f) {
+            footstepTimer_ = 0.26f;
+            const MaterialDef& under = matDef(level.world().matAt(floorToInt(body.pos.x), floorToInt(body.pos.y + body.halfH + 1.0f)));
+            const float pitch = under.phase == Phase::Powder || under.hardness < 50 ? 0.8f : (under.hardness >= 140 ? 1.25f : 1.0f);
+            level.audio().play(Sfx::Step, 0.22f, pitch * level.fxRng().range(0.92f, 1.08f));
+        }
+    } else {
+        footstepTimer_ = 0.0f; // the first step lands as soon as the alchemist sets off
+    }
     if (body.onGround && !grounded && lastFallSpeed_ > 150.0f) {
         level.audio().play(Sfx::Land, std::min(1.0f, lastFallSpeed_ / 400.0f));
         for (int i = 0; i < 4; ++i) {
@@ -245,7 +262,14 @@ void Player::handleWands(Level& level) {
         wand.cooldownTotal = wand.cooldown; // keeps the HUD reload bar honest
     }
     if (outcome.status == CastStatus::NoMana) {
-        if (level.ticks() % 20 == 0) level.audio().play(Sfx::UiDeny, 0.25f);
+        // The wand coughs grey sparks instead of casting.
+        if (level.ticks() % 20 == 0) {
+            level.audio().play(Sfx::Fizzle, 0.3f);
+            Rng& fx = level.fxRng();
+            for (int i = 0; i < 4; ++i)
+                level.particles().addVisual(wandTip(), fromAngle(angleOf(aimDir_) + fx.range(-0.6f, 0.6f), fx.range(20.0f, 50.0f)),
+                                            {150, 145, 160, 220}, {0, 0, 0, 0}, fx.range(0.15f, 0.3f), 0.5f);
+        }
         return;
     }
     if (outcome.status != CastStatus::Cast) return;
