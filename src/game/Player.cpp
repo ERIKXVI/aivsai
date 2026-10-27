@@ -473,7 +473,10 @@ void Player::handleFlask(Level& level) {
             break;
         case mat::Acid: applyDamage(level, {25.0f * fraction, DamageType::Acid, {}, Team::Monster, false, false, "a draught of acid"}); break;
         case mat::Toxic: status.poisoned = 8.0f; break;
-        case mat::Blood: hp = std::min(maxHp, hp + 4.0f * fraction); break;
+        case mat::Blood:
+            hp = std::min(maxHp, hp + 4.0f * fraction);
+            status.burning = 0.0f; // as the matter lens promises
+            break;
         case mat::Midas: {
             // Paid by the amount drunk, so sipping a flask in tiny gulps earns nothing extra.
             const int gold = static_cast<int>(std::lround(60.0f * fraction));

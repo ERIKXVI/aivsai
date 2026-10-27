@@ -56,6 +56,12 @@ void drawPlate(float cx, float top, float w, float h) {
     DrawRectangleRec({cx - w * 0.5f - 4.0f * fs, top - 2.0f * fs, w + 8.0f * fs, h + 4.0f * fs}, kPlateColor);
 }
 
+/// Matter that puts out the alchemist's flames when drunk (Player's drink effects).
+bool dousesWhenDrunk(MatId m) { return m == mat::Water || m == mat::Brine || m == mat::Ichor || m == mat::Blood; }
+
+/// Burning, and hurt by it (Salamander Skin makes the flames harmless).
+bool burningForReal(const Player& p) { return p.status.burning > 0.0f && p.resist[static_cast<size_t>(DamageType::Fire)] > 0.0f; }
+
 } // namespace
 
 void GameScene::drawWorldOverlays(float alpha) const {
@@ -102,6 +108,16 @@ void GameScene::drawWorldOverlays(float alpha) const {
         if (rank % 2 != 0) tp.y += static_cast<float>(small) * 1.3f;
         drawPlate(tp.x, tp.y, static_cast<float>(ui::measure(perk.name, small)), static_cast<float>(small));
         ui::text(perk.name, tp.x, tp.y, small, hexColor(perk.color), ui::Align::Center);
+    }
+
+    // Burning with a dousing drink at hand: say so over the alchemist, unless a prompt is open.
+    const Player& pl = level_->player();
+    if (!focused && burningForReal(pl) && !run_.flask.empty() && dousesWhenDrunk(run_.flask.mat)) {
+        const char* douse = usingGamepad_ ? "[X] drink to douse" : "[F] drink to douse";
+        const Vec2 p = pl.body.interpolated(alpha);
+        const Vector2 sp = scene_.worldToScreen({p.x, p.y - pl.body.halfH - 12.0f});
+        drawPlate(sp.x, sp.y, static_cast<float>(ui::measure(douse, small)), static_cast<float>(small));
+        ui::text(douse, sp.x, sp.y, small, Color{255, 170, 80, 255}, ui::Align::Center);
     }
 
     // Interaction prompt: the label, and for a spell what it is, what it does and where it goes.
@@ -468,13 +484,29 @@ void GameScene::drawFlask() const {
     DrawRectangleRec({r.x + r.width * 0.3f, r.y - 3.0f * s, r.width * 0.4f, 3.0f * s}, Color{120, 80, 50, 255});
     const std::string label =
         f.empty() ? "Empty flask" : std::string(matDef(f.mat).name) + TextFormat(" %d%%", f.amount * 100 / Flask::kCapacity);
-    // The flask's name and its controls, on a dark plate so they read over ice and sulphur.
+    // The flask's name and its controls, on a dark plate so they read over ice and sulphur. When a
+    // drink would save the alchemist (putting out flames, or healing a bad wound) the legend says
+    // so and the flask's frame pulses.
     const char* legend = usingGamepad_ ? "LT pour  Y absorb  X drink" : "RMB pour  Q absorb  F drink";
+    Color legendColor = ui::color::kTextDim;
+    const Player& pl = level_->player();
+    const auto pulse = static_cast<unsigned char>(255.0f * (0.65f + 0.35f * std::sin(time_ * 8.0f)));
+    bool urgent = false;
+    if (pl.alive() && !f.empty() && burningForReal(pl) && dousesWhenDrunk(f.mat)) {
+        legend = usingGamepad_ ? "X drink - puts out the flames" : "F drink - puts out the flames";
+        legendColor = Color{255, 170, 80, pulse};
+        urgent = true;
+    } else if (pl.alive() && f.mat == mat::Vitae && !f.empty() && pl.hp < pl.maxHp * 0.4f) {
+        legend = usingGamepad_ ? "X drink - heals" : "F drink - heals";
+        legendColor = Color{255, 122, 184, pulse};
+        urgent = true;
+    }
+    if (urgent) DrawRectangleLinesEx({r.x - s, r.y - s, r.width + 2.0f * s, r.height + 2.0f * s}, s, legendColor);
     const float plateW = static_cast<float>(std::max(ui::measure(label, small), ui::measure(legend, small))) + 6.0f * s;
     const float plateY = r.y + r.height - static_cast<float>(small) * 2.2f - 2.0f * s;
     DrawRectangleRec({r.x - 4.0f * s - plateW, plateY, plateW + 2.0f * s, r.y + r.height - plateY + 2.0f * s}, Color{10, 8, 16, 150});
     ui::text(label, r.x - 4.0f * s, r.y + r.height - static_cast<float>(small), small, ui::color::kText, ui::Align::Right);
-    ui::text(legend, r.x - 4.0f * s, r.y + r.height - static_cast<float>(small) * 2.2f, small, ui::color::kTextDim, ui::Align::Right);
+    ui::text(legend, r.x - 4.0f * s, r.y + r.height - static_cast<float>(small) * 2.2f, small, legendColor, ui::Align::Right);
 }
 
 void GameScene::drawBossBar() const {
