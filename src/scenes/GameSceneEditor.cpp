@@ -58,9 +58,6 @@ void drawSpellCard(Rectangle card, SpellId shown) {
     for (const char* rule : kRules) cy += ui::textWrapped(rule, cx, cy, cw, small, ui::color::kTextDim) + 5.0f * s;
 }
 
-/// The squared circle, emblem of the philosophers' stone: a circle holding a triangle,
-/// a square and a small inner circle. The triangle and square turn in opposite directions.
-
 } // namespace
 
 SpellId& GameScene::editorSlot(int wand, int slot) {
@@ -272,7 +269,7 @@ void GameScene::drawInventory() {
     if (guide.active() && !drag_.active) {
         const float t = static_cast<float>(GetTime());
         const unsigned char glow = static_cast<unsigned char>(140.0f + 100.0f * std::sin(t * 6.0f));
-        const Color gold{ui::color::kGold.r, ui::color::kGold.g, ui::color::kGold.b, glow};
+        const Color gold = withAlpha(ui::color::kGold, glow);
         const float m = 2.0f * s;
         DrawRectangleLinesEx({guideFromR.x - m, guideFromR.y - m, guideFromR.width + 2 * m, guideFromR.height + 2 * m}, s, gold);
         DrawRectangleLinesEx({guideToR.x - m, guideToR.y - m, guideToR.width + 2 * m, guideToR.height + 2 * m}, s, gold);

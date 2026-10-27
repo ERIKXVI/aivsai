@@ -8,6 +8,7 @@
 #include "game/Level.hpp"
 #include "game/Run.hpp"
 #include "game/Wand.hpp"
+#include "render/ColorUtil.hpp"
 #include "ui/Ui.hpp"
 
 namespace pm {
@@ -230,7 +231,7 @@ void HintTracker::draw(float screenW, float screenH, bool gamepad) const {
     const float w = static_cast<float>(ui::measure(text, size)) + 20.0f * s, hgt = static_cast<float>(size) + 10.0f * s;
     Rectangle r{screenW * 0.5f - w * 0.5f, screenH - 64.0f * s - (1.0f - a) * 6.0f * s, w, hgt};
     DrawRectangleRec(r, Color{14, 10, 22, static_cast<unsigned char>(210.0f * a)});
-    DrawRectangleLinesEx(r, 1.0f, Color{ui::color::kGold.r, ui::color::kGold.g, ui::color::kGold.b, static_cast<unsigned char>(150.0f * a)});
+    DrawRectangleLinesEx(r, 1.0f, withAlpha(ui::color::kGold, static_cast<uint8_t>(150.0f * a)));
     ui::text(text, screenW * 0.5f, r.y + 5.0f * s, size, Color{240, 230, 210, static_cast<unsigned char>(255.0f * a)}, ui::Align::Center);
 }
 

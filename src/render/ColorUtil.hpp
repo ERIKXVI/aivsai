@@ -13,4 +13,7 @@ constexpr Color hexColor(uint32_t hex, uint8_t alpha = 255) {
                  static_cast<unsigned char>(hex & 0xFF), alpha};
 }
 
+/// The same colour with another alpha.
+constexpr Color withAlpha(Color c, uint8_t alpha) { return Color{c.r, c.g, c.b, alpha}; }
+
 } // namespace pm

@@ -19,6 +19,10 @@ namespace pm {
 
 namespace {
 
+constexpr float kTitleTopHigh = 0.16f, kTitleTopLow = 0.58f; ///< the title card's two places, as fractions of the screen height
+
+/// The squared circle, emblem of the philosophers' stone: a circle holding a triangle,
+/// a square and a small inner circle. The triangle and square turn in opposite directions.
 void drawStoneSigil(Vector2 c, float r, float time, Color color) {
     const float thick = std::max(1.0f, r * 0.045f);
     auto ring = [&](float radius) {
@@ -397,8 +401,7 @@ void GameScene::drawHotbar() const {
             const Rectangle r{bx, by, slot, slot};
             ui::spellIcon(satchelLatest_, r);
             const auto pulse = static_cast<unsigned char>(150.0f + 100.0f * std::sin(time_ * 5.0f));
-            DrawRectangleLinesEx({r.x - s, r.y - s, r.width + 2.0f * s, r.height + 2.0f * s}, s,
-                                 Color{ui::color::kGold.r, ui::color::kGold.g, ui::color::kGold.b, pulse});
+            DrawRectangleLinesEx({r.x - s, r.y - s, r.width + 2.0f * s, r.height + 2.0f * s}, s, withAlpha(ui::color::kGold, pulse));
             ui::text(TextFormat("+%d  %s", satchelNew_, usingGamepad_ ? "Back" : "Tab"), r.x + slot + 4.0f * s,
                      r.y + (slot - static_cast<float>(small)) * 0.5f, small, ui::color::kGold);
         } else if (full) {
@@ -480,7 +483,7 @@ void GameScene::drawFeatToast() const {
     const Rectangle r{sw * 0.5f - w * 0.5f, 26.0f * s - (1.0f - in) * 12.0f * s, w, h};
     const auto al = [&](float k) { return static_cast<unsigned char>(255.0f * a * k); };
     DrawRectangleRec(r, Color{18, 13, 28, al(0.9f)});
-    DrawRectangleLinesEx(r, s, Color{ui::color::kGold.r, ui::color::kGold.g, ui::color::kGold.b, al(0.8f)});
+    DrawRectangleLinesEx(r, s, withAlpha(ui::color::kGold, al(0.8f)));
     float y = r.y + 4.0f * s;
     ui::text("FEAT EARNED", sw * 0.5f, y, small, Color{200, 170, 100, al(1.0f)}, ui::Align::Center);
     y += static_cast<float>(small) + 2.0f * s;
@@ -497,7 +500,6 @@ float GameScene::titleCardHeight() const {
 }
 
 float GameScene::pickTitleTop() const {
-    constexpr float kHigh = 0.16f, kLow = 0.58f;
     const float sh = static_cast<float>(app_.screenHeight()), h = titleCardHeight();
     float ys[2] = {scene_.worldToScreen(level_->player().body.pos).y, -1.0e6f};
     if (const Enemy* g = level_->bossBarTarget()) ys[1] = scene_.worldToScreen(g->body.pos).y;
@@ -508,7 +510,7 @@ float GameScene::pickTitleTop() const {
         for (float y : ys) gap = std::min(gap, y < y0 ? y0 - y : (y > y1 ? y - y1 : 0.0f));
         return gap;
     };
-    return clearance(kHigh) >= clearance(kLow) ? kHigh : kLow;
+    return clearance(kTitleTopHigh) >= clearance(kTitleTopLow) ? kTitleTopHigh : kTitleTopLow;
 }
 
 void GameScene::drawTitleCard() const {
@@ -520,7 +522,7 @@ void GameScene::drawTitleCard() const {
     const float fs = static_cast<float>(s);
     const unsigned char alpha = static_cast<unsigned char>(255.0f * a);
     const int mainSize = ui::fontSize(s * 3), subSize = ui::fontSize(s + 1), omenSize = ui::fontSize(s);
-    const float top = (titleTop_ >= 0.0f ? titleTop_ : 0.16f) * sh;
+    const float top = (titleTop_ >= 0.0f ? titleTop_ : kTitleTopHigh) * sh;
     const float subY = top + static_cast<float>(mainSize) + 6.0f * fs;
 
     // A soft dark band behind the block, fading out at both ends.
@@ -536,7 +538,7 @@ void GameScene::drawTitleCard() const {
     ui::text(titleSub_, sw * 0.5f, subY, subSize, Color{190, 170, 220, alpha}, ui::Align::Center);
     // Gold rules either side of the subtitle.
     const float subHalf = static_cast<float>(ui::measure(titleSub_, subSize)) * 0.5f, ruleY = subY + static_cast<float>(subSize) * 0.5f;
-    const Color rule{ui::color::kGold.r, ui::color::kGold.g, ui::color::kGold.b, static_cast<unsigned char>(alpha / 2)};
+    const Color rule = withAlpha(ui::color::kGold, static_cast<uint8_t>(alpha / 2));
     for (float side : {-1.0f, 1.0f}) {
         const float x0 = sw * 0.5f + side * (subHalf + 10.0f * fs), x1 = sw * 0.5f + side * (subHalf + 46.0f * fs);
         DrawRectangleRec({std::min(x0, x1), ruleY, std::abs(x1 - x0), fs}, rule);
