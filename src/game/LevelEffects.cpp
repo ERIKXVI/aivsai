@@ -360,7 +360,10 @@ void Level::dropLoot(Vec2 pos, int tier, bool chest) {
     for (int i = 0; i < rolls; ++i) {
         float r = rng_.uniform();
         Pickup p;
-        if (r < 0.45f) p = makeSpellPickup(pos, randomSpell(lootTier, rng_));
+        if (r < 0.05f) {
+            p = makeSpellPickup(pos, randomRareSpell(lootTier, rng_));
+            p.rare = true;
+        } else if (r < 0.45f) p = makeSpellPickup(pos, randomSpell(lootTier, rng_));
         else if (r < 0.62f) p = makeWandPickup(pos, makeRandomWand(lootTier, rng_));
         else if (r < 0.88f) p = makePotion(pos, randomPotionMaterial(lootTier, rng_), 800);
         else p = makeHeart(pos);

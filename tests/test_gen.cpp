@@ -16,17 +16,24 @@ using namespace pm;
 TEST_CASE("stages I-IV hide a guardian's lair") {
     initMaterials();
     ThreadPool pool(4);
-    int lairs = 0, levels = 0;
+    int lairs = 0, levels = 0, rareFinds = 0;
     // Seed 19 once stamped a lair that cut off the cave its own door relied on.
     for (uint32_t seed : {3u, 5u, 9u, 19u})
         for (int index = 0; index < kFinalStage; ++index) {
             const LevelLayout layout = generateLevel(biomeForDepth(index), index, seed, pool);
             ++levels;
-            for (const SpawnPoint& s : layout.spawns) lairs += s.kind == SpawnKind::LairGuardian ? 1 : 0;
+            for (const SpawnPoint& s : layout.spawns) {
+                lairs += s.kind == SpawnKind::LairGuardian ? 1 : 0;
+                if (s.kind != SpawnKind::RareSpell) continue;
+                // Rare spells are only ever left inside vaults.
+                ++rareFinds;
+                CHECK(std::any_of(layout.vaults.begin(), layout.vaults.end(), [&](const Rectf& v) { return v.contains(s.pos); }));
+            }
             for (const Rectf& v : layout.vaults) CHECK(pathExists(*layout.world, layout.playerStart, vaultProbePoint(v)));
         }
-    std::printf("    lairs placed: %d of %d stages\n", lairs, levels);
+    std::printf("    lairs placed: %d of %d stages, %d rare finds\n", lairs, levels, rareFinds);
     CHECK(lairs >= levels * 3 / 4);
+    CHECK(rareFinds > 0);
 }
 
 TEST_CASE("generated levels are traversable from entrance to exit") {

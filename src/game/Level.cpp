@@ -33,6 +33,12 @@ void Level::populate() {
     int shopIndex = 0;
     int guardians = 0;
     std::vector<PerkId> offered;
+    // A guardian's lair: the wand in its hoard is a finer one.
+    const Rectf* lair = nullptr;
+    for (const SpawnPoint& s : layout_.spawns)
+        if (s.kind == SpawnKind::LairGuardian)
+            for (const Rectf& v : layout_.vaults)
+                if (v.contains(s.pos)) lair = &v;
     for (const SpawnPoint& s : layout_.spawns) {
         switch (s.kind) {
         case SpawnKind::GroundEnemy:
@@ -62,7 +68,20 @@ void Level::populate() {
             spawnEnemy(t, d.flying ? s.pos - Vec2{0.0f, 24.0f} : Vec2{s.pos.x, s.pos.y - d.halfH});
             break;
         }
-        case SpawnKind::Wand: pickups_.push_back(makeWandPickup(s.pos - Vec2{0.0f, 6.0f}, makeRandomWand(std::min(4, tier + 1), rng_))); break;
+        case SpawnKind::Wand: {
+            const bool hoard = lair && lair->contains(s.pos);
+            Wand w = makeRandomWand(std::min(4, tier + (hoard ? 2 : 1)), rng_);
+            if (hoard) {
+                // Beating a keeper always pays a showpiece, set in the hoard wand's first free slot.
+                const auto slot = std::find(w.slots.begin(), w.slots.end(), SpellId::None);
+                if (slot != w.slots.end()) {
+                    *slot = randomRareSpell(tier, rng_);
+                    w.resetDeck();
+                }
+            }
+            pickups_.push_back(makeWandPickup(s.pos - Vec2{0.0f, 6.0f}, std::move(w)));
+            break;
+        }
         case SpawnKind::Chest: {
             // Some chests along the route are mimics, more of them deeper down; a vault's hoard
             // is always what it seems.
@@ -78,8 +97,9 @@ void Level::populate() {
             break;
         case SpawnKind::Spell:
             if (isSanctum()) {
-                // Shop: three spells and one wand, priced for the coming depth.
-                const int shopTier = std::min(4, tier + (lucky ? 1 : 0));
+                // Shop: three spells and one wand from the coming depth (a sanctum shares the index
+                // of the stage just cleared), priced for it.
+                const int shopTier = std::min(4, tier + 1 + (lucky ? 1 : 0));
                 const float priceMul = (1.0f + 0.2f * static_cast<float>(layout_.levelIndex)) * (run_.under(Ordeal::DearWares) ? 1.5f : 1.0f);
                 Pickup p;
                 if (shopIndex == 3) {
@@ -98,6 +118,12 @@ void Level::populate() {
                 pickups_.push_back(makeSpellPickup(s.pos - Vec2{0.0f, 5.0f}, randomSpell(tier, rng_)));
             }
             break;
+        case SpawnKind::RareSpell: {
+            Pickup p = makeSpellPickup(s.pos - Vec2{0.0f, 5.0f}, randomRareSpell(tier, rng_));
+            p.rare = true;
+            pickups_.push_back(std::move(p));
+            break;
+        }
         case SpawnKind::Lantern: {
             // Hang from the first solid above the spawn point, climbing through steam or smoke
             // pooled under the ceiling (updateLanterns drops a lantern whose anchor, 5 rows
@@ -380,6 +406,10 @@ void Level::interact() {
         pay();
         p.dead = true;
         audio_.play(Sfx::Pickup, 0.7f);
+        if (p.rare) {
+            addFloatText(p.body.pos - Vec2{0.0f, 18.0f}, "A rare find!", 0xffd27a, 1.1f);
+            addFlash(p.body.pos, 0xffe0a0, 1.2f, 40.0f, 0.25f);
+        }
         addFloatText(p.body.pos - Vec2{0.0f, 10.0f}, spellDef(p.spell).name, 0xc0e0ff);
         if (slotted) {
             addFloatText(p.body.pos - Vec2{0.0f, 4.0f}, "into " + run_.currentWand()->name, 0x9fb4d0, 0.6f);

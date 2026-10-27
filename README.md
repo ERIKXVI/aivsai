@@ -74,13 +74,16 @@ Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-p
   stocked with black powder, *Gilded* walls or a *Teeming* stage full of creatures and loot.
 - **Vaults** hide off the main route: an alchemist's laboratory with a brimming cauldron, a
   powder magazine waiting for a spark, a flooded crypt, a guarded treasury and a healing
-  spring.
+  spring. The laboratory and the spring keep a *rare find* - a spell from deeper down,
+  glinting gold - and now and then a chest holds one too.
 - **Guardians:** each of the first four stages hides a lair, marked on the map, where a giant
-  keeps a hoard - the Black Toad, the White Wraith, the Mine King and the Red Colossus. The
+  keeps a hoard (its wand always carries a rare spell) - the Black Toad, the White Wraith,
+  the Mine King and the Red Colossus. The
   fight is optional; win it and the guardian's essence becomes a perk and circles you. Gather
   all four essences in one run (the sockets under the stage name) and completing the Work
   earns the *Quintessence* ending.
-- **Sanctums** between stages fully heal you and offer a shop and a choice of perks
+- **Sanctums** between stages fully heal you and offer a shop stocked from the coming
+  depth and a choice of perks
   (22 perks, from *Salamander Skin* to a homunculus companion).
 - **Save & Quit** from the pause menu (or just close the window) and *Continue the Work*
   from the title screen later: a run resumes at the start of the stage you were on.

@@ -26,6 +26,7 @@ struct Pickup {
     int altarGroup = -1;    ///< perk altars in the same group vanish together
     float age = 0.0f;
     bool opened = false;
+    bool rare = false;      ///< a rare spell find: glints gold and is announced
     bool dead = false;
 
     bool interactive() const { return type != PickupType::Gold && type != PickupType::Heart; }

@@ -128,8 +128,11 @@ void GameScene::drawWorldOverlays(float alpha) const {
         if (const Pickup* p = level_->focusedPickup()) {
             Vector2 sp = scene_.worldToScreen({p->body.pos.x, p->body.pos.y - 16.0f});
             std::string label = "[E] " + p->label();
-            ui::text(label, sp.x, sp.y, ui::fontSize(s), p->price > 0 && run_.gold < p->price ? ui::color::kDanger : ui::color::kText,
-                     ui::Align::Center);
+            if (p->rare) label += " - a rare find";
+            const Color labelColor = p->price > 0 && run_.gold < p->price ? ui::color::kDanger
+                                     : p->rare                            ? ui::color::kGold
+                                                                          : ui::color::kText;
+            ui::text(label, sp.x, sp.y, ui::fontSize(s), labelColor, ui::Align::Center);
             if (p->type == PickupType::Spell) {
                 ui::text(spellDef(p->spell).description, sp.x, sp.y + 12.0f * s, ui::smallFontSize(),
                          ui::color::kTextDim, ui::Align::Center);

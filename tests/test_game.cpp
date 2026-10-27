@@ -650,3 +650,42 @@ TEST_CASE("wands recharge past trailing modifiers and unaffordable spells") {
     CHECK(castNow(poor, rng).status == CastStatus::NoMana);
     CHECK(castNow(poor, rng).status == CastStatus::Cast); // back to the Spark Bolt
 }
+
+TEST_CASE("rare finds are attack spells from deeper down") {
+    Rng rng(5);
+    for (int tier = 0; tier <= 4; ++tier) {
+        bool showpiece = false;
+        for (int i = 0; i < 300; ++i) {
+            const SpellDef& d = spellDef(randomRareSpell(tier, rng));
+            CHECK(d.type == SpellType::Projectile && !d.trigger);
+            CHECK(d.tier >= std::clamp(tier + 1, 2, 4));
+            showpiece = showpiece || d.tier >= 3;
+        }
+        CHECK(showpiece); // even the first stage can turn up Lightning or a Black Hole
+    }
+}
+
+TEST_CASE("the first sanctum's shop stocks the coming depth") {
+    initMaterials();
+    ThreadPool pool(2);
+    Audio audio;
+    bool deeper = false;
+    for (uint32_t seed = 1; seed <= 6; ++seed) {
+        RunState run = newRun(seed, Difficulty::Adept, false);
+        Level level(generateSanctum(0, seed, pool), run, audio, pool);
+        int wares = 0;
+        for (const Pickup& p : level.pickups()) {
+            if (p.price <= 0) continue;
+            ++wares;
+            CHECK(!p.rare);
+            if (p.type == PickupType::Spell) {
+                CHECK(spellDef(p.spell).tier <= 1);
+                deeper = deeper || spellDef(p.spell).tier == 1;
+            } else if (p.type == PickupType::Wand) {
+                CHECK(p.price == 250);
+            }
+        }
+        CHECK(wares == 4);
+    }
+    CHECK(deeper);
+}

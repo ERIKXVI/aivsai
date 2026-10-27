@@ -174,6 +174,18 @@ void LevelRenderer::drawPickup(const Level& level, const Pickup& pk, float alpha
         Color c = spellColor(pk.spell);
         if (emissive) sprites_.drawEmissive(SpriteId::SpellCard, 0, p, false, Color{c.r, c.g, c.b, 160});
         else sprites_.draw(SpriteId::SpellCard, 0, p, false, c);
+        if (pk.rare) {
+            // A rare find twinkles: a gold star at the card's corner, flaring now and then.
+            const int sx = static_cast<int>(std::floor(p.x)) + info.w, sy = static_cast<int>(std::floor(p.y));
+            constexpr Color kStar{255, 215, 110, 255};
+            DrawPixel(sx, sy, kStar);
+            if (std::sin(time * 6.0f + pos.x) > 0.6f) {
+                DrawPixel(sx - 1, sy, kStar);
+                DrawPixel(sx + 1, sy, kStar);
+                DrawPixel(sx, sy - 1, kStar);
+                DrawPixel(sx, sy + 1, kStar);
+            }
+        }
         break;
     }
     case PickupType::Wand: {
@@ -305,6 +317,12 @@ void LevelRenderer::addLights(const Level& level, float alpha, float time) {
         case PickupType::Wand: {
             Color c = pk.type == PickupType::Spell ? spellColor(pk.spell) : hexColor(pk.wand ? pk.wand->gemColor : 0xffffff);
             float pulse = 0.55f + 0.2f * std::sin(time * 3.0f + at.x);
+            if (pk.rare) {
+                // Rare finds shine gold, and further.
+                scene_.addLight(PointLight{at, 1.0f * pulse, 0.8f * pulse, 0.4f * pulse, 40.0f, 2.0f, 0.5f});
+                ++lootLights;
+                break;
+            }
             scene_.addLight(PointLight{at, c.r / 255.0f * pulse, c.g / 255.0f * pulse, c.b / 255.0f * pulse, 28.0f, 2.0f, 0.5f});
             ++lootLights;
             break;

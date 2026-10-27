@@ -47,7 +47,9 @@ The descent follows the four stages of the alchemical Great Work:
 - **Vaults** (up to two per stage) are set pieces stamped into solid rock off the route:
   an alchemist's laboratory with a cauldron, a powder magazine, a flooded crypt, a
   guarded treasury and a healing spring. Their passages are validated against the
-  navigation grid so they are always reachable.
+  navigation grid so they are always reachable. The laboratory's worktable and the spring
+  hold a *rare find* (`randomRareSpell`: an attack spell of tier 2-3 even on stage I, deeper
+  later), which glints and shines gold; 5% of chest rolls are rare finds as well.
 - **Guardians' lairs** (one on each of stages I-IV) are larger vaults holding an optional
   mini-boss: a giant of the stage's own kind, too big for the door and leashed to its
   hall, so the fight is always the player's choice. Each slain keeper also yields its
@@ -56,7 +58,8 @@ The descent follows the four stages of the alchemical Great Work:
   ending (and a feat). The Black Toad leaps with quakes and
   sheds slimes, the White Wraith looses fans of ice, the Mine King lobs dynamite and the
   Red Colossus slams and hurls fire. Below half health they enrage; slain, they grant a
-  perk, and their hoard (a wand, chests, gold) waits on a dais behind them. Lairs are
+  perk, and their hoard (a wand a tier finer than the stage's, carrying a rare spell,
+  chests and gold) waits on a dais behind them. Lairs are
   marked on the map from the start.
 - **Omens** give some stages a twist, announced on the title card: *Flooded*,
   *Overgrown*, *Volatile* (powder and oil everywhere), *Gilded* (rich gold veins and extra
@@ -65,7 +68,8 @@ The descent follows the four stages of the alchemical Great Work:
 - **Transmutation circles** crave a material; pour enough of it in with the flask to
   earn a perk. They teach the flask by rewarding it.
 - **Sanctums** between stages heal fully and offer a shop (three spells and a wand,
-  priced for the depth) and a choice of perks at altars.
+  stocked and priced one tier deeper than the stage just cleared) and a choice of perks at
+  altars.
 - **The Athanor** is the boss arena: the Rebis has phases, summons and an enraged form.
 - **Elites** appear more often deeper down and always drop better loot. Each carries an
   affix shown by its aura: *Burning* (trails fire, immune to it, drops a fire spell),

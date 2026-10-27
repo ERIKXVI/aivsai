@@ -101,9 +101,9 @@ void buildLaboratory(Room& r) {
     const float roll = r.rng.uniform();
     const MatId brew = roll < 0.55f ? mat::Vitae : roll < 0.8f ? mat::Quicksilver : mat::Midas;
     r.fill(cx - 7, r.iy1 - 6, cx + 7, r.iy1 - 1, brew);
-    // A worktable with a spell left on it, set back so the doorway stays clear.
+    // A worktable with a rare spell left on it, set back so the doorway stays clear.
     const int tx = r.near(22);
-    r.spawn(SpawnKind::Spell, tx, r.table(tx, 7, 5));
+    r.spawn(SpawnKind::RareSpell, tx, r.table(tx, 7, 5));
     r.lantern(r.cx() - r.width() / 4);
     r.lantern(r.cx() + r.width() / 4);
 }
@@ -217,7 +217,7 @@ void buildSpring(Room& r) {
         }
     }
     r.spawn(SpawnKind::Potion, r.far(6), r.iy1);
-    r.spawn(SpawnKind::Spell, r.near(10), r.iy1);
+    r.spawn(SpawnKind::RareSpell, r.near(10), r.iy1);
 }
 
 void buildLair(Room& r) {

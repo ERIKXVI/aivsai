@@ -219,6 +219,18 @@ SpellId randomSpell(int tier, Rng& rng) {
     return i <= 0 ? SpellId::SparkBolt : static_cast<SpellId>(i);
 }
 
+SpellId randomRareSpell(int tier, Rng& rng) {
+    const int lo = std::clamp(tier + 1, 2, 4), hi = std::max(3, std::min(4, tier + 2));
+    float weights[kSpellCount] = {};
+    for (int i = 1; i < kSpellCount; ++i) {
+        const SpellDef& d = spellDef(static_cast<SpellId>(i));
+        if (d.type != SpellType::Projectile || d.trigger || d.tier < lo || d.tier > hi) continue;
+        weights[i] = 1.0f + static_cast<float>(d.tier);
+    }
+    const int i = weightedIndex(rng, weights, [](float w) { return w; });
+    return i <= 0 ? SpellId::Lightning : static_cast<SpellId>(i);
+}
+
 Wand makeRandomWand(int tier, Rng& rng) {
     static constexpr const char* kPrefixes[] = {"Rod", "Wand", "Staff", "Scepter", "Branch", "Spire", "Focus"};
     static constexpr const char* kSuffixes[] = {"of Embers", "of Salt", "of Sulphur", "of the Deep", "of Quicksilver",
