@@ -294,6 +294,7 @@ void GameScene::stepLevel() {
     PlayerInput in;
     if (controllable) {
         in = autoplay ? bot_.think(*level_) : gatherInput();
+        botAim_ = in.aim;
     } else {
         in.aim = level_->player().body.pos + level_->player().aimDir();
     }

@@ -14,8 +14,8 @@ yourself from spell cards.
 | | |
 |---|---|
 | ![Rubedo](docs/media/rubedo.jpg) | ![The Rebis](docs/media/boss.jpg) |
-| ![An alchemist's laboratory vault](docs/media/vault.jpg) | ![Sanctum](docs/media/sanctum.jpg) |
-| ![The map](docs/media/map.jpg) | ![The Grimoire](docs/media/grimoire.jpg) |
+| ![An alchemist's laboratory vault, a rare spell on its worktable](docs/media/vault.jpg) | ![A sanctum shop: the wand on offer compared with the one in hand](docs/media/sanctum.jpg) |
+| ![The map: the portal is the goal, guardians are optional](docs/media/map.jpg) | ![The Grimoire](docs/media/grimoire.jpg) |
 | ![Alchemy Sandbox](docs/media/sandbox.jpg) | ![Wand editing](docs/media/inventory.jpg) |
 | ![A Volatile omen announced on the title card](docs/media/omen.jpg) | ![The chronicle of recent runs](docs/media/chronicle.jpg) |
 | ![The White Wraith in its lair](docs/media/guardian.jpg) | ![The death screen: the culprit, the next path and a retry](docs/media/deathscreen.jpg) |

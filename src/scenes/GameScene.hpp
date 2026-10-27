@@ -77,7 +77,9 @@ private:
     void drawWandCard(const Wand& w, float cx, float bottom) const;
     /// The aim reticle (in place of the system cursor) with a ring showing the wand's readiness.
     void drawReticle(float alpha) const;
-    bool showReticle() const { return mode_ == Mode::Playing && level_ && level_->player().alive() && !exiting_; }
+    /// In play, with the alchemist alive. Still captures (automated, not autoplay) leave it out:
+    /// their idle pointer would sit on the screen's centre, over the alchemist.
+    bool showReticle() const;
     void drawInventory();
     void drawPauseMenu();
     void drawEndScreen(bool victory);
@@ -118,6 +120,7 @@ private:
     bool profileRecorded_ = false;
     RunRecord record_;           ///< what the finished run added to the profile, for the end screen
     bool debugOverlay_ = false;
+    Vec2 botAim_;              ///< where the autoplay bot aims (its reticle is drawn there)
     Vec2 padAim_{1.0f, 0.0f}; ///< the gamepad's aim direction, kept when the right stick is released
     bool padAimSet_ = false;   ///< the right stick has aimed at least once
     bool usingGamepad_ = false;  ///< last input came from a gamepad (for button prompts)

@@ -235,10 +235,16 @@ void GameScene::drawCompass(float alpha) const {
     arrow(s, Color{200, 170, 255, static_cast<unsigned char>(255.0f * pulse)});
 }
 
+bool GameScene::showReticle() const {
+    const bool still = app_.options().automated() && !app_.options().autoplay;
+    return mode_ == Mode::Playing && level_ && level_->player().alive() && !exiting_ && !still;
+}
+
 void GameScene::drawReticle(float alpha) const {
     const float s = static_cast<float>(ui::scale());
-    const Vector2 c = usingGamepad_ ? scene_.worldToScreen(level_->player().body.interpolated(alpha) + padAim_ * 60.0f)
-                                    : GetMousePosition();
+    const Vector2 c = app_.options().autoplay ? scene_.worldToScreen(botAim_)
+                      : usingGamepad_         ? scene_.worldToScreen(level_->player().body.interpolated(alpha) + padAim_ * 60.0f)
+                                              : GetMousePosition();
     // Four ticks around an open centre, each with a dark rim so it reads on lava and on salt.
     const float gap = 2.0f * s, len = 3.0f * s, w = std::max(1.0f, s);
     auto ticks = [&](float grow, Color col) {
