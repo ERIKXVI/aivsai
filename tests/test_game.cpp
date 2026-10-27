@@ -44,6 +44,23 @@ struct Dummy final : Actor {
     void drawAlbedo(DrawContext&) const override {}
 };
 
+RunState freshRun(uint32_t seed, Difficulty d) {
+    initMaterials();
+    return newRun(seed, d, false);
+}
+
+/// A fresh run standing in a stage's sanctum, with the worker pool and silent audio a Level needs.
+struct SanctumRun {
+    explicit SanctumRun(uint32_t seed, int stage = 0, Difficulty difficulty = Difficulty::Adept)
+        : run(freshRun(seed, difficulty)), level(generateSanctum(stage, seed, pool), run, audio, pool) {}
+    SanctumRun(const SanctumRun&) = delete;
+    SanctumRun& operator=(const SanctumRun&) = delete;
+    ThreadPool pool{2};
+    Audio audio;
+    RunState run;
+    Level level;
+};
+
 } // namespace
 
 TEST_CASE("a spell's figures read as one line") {
@@ -375,11 +392,8 @@ TEST_CASE("hitscan lightning follows the aim") {
 }
 
 TEST_CASE("sanctum lanterns stay hung") {
-    initMaterials();
-    ThreadPool pool(2);
-    Audio audio;
-    RunState run = newRun(11, Difficulty::Adept, false);
-    Level level(generateSanctum(1, 11u, pool), run, audio, pool);
+    SanctumRun s(11, 1);
+    Level& level = s.level;
     const size_t lanterns = level.lanterns().size();
     CHECK(lanterns > 0);
     for (int i = 0; i < 60; ++i) level.tick(PlayerInput{});
@@ -387,11 +401,8 @@ TEST_CASE("sanctum lanterns stay hung") {
 }
 
 TEST_CASE("a spell through a lantern knocks it down to shatter") {
-    initMaterials();
-    ThreadPool pool(2);
-    Audio audio;
-    RunState run = newRun(11, Difficulty::Adept, false);
-    Level level(generateSanctum(1, 11u, pool), run, audio, pool);
+    SanctumRun s(11, 1);
+    Level& level = s.level;
     const size_t lanterns = level.lanterns().size();
     CHECK(lanterns > 0);
     const Vec2 at = level.lanterns().front().pos;
@@ -433,25 +444,20 @@ TEST_CASE("elites carry an affix, rolled from the seed") {
 }
 
 TEST_CASE("the final boss honours the difficulty, unlike the depth") {
-    initMaterials();
-    ThreadPool pool(2);
-    Audio audio;
     const float base = enemyDef(EnemyType::Boss).hp;
     const std::pair<Difficulty, float> tiers[] = {{Difficulty::Apprentice, 0.8f}, {Difficulty::Adept, 1.0f}, {Difficulty::Archmage, 1.3f}};
     for (const auto& [difficulty, k] : tiers) {
-        RunState run = newRun(11, difficulty, false);
-        Level level(generateSanctum(0, 11u, pool), run, audio, pool);
+        SanctumRun s(11, 0, difficulty);
+        Level& level = s.level;
         const Enemy& boss = level.spawnEnemy(EnemyType::Boss, level.player().body.pos + Vec2{60.0f, -10.0f});
         CHECK(std::fabs(boss.maxHp - base * k) < 0.5f);
     }
 }
 
 TEST_CASE("guardians rage, the toad sheds its brood and the slayer earns a perk") {
-    initMaterials();
-    ThreadPool pool(2);
-    Audio audio;
-    RunState run = newRun(11, Difficulty::Adept, false);
-    Level level(generateSanctum(0, 11u, pool), run, audio, pool);
+    SanctumRun s(11);
+    RunState& run = s.run;
+    Level& level = s.level;
     for (int t = 0; t < kGuardianCount; ++t) CHECK(enemyDef(guardianFor(t)).guardian);
     Enemy& toad = level.spawnEnemy(EnemyType::BlackToad, level.player().body.pos + Vec2{40.0f, -10.0f});
     const uint32_t toadId = toad.id;
@@ -509,11 +515,8 @@ TEST_CASE("feats are described and kills earn them") {
         CHECK(d.name && d.name[0] && d.description && d.description[0]);
         for (int j = 0; j < i; ++j) CHECK(std::strcmp(d.name, featDef(static_cast<FeatId>(j)).name) != 0);
     }
-    initMaterials();
-    ThreadPool pool(2);
-    Audio audio;
-    RunState run = newRun(11, Difficulty::Adept, false);
-    Level level(generateSanctum(0, 11u, pool), run, audio, pool);
+    SanctumRun s(11);
+    Level& level = s.level;
     const Vec2 near = level.player().body.pos + Vec2{30.0f, -10.0f};
     auto kill = [&](EnemyType t) {
         Enemy& e = level.spawnEnemy(t, near);
@@ -532,11 +535,9 @@ TEST_CASE("feats are described and kills earn them") {
 }
 
 TEST_CASE("elixirs lend haste and fury for a while") {
-    initMaterials();
-    ThreadPool pool(2);
-    Audio audio;
-    RunState run = newRun(12, Difficulty::Adept, false);
-    Level level(generateSanctum(0, 12u, pool), run, audio, pool);
+    SanctumRun s(12);
+    RunState& run = s.run;
+    Level& level = s.level;
     Player& pl = level.player();
     const float baseDamage = pl.damageMul();
     PlayerInput drink;
@@ -560,11 +561,8 @@ TEST_CASE("elixirs lend haste and fury for a while") {
 }
 
 TEST_CASE("a mimic poses as a chest until approached, and pays out like one") {
-    initMaterials();
-    ThreadPool pool(2);
-    Audio audio;
-    RunState run = newRun(13, Difficulty::Adept, false);
-    Level level(generateSanctum(0, 13u, pool), run, audio, pool);
+    SanctumRun s(13);
+    Level& level = s.level;
     const Vec2 home = level.player().body.pos;
     Enemy& mimic = level.spawnEnemy(EnemyType::Mimic, home + Vec2{60.0f, -2.0f});
     for (int i = 0; i < 30; ++i) level.tick(PlayerInput{});
@@ -676,11 +674,9 @@ TEST_CASE("ordeals stack their rules and open one at a time") {
 }
 
 TEST_CASE("slaying all four guardians gathers the Quintessence") {
-    initMaterials();
-    ThreadPool pool(2);
-    Audio audio;
-    RunState run = newRun(14, Difficulty::Adept, false);
-    Level level(generateSanctum(0, 14u, pool), run, audio, pool);
+    SanctumRun s(14);
+    RunState& run = s.run;
+    Level& level = s.level;
     const Vec2 near = level.player().body.pos + Vec2{40.0f, -10.0f};
     for (int stage = 0; stage < kGuardianCount; ++stage) {
         CHECK(!run.quintessence());
@@ -801,13 +797,10 @@ TEST_CASE("floor and chest finds reach one tier deeper, and spare the kit's stap
 }
 
 TEST_CASE("the first sanctum's shop stocks the coming depth") {
-    initMaterials();
-    ThreadPool pool(2);
-    Audio audio;
     bool deeper = false;
     for (uint32_t seed = 1; seed <= 6; ++seed) {
-        RunState run = newRun(seed, Difficulty::Adept, false);
-        Level level(generateSanctum(0, seed, pool), run, audio, pool);
+        SanctumRun s(seed);
+        Level& level = s.level;
         int wares = 0;
         for (const Pickup& p : level.pickups()) {
             if (p.price <= 0) continue;
@@ -826,18 +819,18 @@ TEST_CASE("the first sanctum's shop stocks the coming depth") {
 }
 
 TEST_CASE("kills the world makes are counted, chained and paid") {
-    initMaterials();
-    ThreadPool pool(2);
-    Audio audio;
-    RunState run = newRun(12, Difficulty::Adept, false);
-    Level level(generateSanctum(0, 12u, pool), run, audio, pool);
+    SanctumRun s(12);
+    RunState& run = s.run;
+    Level& level = s.level;
     const Vec2 near = level.player().body.pos + Vec2{30.0f, -10.0f};
     auto kill = [&](const DamageInfo& blow) {
         Enemy& e = level.spawnEnemy(EnemyType::Slime, near);
         e.applyDamage(level, blow);
     };
-    const size_t goldBefore = std::count_if(level.pickups().begin(), level.pickups().end(),
-                                            [](const Pickup& p) { return p.type == PickupType::Gold; });
+    auto goldOnFloor = [&] {
+        return std::count_if(level.pickups().begin(), level.pickups().end(), [](const Pickup& p) { return p.type == PickupType::Gold; });
+    };
+    const size_t goldBefore = goldOnFloor();
     // A spell's own blow is an ordinary kill.
     kill({1.0e6f, DamageType::Fire, {}, Team::Player, false, false, spellDef(SpellId::Fireball).name});
     CHECK(run.stats.alchemicalKills == 0);
@@ -848,19 +841,15 @@ TEST_CASE("kills the world makes are counted, chained and paid") {
     CHECK(run.stats.alchemicalKills == 3);
     const std::vector<FeatId> earned = level.takeFeats();
     CHECK(std::find(earned.begin(), earned.end(), FeatId::ChainReaction) != earned.end());
-    const size_t goldAfter = std::count_if(level.pickups().begin(), level.pickups().end(),
-                                           [](const Pickup& p) { return p.type == PickupType::Gold; });
+    const size_t goldAfter = goldOnFloor();
     CHECK(goldAfter >= goldBefore + 3);
     CHECK(std::any_of(level.floatTexts().begin(), level.floatTexts().end(),
                       [](const FloatText& t) { return t.text == "Chain reaction x3"; }));
 }
 
 TEST_CASE("hits on one creature add up into one number until the moment passes") {
-    initMaterials();
-    ThreadPool pool(2);
-    Audio audio;
-    RunState run = newRun(12, Difficulty::Adept, false);
-    Level level(generateSanctum(0, 12u, pool), run, audio, pool);
+    SanctumRun s(12);
+    Level& level = s.level;
     constexpr uint32_t kOwner = 0xABCDu; // no actor has this id
     const Vec2 p = level.player().body.pos + Vec2{30.0f, -10.0f};
     auto numbers = [&] {
