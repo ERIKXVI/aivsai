@@ -37,13 +37,14 @@ public:
 private:
     enum class Mode { Loading, Playing, Inventory, Map, Paused, Settings, Help, Dead, Victory };
 
-    // Durations shared by the update half (GameScene.cpp) and the drawing files (GameSceneUi.cpp, GameSceneMenus.cpp).
+    // Durations shared by the run flow (GameScene.cpp) and the presentation files (GameSceneUi.cpp, GameSceneMenus.cpp).
     static constexpr float kTitleCardSeconds = 4.0f;   ///< how long a stage/guardian title card shows
     static constexpr float kToastSeconds = 3.5f;       ///< how long one feat toast shows
     static constexpr float kGoldPopSeconds = 0.25f;    ///< HUD gold counter pop after gold comes in
     static constexpr float kDeathScreenDelay = 1.6f;   ///< seconds after death before the end screen fades in
     static constexpr float kVictoryScreenDelay = 0.5f; ///< seconds after victory before the end screen fades in
 
+    // Run flow (GameScene.cpp)
     void requestLevel();
     void stepLevel();
     void finishLoading();
@@ -68,14 +69,11 @@ private:
     /// Records a feat in the profile the first time it is earned, and queues its toast.
     void earnFeat(FeatId feat);
     void updateFeats(float dt);
-    void updateEditorPad();
-    /// Records the left stick's current direction, so a stick already held does not count as a flick.
-    void syncStickFlick();
-    /// Drops the dragged spell onto a wand slot (wand >= 0) or satchel slot (wand -1), swapping.
-    void dropDragOnto(int wand, int slot);
-    SpellId& editorSlot(int wand, int slot);
     void recordProfile(bool victory);
+    /// Steps graphics down to Low once if the GPU cannot keep up on High.
+    void watchFrameRate();
 
+    // HUD, overlays and banners (GameSceneUi.cpp)
     void drawWorldOverlays(float alpha) const;
     /// Transmutation circles near the alchemist: the matter each craves and how to pour it.
     void drawTransmuterPrompts() const;
@@ -92,7 +90,6 @@ private:
     void drawFlask() const;
     /// The boss's (or a guardian's) health bar along the top.
     void drawBossBar() const;
-    void drawFeatToast() const;
     void drawEssences(float right, float y) const;
     void drawCompass(float alpha) const;
     /// A floor or shop wand's slots and stats, ending just above `bottom` (the pickup prompt),
@@ -103,16 +100,7 @@ private:
     /// In play, with the alchemist alive. Still captures (automated, not autoplay) leave it out:
     /// their idle pointer would sit on the screen's centre, over the alchemist.
     bool showReticle() const;
-    void drawInventory();
-    void drawPauseMenu();
-    void drawEndScreen(bool victory);
-    /// The end screen's lasting progress (records, Grimoire, unlocks, the next path's bar) from y; returns the y under it.
-    float drawEndProgress(float y, unsigned char alpha) const;
-    /// The end screen's buttons and pad/Enter shortcuts, armed once the face buttons are released.
-    void drawEndActions(bool victory, float y);
-    /// The death screen's descent strip at `y`: the five stages, filled as far as the alchemist
-    /// got, with a caption naming what lies below. Returns the y under it.
-    float drawDescent(float y, unsigned char alpha) const;
+    void drawFeatToast() const;
     void drawTitleCard() const;
     /// Height of the title card's text block, in pixels.
     float titleCardHeight() const;
@@ -122,11 +110,29 @@ private:
     void drawEventNotice() const;
     /// The violet bloom that swells from the portal and swallows the screen as it fades through it.
     void drawPortalBloom() const;
-    /// Steps graphics down to Low once if the GPU cannot keep up on High.
-    void watchFrameRate();
     void drawLoading() const;
     void drawControlsHint() const;
     void drawDebugOverlay() const;
+
+    // Wand editor (GameSceneEditor.cpp)
+    void updateEditorPad();
+    /// Records the left stick's current direction, so a stick already held does not count as a flick.
+    void syncStickFlick();
+    /// Drops the dragged spell onto a wand slot (wand >= 0) or satchel slot (wand -1), swapping.
+    void dropDragOnto(int wand, int slot);
+    SpellId& editorSlot(int wand, int slot);
+    void drawInventory();
+
+    // Pause menu and end screens (GameSceneMenus.cpp)
+    void drawPauseMenu();
+    void drawEndScreen(bool victory);
+    /// The end screen's lasting progress (records, Grimoire, unlocks, the next path's bar) from y; returns the y under it.
+    float drawEndProgress(float y, unsigned char alpha) const;
+    /// The end screen's buttons and pad/Enter shortcuts, armed once the face buttons are released.
+    void drawEndActions(bool victory, float y);
+    /// The death screen's descent strip at `y`: the five stages, filled as far as the alchemist
+    /// got, with a caption naming what lies below. Returns the y under it.
+    float drawDescent(float y, unsigned char alpha) const;
 
     RunState run_;
     std::unique_ptr<Level> level_;
