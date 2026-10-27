@@ -11,11 +11,16 @@ namespace pm {
 
 namespace {
 
-/// Horizontal slider; returns true while the value changes.
-bool slider(Rectangle r, const char* label, float& value) {
+/// Keyboard and gamepad focus over the panel's rows: the three sliders, the toggles and Back.
+ui::NavList g_nav;
+constexpr int kRows = 10;
+
+/// Horizontal slider; returns true while the value changes. With the focus, left and right
+/// step it by 5%.
+bool slider(Rectangle r, const char* label, float& value, bool focused) {
     const float s = static_cast<float>(ui::scale());
     const int small = ui::smallFontSize();
-    ui::text(label, r.x, r.y - static_cast<float>(small) - 2.0f * s, small, ui::color::kTextDim);
+    ui::text(label, r.x, r.y - static_cast<float>(small) - 2.0f * s, small, focused ? ui::color::kGold : ui::color::kTextDim);
     Rectangle track{r.x, r.y + r.height * 0.35f, r.width, r.height * 0.3f};
     ui::bar(track, value, ui::color::kAccent);
     float knobX = r.x + r.width * value;
@@ -25,6 +30,13 @@ bool slider(Rectangle r, const char* label, float& value) {
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(), {r.x - 4.0f, r.y - 4.0f, r.width + 8.0f, r.height + 8.0f})) {
         value = clamp((GetMousePosition().x - r.x) / r.width, 0.0f, 1.0f);
         return true;
+    }
+    if (focused) {
+        const int step = (ui::navRightPressed() ? 1 : 0) - (ui::navLeftPressed() ? 1 : 0);
+        if (step != 0) {
+            value = clamp(std::round(value * 20.0f + static_cast<float>(step)) / 20.0f, 0.0f, 1.0f);
+            return true;
+        }
     }
     return false;
 }
@@ -40,19 +52,22 @@ bool drawSettingsPanel(App& app) {
     ui::text("SETTINGS", sw * 0.5f, panelR.y + 8.0f * s, ui::fontSize(ui::scale() + 1), ui::color::kGold, ui::Align::Center);
 
     bool changed = false;
+    g_nav.update(kRows, false);
+    int row = 0;
     float x = panelR.x + 16.0f * s, w = panelR.width - 60.0f * s, y = panelR.y + 44.0f * s, h = 8.0f * s;
-    changed |= slider({x, y, w, h}, "Master volume", st.masterVolume);
+    changed |= slider({x, y, w, h}, "Master volume", st.masterVolume, g_nav.focused(row++));
     y += 26.0f * s;
-    changed |= slider({x, y, w, h}, "Music volume", st.musicVolume);
+    changed |= slider({x, y, w, h}, "Music volume", st.musicVolume, g_nav.focused(row++));
     y += 26.0f * s;
-    changed |= slider({x, y, w, h}, "Effects volume", st.sfxVolume);
+    changed |= slider({x, y, w, h}, "Effects volume", st.sfxVolume, g_nav.focused(row++));
     y += 20.0f * s;
 
     const float bw = panelR.width - 32.0f * s, bh = 16.0f * s;
     // One full-width "Name: On/Off" row: flips `flag` on click, advances y, returns the row's rect.
     auto toggle = [&](const char* name, bool& flag, const char* on = "On", const char* off = "Off") {
         const Rectangle r{x, y, bw, bh};
-        if (ui::button(r, std::string(name) + ": " + (flag ? on : off))) {
+        const int index = row++;
+        if (ui::button(r, std::string(name) + ": " + (flag ? on : off), true, g_nav.focused(index)) || g_nav.activated(index)) {
             flag = !flag;
             changed = true;
         }
@@ -62,7 +77,9 @@ bool drawSettingsPanel(App& app) {
 
     toggle("Screen shake", st.screenShake);
     const bool fullscreen = IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE);
-    if (ui::button({x, y, bw, bh}, std::string("Fullscreen: ") + (fullscreen ? "On" : "Off"))) {
+    const int fullscreenRow = row++;
+    if (ui::button({x, y, bw, bh}, std::string("Fullscreen: ") + (fullscreen ? "On" : "Off"), true, g_nav.focused(fullscreenRow)) ||
+        g_nav.activated(fullscreenRow)) {
         app.toggleFullscreen();
         changed = true;
     }
@@ -75,7 +92,9 @@ bool drawSettingsPanel(App& app) {
         ui::tooltip("Matter lens", "Rest the cursor on a substance or creature to see what it is and what it does.");
     if (changed) app.applySettings();
 
-    bool back = ui::button({x, panelR.y + panelR.height - bh - 8.0f * s, bw, bh}, "Back");
+    const int backRow = row++;
+    bool back = ui::button({x, panelR.y + panelR.height - bh - 8.0f * s, bw, bh}, "Back", true, g_nav.focused(backRow)) ||
+                g_nav.activated(backRow);
     if (back || ui::backPressed()) {
         saveSettings(st);
         return true;
