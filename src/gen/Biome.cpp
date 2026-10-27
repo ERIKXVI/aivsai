@@ -20,7 +20,7 @@ const BiomeDef kBiomes[] = {
         {{{Sand, 0.5f}, {Gravel, 0.3f}, {Ash, 0.2f}}},
         0.50f, 0.8f,
         0x463d38, 0x231d18,
-        {0.38f, 0.36f, 0.42f}, {1.0f, 0.97f, 0.92f}, 0.95f, 0x0c0a0a,
+        {0.38f, 0.36f, 0.42f}, {1.0f, 0.97f, 0.92f}, 0.95f, 0x080a0e,
         45, 0,
     },
     // II. Albedo — the whitening: salt glaciers, ice and brine.
@@ -32,7 +32,7 @@ const BiomeDef kBiomes[] = {
         {{{Snow, 0.6f}, {Salt, 0.3f}, {Sand, 0.1f}}},
         0.55f, 0.15f,
         0x46576b, 0x1d2835,
-        {0.36f, 0.40f, 0.48f}, {0.94f, 0.99f, 1.06f}, 0.85f, 0x0a0e14,
+        {0.36f, 0.40f, 0.48f}, {0.94f, 0.99f, 1.06f}, 0.85f, 0x060c12,
         50, 1,
     },
     // III. Citrinitas — the yellowing: sulphur mines, gunpowder stores, glowing fungus.
@@ -44,7 +44,7 @@ const BiomeDef kBiomes[] = {
         {{{Sulphur, 0.4f}, {Sand, 0.4f}, {Gunpowder, 0.2f}}},
         0.52f, 0.6f,
         0x504628, 0x241f10,
-        {0.40f, 0.36f, 0.27f}, {1.06f, 1.0f, 0.86f}, 1.0f, 0x100c04,
+        {0.40f, 0.36f, 0.27f}, {1.06f, 1.0f, 0.86f}, 1.0f, 0x0c0904,
         47, 2,
     },
     // IV. Rubedo — the reddening: the crimson forge, lava rivers and basalt.
@@ -56,7 +56,7 @@ const BiomeDef kBiomes[] = {
         {{{Ash, 0.5f}, {Gravel, 0.3f}, {Sand, 0.2f}}},
         0.55f, 0.1f,
         0x602e24, 0x26100c,
-        {0.42f, 0.28f, 0.25f}, {1.08f, 0.94f, 0.88f}, 1.05f, 0x140604,
+        {0.42f, 0.28f, 0.25f}, {1.08f, 0.94f, 0.88f}, 1.05f, 0x0c0302,
         43, 3,
     },
     // V. The Athanor — the alchemist's furnace where the Great Work is completed.
@@ -68,7 +68,7 @@ const BiomeDef kBiomes[] = {
         {{{Ash, 0.5f}, {GoldDust, 0.2f}, {Gravel, 0.3f}}},
         0.6f, 0.0f,
         0x493260, 0x1c1028,
-        {0.38f, 0.32f, 0.46f}, {1.0f, 0.94f, 1.08f}, 1.05f, 0x0c0612,
+        {0.38f, 0.32f, 0.46f}, {1.0f, 0.94f, 1.08f}, 1.05f, 0x0a0612,
         41, 4,
     },
     // Sanctum — the resting place between stages.
@@ -80,7 +80,7 @@ const BiomeDef kBiomes[] = {
         {{{Sand, 1.0f}, {Empty, 0.0f}, {Empty, 0.0f}}},
         0.0f, 0.3f,
         0x46385d, 0x211a35,
-        {0.65f, 0.59f, 0.72f}, {1.0f, 0.98f, 1.04f}, 1.0f, 0x0a0810,
+        {0.65f, 0.59f, 0.72f}, {1.0f, 0.98f, 1.04f}, 1.0f, 0x000000,
         48, 5,
     },
 };

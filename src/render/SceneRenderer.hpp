@@ -29,6 +29,8 @@ struct LightingParams {
     float tintR = 1.0f, tintG = 1.0f, tintB = 1.0f;
     float damageFlash = 0.0f;
     float aberration = 0.0f; ///< chromatic split in cells
+    float airR = 0.0f, airG = 0.0f, airB = 0.0f; ///< haze added to open air, so unlit caves keep their shape
+    float airTop = -1.0e6f;  ///< layer row the haze fades in below (keeps a sky above it clear)
     bool highQuality = true; ///< false: shorter shadow rays and a smaller light budget for weak GPUs
 };
 

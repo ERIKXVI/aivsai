@@ -265,6 +265,8 @@ void SceneRenderer::present(const LightingParams& p, float time) {
     compositeShader_.set("saturation", p.saturation);
     compositeShader_.set("tint", p.tintR, p.tintG, p.tintB);
     compositeShader_.set("aberration", p.aberration);
+    compositeShader_.set("airColor", p.airR, p.airG, p.airB);
+    compositeShader_.set("airTop", p.airTop);
     const int shocks = static_cast<int>(shockData_.size() / 4);
     compositeShader_.set("shockCount", shocks);
     if (shocks > 0) compositeShader_.setVec4Array("shockwaves", shockData_.data(), shocks);

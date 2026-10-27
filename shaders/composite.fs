@@ -24,6 +24,8 @@ uniform float damageFlash;      // 0..1 red vignette pulse
 uniform float saturation;
 uniform vec3 tint;
 uniform float aberration;       // chromatic split in cells (damage feedback)
+uniform vec3 airColor;          // haze in open air, so unlit caves keep their shape
+uniform float airTop;           // layer row the haze fades in below (a sky above it stays clear)
 
 #define MAX_SHOCKWAVES 6
 uniform int shockCount;
@@ -75,10 +77,12 @@ void main() {
     float solid = emission.a;
     float depth = smoothstep(0.84, 1.0, light.a) * solid;
     float shade = mix(1.0, 0.42, depth);
-    float backgroundDim = mix(0.62, 1.0, solid);
+    float backgroundDim = mix(0.7, 1.0, solid);
 
     vec3 lighting = ambient + light.rgb + glow * glowLight;
     vec3 color = albedo.rgb * lighting * shade * backgroundDim;
+    float row = (1.0 - uv.y) * texSize.y;
+    color += airColor * (1.0 - solid) * smoothstep(airTop, airTop + 40.0, row);
     color += emission.rgb * 1.25;
     color += glow * bloom;
 

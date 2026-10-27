@@ -48,7 +48,7 @@ struct BiomeDef {
     float ambient[3];
     float tint[3];
     float saturation;
-    uint32_t fogColor;
+    uint32_t fogColor;        ///< haze in open air (added in the composite), so unlit caves keep their shape
     // Music
     int musicRoot;            ///< MIDI note of the tonic
     int musicMode;            ///< scale index (see audio/Music)

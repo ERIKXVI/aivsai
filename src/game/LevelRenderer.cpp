@@ -82,6 +82,13 @@ void LevelRenderer::render(const Level& level, Vec2 camera, float alpha, float t
     lp.tintG = b.tint[1];
     lp.tintB = b.tint[2];
     lp.saturation = b.saturation;
+    const Rgba air = hexRgba(b.fogColor);
+    lp.airR = static_cast<float>(air.r) / 255.0f;
+    lp.airG = static_cast<float>(air.g) / 255.0f;
+    lp.airB = static_cast<float>(air.b) / 255.0f;
+    // Under an open sky the haze starts below the lowest point of the ground line.
+    if (!layout.skyline.empty())
+        lp.airTop = static_cast<float>(*std::max_element(layout.skyline.begin(), layout.skyline.end()) - v.originY);
     if (layout.surfaceY > 0) {
         // Moonlight when the view is near the surface.
         const float boost = clamp((static_cast<float>(layout.surfaceY) + 90.0f - camera.y) / 150.0f, 0.0f, 1.0f);
