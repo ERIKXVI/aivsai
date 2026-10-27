@@ -31,6 +31,37 @@ void applyModifier(ProjectileLaunch& l, const ModifierDef& m) {
     l.critChance += m.critChance;
 }
 
+/// How often a spell turns up, relative to its peers: the kit's own staples and the faintest
+/// boosters come up less, so a find is more often something new.
+float findWeight(SpellId s) {
+    switch (s) {
+    case SpellId::DiggingBolt:
+    case SpellId::WaterTrail: return 0.3f;
+    case SpellId::Accuracy: return 0.4f;
+    case SpellId::SparkBolt:
+    case SpellId::WaterOrb:
+    case SpellId::SporeBomb: return 0.5f;
+    case SpellId::SpeedUp: return 0.6f;
+    default: return 1.0f;
+    }
+}
+
+/// One weighted draw from the spells of `tier` and below, plus those up to `reach` tiers
+/// deeper at `reachWeight` of their usual weight. Deeper spells weigh a little more.
+SpellId rollSpell(int tier, int reach, float reachWeight, Rng& rng) {
+    float weights[kSpellCount] = {}; // SpellId::None (index 0) stays at zero
+    for (int i = 1; i < kSpellCount; ++i) {
+        const SpellDef& d = spellDef(static_cast<SpellId>(i));
+        if (d.tier > tier + reach) continue;
+        float w = (1.0f + 0.4f * static_cast<float>(d.tier)) * findWeight(static_cast<SpellId>(i));
+        if (d.type == SpellType::Projectile) w *= 1.3f;
+        if (d.tier > tier) w *= reachWeight;
+        weights[i] = w;
+    }
+    const int i = weightedIndex(rng, weights, [](float w) { return w; });
+    return i <= 0 ? SpellId::SparkBolt : static_cast<SpellId>(i);
+}
+
 } // namespace
 
 CastShot buildShot(const std::vector<SpellId>& slots, const std::vector<int>& order, int& pos, int draws) {
@@ -220,18 +251,12 @@ Wand makeStarterWand(int index) {
     return w;
 }
 
-SpellId randomSpell(int tier, Rng& rng) {
-    // Weighted towards spells near the current tier; deeper spells are rarer.
-    float weights[kSpellCount] = {}; // SpellId::None (index 0) stays at zero
-    for (int i = 1; i < kSpellCount; ++i) {
-        const SpellDef& d = spellDef(static_cast<SpellId>(i));
-        if (d.tier > tier) continue;
-        float w = 1.0f + 0.4f * static_cast<float>(d.tier);
-        if (d.type == SpellType::Projectile) w *= 1.3f;
-        weights[i] = w;
-    }
-    const int i = weightedIndex(rng, weights, [](float w) { return w; });
-    return i <= 0 ? SpellId::SparkBolt : static_cast<SpellId>(i);
+SpellId randomSpell(int tier, Rng& rng) { return rollSpell(tier, 0, 1.0f, rng); }
+
+SpellId randomFind(int tier, Rng& rng) {
+    // A third of the usual weight one tier down: on the first stage, about half the finds are
+    // from the second, so the kit's own spells do not keep turning up.
+    return rollSpell(tier, 1, 0.35f, rng);
 }
 
 SpellId randomRareSpell(int tier, Rng& rng) {
@@ -239,7 +264,9 @@ SpellId randomRareSpell(int tier, Rng& rng) {
     float weights[kSpellCount] = {};
     for (int i = 1; i < kSpellCount; ++i) {
         const SpellDef& d = spellDef(static_cast<SpellId>(i));
-        if (d.type != SpellType::Projectile || d.trigger || d.tier < lo || d.tier > hi) continue;
+        // Spore Pod's harmless puff is no showpiece.
+        if (d.type != SpellType::Projectile || d.trigger || d.tier < lo || d.tier > hi || static_cast<SpellId>(i) == SpellId::SporeBomb)
+            continue;
         weights[i] = 1.0f + static_cast<float>(d.tier);
     }
     const int i = weightedIndex(rng, weights, [](float w) { return w; });

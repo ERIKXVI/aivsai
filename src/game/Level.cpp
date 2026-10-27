@@ -116,7 +116,7 @@ void Level::populate() {
                 pickups_.push_back(std::move(p));
                 ++shopIndex;
             } else {
-                pickups_.push_back(makeSpellPickup(s.pos - Vec2{0.0f, 5.0f}, randomSpell(tier, rng_)));
+                pickups_.push_back(makeSpellPickup(s.pos - Vec2{0.0f, 5.0f}, randomFind(tier, rng_)));
             }
             break;
         case SpawnKind::RareSpell: {

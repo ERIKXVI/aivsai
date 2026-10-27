@@ -720,13 +720,29 @@ TEST_CASE("rare finds are attack spells from deeper down") {
     for (int tier = 0; tier <= 4; ++tier) {
         bool showpiece = false;
         for (int i = 0; i < 300; ++i) {
-            const SpellDef& d = spellDef(randomRareSpell(tier, rng));
+            const SpellId id = randomRareSpell(tier, rng);
+            const SpellDef& d = spellDef(id);
             CHECK(d.type == SpellType::Projectile && !d.trigger);
             CHECK(d.tier >= std::clamp(tier + 1, 2, 4));
+            CHECK(id != SpellId::SporeBomb);
             showpiece = showpiece || d.tier >= 3;
         }
         CHECK(showpiece); // even the first stage can turn up Lightning or a Black Hole
     }
+}
+
+TEST_CASE("floor and chest finds reach one tier deeper, and spare the kit's staples") {
+    Rng rng(9);
+    int deeper = 0, spark = 0;
+    constexpr int kRolls = 2000;
+    for (int i = 0; i < kRolls; ++i) {
+        const SpellId s = randomFind(0, rng);
+        CHECK(spellDef(s).tier <= 1);
+        deeper += spellDef(s).tier == 1 ? 1 : 0;
+        spark += s == SpellId::SparkBolt ? 1 : 0;
+    }
+    CHECK(deeper > kRolls / 3);   // about half the first stage's finds come from the second
+    CHECK(spark < kRolls / 25);  // the rod already holds three
 }
 
 TEST_CASE("the first sanctum's shop stocks the coming depth") {

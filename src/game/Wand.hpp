@@ -88,6 +88,9 @@ Wand makeStarterWand(int index);
 Wand makeRandomWand(int tier, Rng& rng);
 /// Random spell appropriate for a depth tier.
 SpellId randomSpell(int tier, Rng& rng);
+/// A spell lying on the floor or in a chest: like randomSpell, but now and then from one tier
+/// deeper.
+SpellId randomFind(int tier, Rng& rng);
 /// A rare find: an attack spell from deeper down than `tier` (tiers 2-3 even on the first
 /// stage), so the spells that bend the world turn up within the first hour. One draw.
 SpellId randomRareSpell(int tier, Rng& rng);
