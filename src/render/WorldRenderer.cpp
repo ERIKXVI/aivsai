@@ -37,6 +37,19 @@ inline Rgba scaleRgb(Rgba c, int s256) {
             static_cast<uint8_t>((c.b * s256) >> 8), c.a};
 }
 
+constexpr Rgba kLipLight{255, 238, 214, 255}; ///< what the top edge of open-air rock is mixed towards
+constexpr int kLip = 64;                      ///< ...by this much (of 256)
+constexpr int kOverhang = 196;                ///< an overhang's underside keeps this much (of 256)
+
+/// Open space for edge shading: nothing there, or only drifting gas.
+inline bool isOpen(const MaterialTables& mt, const Cell& c) {
+    const Phase p = mt.defs[c.mat].phase;
+    return p == Phase::Empty || p == Phase::Gas;
+}
+
+/// Plant growth and timber stay flat: edge light on them would flicker as they grow and burn.
+inline bool takesEdgeLight(MatId m) { return m != mat::Vine && m != mat::GlowVine && m != mat::Leaves && m != mat::Wood; }
+
 } // namespace
 
 Rgba cellColor(const Cell& c, int x, int y, uint32_t tick) {
@@ -156,6 +169,9 @@ void WorldRenderer::buildRows(const World& world, int rowBegin, int rowEnd, uint
         EmissiveBlock* blockRow = blocks_.data() + static_cast<size_t>((wy >> kBlockShift) - (oy_ >> kBlockShift)) * blocksW_;
         const int blockX0 = ox_ >> kBlockShift;
         const Cell* cells = &world.at(0, wy);
+        // The rows above and below give terrain a lit top lip and a shaded underside.
+        const Cell* above = wy > 0 ? &world.at(0, wy - 1) : nullptr;
+        const Cell* below = wy + 1 < world.height() ? &world.at(0, wy + 1) : nullptr;
         for (int tx = 0; tx < w_; ++tx) {
             const int wx = ox_ + tx;
             if (wx < 0 || wx >= world.width()) {
@@ -170,13 +186,23 @@ void WorldRenderer::buildRows(const World& world, int rowBegin, int rowEnd, uint
                 continue;
             }
             const MaterialDef& d = mt.defs[c.mat];
-            // Fast path: plain static matter needs only a palette lookup.
+            // Fast path: plain static matter needs only a palette lookup, and its edges.
             if (d.phase == Phase::Solid && d.glow.a == 0 && !(c.flags & (cellflag::kBurning | cellflag::kElectric))) {
-                crow[tx] = mt.palette[c.mat][c.var];
+                Rgba col = mt.palette[c.mat][c.var];
+                if (takesEdgeLight(c.mat)) {
+                    if (above && isOpen(mt, above[wx])) col = mix(col, kLipLight, kLip);
+                    else if (below && isOpen(mt, below[wx])) col = scaleRgb(col, kOverhang);
+                }
+                crow[tx] = col;
                 erow[tx] = Rgba{0, 0, 0, d.opacity};
                 continue;
             }
             crow[tx] = cellColor(c, wx, wy, tick);
+            if (d.phase == Phase::Liquid && above && isOpen(mt, above[wx])) {
+                // A liquid's surface catches the light: a bright line that shimmers as it moves.
+                const int shimmer = 70 + static_cast<int>(sineTable()[(wx * 9 + tick * 4) & 255] * 40.0f);
+                crow[tx] = mix(crow[tx], c.mat == mat::Lava ? Rgba{255, 225, 120, 255} : Rgba{235, 245, 255, 255}, shimmer);
+            }
             const Rgba e = cellEmission(c, wx, wy, tick);
             erow[tx] = e;
             const int intensity = e.r + e.g + e.b;
