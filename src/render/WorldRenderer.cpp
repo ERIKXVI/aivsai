@@ -50,6 +50,17 @@ inline bool isOpen(const MaterialTables& mt, const Cell& c) {
 /// Plant growth and timber stay flat: edge light on them would flicker as they grow and burn.
 inline bool takesEdgeLight(MatId m) { return m != mat::Vine && m != mat::GlowVine && m != mat::Leaves && m != mat::Wood; }
 
+constexpr Rgba kLiquidSheen{235, 245, 255, 255}; ///< what a liquid's open surface is mixed towards
+constexpr Rgba kLavaSheen{255, 225, 120, 255};   ///< ...warmer on lava
+constexpr int kSheen = 70;                       ///< ...by this much (of 256)
+constexpr float kSheenSwing = 40.0f;             ///< give or take this much as it shimmers
+
+/// A liquid's open surface catches the light: a bright line that shimmers as it moves.
+inline Rgba liquidSheen(Rgba col, MatId m, int wx, uint32_t tick) {
+    const int shimmer = kSheen + static_cast<int>(sineTable()[(wx * 9 + tick * 4) & 255] * kSheenSwing);
+    return mix(col, m == mat::Lava ? kLavaSheen : kLiquidSheen, shimmer);
+}
+
 } // namespace
 
 Rgba cellColor(const Cell& c, int x, int y, uint32_t tick) {
@@ -197,12 +208,9 @@ void WorldRenderer::buildRows(const World& world, int rowBegin, int rowEnd, uint
                 erow[tx] = Rgba{0, 0, 0, d.opacity};
                 continue;
             }
-            crow[tx] = cellColor(c, wx, wy, tick);
-            if (d.phase == Phase::Liquid && above && isOpen(mt, above[wx])) {
-                // A liquid's surface catches the light: a bright line that shimmers as it moves.
-                const int shimmer = 70 + static_cast<int>(sineTable()[(wx * 9 + tick * 4) & 255] * 40.0f);
-                crow[tx] = mix(crow[tx], c.mat == mat::Lava ? Rgba{255, 225, 120, 255} : Rgba{235, 245, 255, 255}, shimmer);
-            }
+            Rgba col = cellColor(c, wx, wy, tick);
+            if (d.phase == Phase::Liquid && above && isOpen(mt, above[wx])) col = liquidSheen(col, c.mat, wx, tick);
+            crow[tx] = col;
             const Rgba e = cellEmission(c, wx, wy, tick);
             erow[tx] = e;
             const int intensity = e.r + e.g + e.b;

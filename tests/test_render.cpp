@@ -349,6 +349,34 @@ TEST_CASE("emissive blocks stay fixed to the world while the view pans and shake
     }
 }
 
+TEST_CASE("rock gets a lit lip under open air and a shaded underside; timber stays flat") {
+    initMaterials();
+    World world(128, 64, 1);
+    for (int y = 10; y < 20; ++y) {
+        for (int x = 8; x < 32; ++x) world.place(x, y, mat::Rock);
+        for (int x = 32; x < 56; ++x) world.place(x, y, mat::Wood);
+    }
+    WorldRenderer wr;
+    wr.resize(128, 64);
+    wr.build(world, 0, 0, 0);
+    auto drawn = [&](int x, int y) { return wr.colors()[static_cast<size_t>(y) * 128 + x]; };
+    auto base = [&](int x, int y) {
+        const Cell& c = world.at(x, y);
+        return materials().palette[c.mat][c.var];
+    };
+    auto sum = [](Rgba c) { return c.r + c.g + c.b; };
+    auto sameRgb = [](Rgba a, Rgba b) { return a.r == b.r && a.g == b.g && a.b == b.b; }; // Rgba has no operator==
+    for (int x = 8; x < 32; ++x) {
+        CHECK(sum(drawn(x, 10)) > sum(base(x, 10)));
+        CHECK(sum(drawn(x, 19)) < sum(base(x, 19)));
+        CHECK(sameRgb(drawn(x, 15), base(x, 15)));
+    }
+    for (int x = 32; x < 56; ++x) {
+        CHECK(sameRgb(drawn(x, 10), base(x, 10)));
+        CHECK(sameRgb(drawn(x, 19), base(x, 19)));
+    }
+}
+
 TEST_CASE("every sprite is registered once and drawn in the palette") {
     constexpr int kIds = static_cast<int>(SpriteId::Count);
     int count = 0;

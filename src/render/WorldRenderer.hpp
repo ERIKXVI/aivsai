@@ -51,6 +51,8 @@ public:
     int originY() const { return oy_; }
     const Texture2D& colorTexture() const { return colorTex_; }
     const Texture2D& emissionTexture() const { return emitTex_; }
+    /// CPU colour buffer, row-major over the view, as build() and stamp() left it.
+    const std::vector<Rgba>& colors() const { return color_; }
     /// Emissive blocks, row-major over the world-aligned blocks the view touches: entry
     /// (bx, by) covers world cells from ((originX >> kBlockShift) + bx) << kBlockShift on.
     /// Centroids are final after upload().
