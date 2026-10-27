@@ -99,6 +99,17 @@ public:
     void drawEmission(DrawContext& ctx) const override;
     void addLights(DrawContext& ctx) const override;
 
+    /// Where and how the creature is drawn this tick (uninterpolated), for effects that break it apart.
+    struct SpritePose {
+        SpriteId sprite;
+        int frame;
+        Vec2 topLeft; ///< world cells
+        int scale;
+        bool flip;
+        Color tint;
+    };
+    SpritePose pose(float time) const;
+
     EnemyType type() const { return type_; }
     /// Elites are rare, tougher variants that glow, carry an affix and always drop treasure.
     void makeElite(Affix affix);

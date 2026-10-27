@@ -134,6 +134,8 @@ public:
     /// instead of interpolating back towards the previous tick when the last frozen tick ends.
     bool hitStopActive() const { return hitStop_ > 0 || heldSinceTick_; }
     float time() const { return time_; }
+    /// Cosmetic randomness: decoration drawn from it never shifts gameplay.
+    Rng& fxRng() { return fxRng_; }
     /// Feats earned since the last call; the scene records and announces them.
     std::vector<FeatId> takeFeats() { return std::exchange(feats_, {}); }
     void earnFeat(FeatId feat) { feats_.push_back(feat); }
@@ -169,6 +171,8 @@ public:
     void addFlash(Vec2 pos, uint32_t color, float intensity, float radius, float duration);
     void addShake(float amount) { shake_ = std::min(1.0f, shake_ + amount); }
     void addFloatText(Vec2 pos, const std::string& text, uint32_t color, float scale = 1.0f);
+    /// A slain creature bursts into the pixels of its sprite.
+    void shatter(const Enemy& e);
     /// A damage number over actor `owner`. Hits landing within a moment of the last one add up
     /// into the same number, which pops, instead of stacking a column of small ones.
     void addDamageNumber(uint32_t owner, Vec2 pos, float amount, bool crit);

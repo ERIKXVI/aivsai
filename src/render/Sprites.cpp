@@ -1,5 +1,6 @@
 #include "render/Sprites.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
@@ -115,6 +116,38 @@ void SpriteBank::drawRotated(SpriteId id, int frame, Vector2 center, float degre
     if (color_[i].id == 0 || in.frames == 0) return;
     const Rectangle dst{center.x, center.y, static_cast<float>(in.w), static_cast<float>(in.h)};
     DrawTexturePro(color_[i], frameRect(in, frame, false), dst, Vector2{in.w * 0.5f, in.h * 0.5f}, degrees, tint);
+}
+
+const SpriteFrame& spriteFrame(SpriteId id, int frame) {
+    // One entry per sprite and frame, built on first use.
+    static std::vector<std::vector<SpriteFrame>> cache;
+    const auto idx = static_cast<size_t>(id);
+    if (cache.size() <= idx) cache.resize(idx + 1);
+    auto& frames = cache[idx];
+    if (frames.empty()) {
+        int count = 0;
+        const SpriteSource* sources = spriteSources(count);
+        for (int s = 0; s < count; ++s) {
+            const SpriteSource& src = sources[s];
+            if (src.id != id) continue;
+            frames.resize(static_cast<size_t>(src.frames));
+            for (int f = 0; f < src.frames; ++f) {
+                SpriteFrame& out = frames[static_cast<size_t>(f)];
+                out.w = src.w;
+                out.h = src.h;
+                for (int y = 0; y < src.h; ++y) {
+                    const char* row = src.rows[f * src.h + y];
+                    for (int x = 0; x < src.w && row[x] != '\0'; ++x) {
+                        bool emissive = false;
+                        const Color c = spritePaletteColor(row[x], emissive);
+                        if (c.a > 0) out.pixels.push_back({x, y, c, emissive});
+                    }
+                }
+            }
+        }
+        if (frames.empty()) frames.emplace_back(); // unknown sprite: no pixels
+    }
+    return frames[static_cast<size_t>(std::clamp(frame, 0, static_cast<int>(frames.size()) - 1))];
 }
 
 } // namespace pm

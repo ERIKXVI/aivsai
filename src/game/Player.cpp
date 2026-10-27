@@ -254,13 +254,15 @@ void Player::handleWands(Level& level) {
     run_.stats.spellsCast++;
     castFlash_ = kCastFlashTime;
 
-    // Sound keyed to the strongest projectile in the cast.
+    // Sound (and muzzle colour) keyed to the strongest projectile in the cast.
     Sfx sfx = Sfx::CastSpark;
     float heaviest = 0.0f;
+    uint32_t muzzle = 0xffffff;
     for (const ProjectileLaunch& l : outcome.shot.projectiles) {
         float weight = l.def.explosionDamage + l.def.damage;
         if (weight < heaviest) continue;
         heaviest = weight;
+        muzzle = l.def.color;
         const ProjectileDef& d = l.def;
         if (d.flags & projflag::kHitscan) sfx = Sfx::CastLightning;
         else if (d.visual == ProjVisual::Bomb || d.explosionRadius > 15.0f) sfx = Sfx::CastHeavy;
@@ -271,7 +273,17 @@ void Player::handleWands(Level& level) {
         else sfx = Sfx::CastSpark;
     }
     level.audio().play(sfx, 0.55f, level.rng().range(0.93f, 1.07f));
-    recoil_ -= aimDir_ * std::min(1.5f, 0.15f + heaviest * 0.02f);
+    // A burst of sparks from the wand tip in the spell's colour (fewer for rapid-fire wands), and a
+    // kick of the view that even the lightest spell makes visible.
+    const bool rapid = wand.castDelay < 0.05f;
+    const Rgba spark = hexRgba(muzzle);
+    Rng& fx = level.fxRng();
+    for (int i = 0, n = rapid ? 2 : 5; i < n; ++i) {
+        const Vec2 dir = fromAngle(angle + fx.range(-0.22f, 0.22f));
+        level.particles().addVisual(wandTip(), dir * fx.range(70.0f, 150.0f), spark, spark, fx.range(0.08f, 0.16f), 0.0f,
+                                    partflag::kFade | partflag::kStreak | partflag::kDieOnHit | partflag::kNoGravity);
+    }
+    recoil_ -= aimDir_ * clamp(0.15f + heaviest * 0.02f, rapid ? 0.25f : 0.6f, 1.5f);
 }
 
 void Player::handleFlask(Level& level) {

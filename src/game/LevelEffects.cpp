@@ -104,6 +104,22 @@ void Level::explode(Vec2 c, const ExplosionSpec& s) {
             }
         }
     }
+    // Scorch: the rock left around the crater is charred, darkest at the rim. Colour only (a
+    // cell's var picks its shade from the palette, darkest first), so the simulation is untouched.
+    const float scorchR = s.radius * 1.5f;
+    const int sr = static_cast<int>(std::ceil(scorchR));
+    for (int dy = -sr; dy <= sr; ++dy) {
+        for (int dx = -sr; dx <= sr; ++dx) {
+            const int x = cx + dx, y = cy + dy;
+            const float d = std::sqrt(static_cast<float>(dx * dx + dy * dy));
+            if (d > scorchR || !w.inBounds(x, y)) continue;
+            Cell& cell = w.at(x, y);
+            const MaterialDef& md = matDef(cell.mat);
+            if (md.phase != Phase::Solid || md.hardness >= 255) continue;
+            const int burn = static_cast<int>(110.0f * (1.0f - d / scorchR));
+            cell.var = static_cast<uint8_t>(std::max(0, static_cast<int>(cell.var) - burn));
+        }
+    }
     if (s.incendiary) {
         for (int i = 0; i < r * 4; ++i) {
             Vec2 o = rng_.inCircle(s.radius * 1.3f);
@@ -118,7 +134,7 @@ void Level::explode(Vec2 c, const ExplosionSpec& s) {
     w.wakeRect(cx - r - 2, cy - r - 2, cx + r + 2, cy + r + 2);
 
     particles_.burst(c, 16 + r * 2, 120.0f + s.radius * 8.0f, {255, 220, 140, 255}, {255, 160, 60, 255},
-                     0.35f + s.radius * 0.01f, rng_, 0.4f);
+                     0.35f + s.radius * 0.01f, rng_, 0.4f, partflag::kFade | partflag::kDieOnHit | partflag::kStreak);
     addFlash(c, s.incendiary ? 0xff9a40 : 0xffd090, 3.5f, s.radius * 5.0f + 30.0f, 0.3f + s.radius * 0.008f);
     addShake(std::min(0.85f, 0.12f + s.radius / 40.0f));
     if (s.radius >= 8.0f && shockwaves_.size() < 6)
@@ -372,6 +388,28 @@ void Level::dropLoot(Vec2 pos, int tier, bool chest) {
     }
 }
 
+void Level::shatter(const Enemy& e) {
+    // The creature breaks into its own pixels, flung away from the alchemist; they bounce and
+    // fade. Cosmetic randomness only, so seeded runs are untouched.
+    constexpr size_t kMaxShards = 600;
+    const Enemy::SpritePose pose = e.pose(time_);
+    const SpriteFrame& frame = spriteFrame(pose.sprite, pose.frame);
+    if (frame.pixels.empty()) return;
+    const Vec2 away = (e.body.pos - player_->body.pos).normalized();
+    const float s = static_cast<float>(pose.scale);
+    const size_t stride = frame.pixels.size() / kMaxShards + 1;
+    for (size_t i = 0; i < frame.pixels.size(); i += stride) {
+        const SpritePixel& px = frame.pixels[i];
+        const float lx = static_cast<float>(pose.flip ? frame.w - 1 - px.x : px.x);
+        const Vec2 at = pose.topLeft + Vec2{(lx + 0.5f) * s, (static_cast<float>(px.y) + 0.5f) * s};
+        const Vec2 vel = away * fxRng_.range(40.0f, 110.0f) + (at - e.body.pos) * fxRng_.range(3.0f, 8.0f) +
+                         Vec2{fxRng_.range(-25.0f, 25.0f), fxRng_.range(-90.0f, -30.0f)};
+        const Rgba col{static_cast<uint8_t>(px.color.r * pose.tint.r / 255), static_cast<uint8_t>(px.color.g * pose.tint.g / 255),
+                       static_cast<uint8_t>(px.color.b * pose.tint.b / 255), 255};
+        particles_.addVisual(at, vel, col, px.emissive ? col : Rgba{0, 0, 0, 0}, fxRng_.range(0.6f, 1.4f), 1.0f, partflag::kFade);
+    }
+}
+
 void Level::onEnemyKilled(Enemy& e) {
     const EnemyDef& d = e.def();
     if (e.team == Team::Monster) {
@@ -453,6 +491,7 @@ void Level::onEnemyKilled(Enemy& e) {
         particles_.addMatter(e.body.pos + rng_.inCircle(3.0f), {rng_.range(-90.0f, 90.0f), rng_.range(-140.0f, -40.0f)},
                              makeCell(d.blood == mat::Ichor ? mat::Ash : mat::Flesh, rng_.next()));
     particles_.burst(e.body.pos, 18, 110.0f, hexRgba(d.glow ? d.glow : 0xffffff), hexRgba(d.glow ? d.glow : 0x606060), 0.5f, rng_);
+    shatter(e);
     audio_.playAt(Sfx::EnemyDie, e.body.pos, 0.8f, rng_.range(0.85f, 1.15f));
     // Weighty kills land with a beat of hit-stop; small fry do not, so a sweep of kills
     // never stutters.

@@ -5,6 +5,7 @@
 
 #include <array>
 #include <cstdint>
+#include <vector>
 
 #include "raylib.h"
 
@@ -92,5 +93,19 @@ const SpriteSource* spriteSources(int& count);
 
 /// Palette lookup for a sprite character; `emissive` is set for glowing pixels.
 Color spritePaletteColor(char c, bool& emissive);
+
+/// One opaque pixel of a sprite frame, relative to the frame's top-left corner.
+struct SpritePixel {
+    int x, y;
+    Color color;
+    bool emissive;
+};
+struct SpriteFrame {
+    int w = 0, h = 0;
+    std::vector<SpritePixel> pixels;
+};
+/// The size and opaque pixels of one frame of a sprite, read from the CPU-side data (no GPU
+/// needed) and cached, for effects that break a sprite apart. Main thread only.
+const SpriteFrame& spriteFrame(SpriteId id, int frame);
 
 } // namespace pm

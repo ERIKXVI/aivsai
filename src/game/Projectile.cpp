@@ -64,8 +64,10 @@ void impact(Level& level, Projectile& p, Vec2 at) {
         level.castShot(*p.payload, at - dir * 1.5f, angleOf(dir), p.team, p.ownerId, p.damageMul);
     }
     if (d.explosionRadius <= 0.0f) {
+        // Impact sparks streak off the hit (cosmetic randomness: gameplay streams are untouched).
         Rgba c = hexRgba(d.color);
-        level.particles().burst(at, 6, 90.0f, c, scaled(c, 0.8f), 0.25f, rng);
+        level.particles().burst(at, 10, 110.0f, c, scaled(c, 0.8f), 0.22f, level.fxRng(), 0.3f,
+                                partflag::kFade | partflag::kDieOnHit | partflag::kStreak);
     }
     p.dead = true;
 }

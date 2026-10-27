@@ -687,6 +687,23 @@ void Enemy::onDamaged(Level& level, const DamageInfo& info, float dealt) {
     }
 }
 
+Enemy::SpritePose Enemy::pose(float time) const {
+    const Vec2 p = body.pos;
+    const Color tint = enemyTint(type_);
+    if (type_ == EnemyType::Boss) {
+        constexpr int kScale = 2; // as drawBoss
+        const SpriteFrame& f = spriteFrame(SpriteId::Boss, 0);
+        return {SpriteId::Boss, 0, {p.x - static_cast<float>(f.w * kScale) * 0.5f, p.y - static_cast<float>(f.h * kScale) * 0.5f},
+                kScale, false, tint};
+    }
+    const int frame = animFrame(time);
+    const SpriteFrame& f = spriteFrame(def_->sprite, frame);
+    const int sc = def_->scale;
+    const float w = static_cast<float>(f.w * sc), h = static_cast<float>(f.h * sc);
+    const float top = flying || !segments.empty() ? p.y - h * 0.5f : p.y + body.halfH - h; // as drawAlbedo
+    return {def_->sprite, frame, {p.x - w * 0.5f, top}, sc, !facingRight_, tint};
+}
+
 float Enemy::knockbackTaken() const {
     if (def_->guardian || def_->behaviour == Behaviour::Boss) return 0.15f;
     if (def_->behaviour == Behaviour::Brute) return 0.4f;

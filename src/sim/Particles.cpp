@@ -39,10 +39,10 @@ void ParticleSystem::addVisual(Vec2 pos, Vec2 vel, Rgba color, Rgba glow, float 
 }
 
 void ParticleSystem::burst(Vec2 pos, int count, float speed, Rgba color, Rgba glow, float life, Rng& rng,
-                           float gravity) {
+                           float gravity, uint8_t flags) {
     for (int i = 0; i < count; ++i) {
         Vec2 v = fromAngle(rng.angle(), speed * rng.range(0.3f, 1.0f));
-        addVisual(pos, v, color, glow, life * rng.range(0.5f, 1.0f), gravity);
+        addVisual(pos, v, color, glow, life * rng.range(0.5f, 1.0f), gravity, flags);
     }
 }
 

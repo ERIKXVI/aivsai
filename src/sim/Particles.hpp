@@ -50,7 +50,8 @@ public:
     void addVisual(Vec2 pos, Vec2 vel, Rgba color, Rgba glow, float life, float gravity = 0.4f,
                    uint8_t flags = partflag::kFade | partflag::kDieOnHit);
     /// Radial burst of sparks.
-    void burst(Vec2 pos, int count, float speed, Rgba color, Rgba glow, float life, Rng& rng, float gravity = 0.3f);
+    void burst(Vec2 pos, int count, float speed, Rgba color, Rgba glow, float life, Rng& rng, float gravity = 0.3f,
+               uint8_t flags = partflag::kFade | partflag::kDieOnHit);
 
     void update(World& world, float dt);
     /// Stamps every particle `alpha` of the way from its previous to its current position;
