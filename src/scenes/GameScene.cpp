@@ -115,6 +115,14 @@ void GameScene::applyLaunchOptions() {
         const Rectf& v = level_->layout().vaults.front();
         level_->debugTeleport({v.x + v.w * 0.5f, v.y + v.h - 12.0f});
     }
+    if (app_.options().openUi == "lair") {
+        // The keeper has just fallen in its lair, its essence altars rising (stages I-IV).
+        for (const SpawnPoint& s : level_->layout().spawns)
+            if (s.kind == SpawnKind::LairGuardian) level_->debugTeleport(s.pos + Vec2{-30.0f, -8.0f});
+        for (auto& e : level_->enemies())
+            if (e->alive() && e->guardian()) e->applyDamage(*level_, {1.0e7f, DamageType::Physical, {}, Team::Player, false, true, "preview"});
+        camera_.reset(level_->player().body.pos);
+    }
     if (app_.options().openUi == "transmuter" && !level_->transmuters().empty()) {
         level_->debugTeleport(level_->transmuters().front().pos + Vec2{-30.0f, -8.0f});
         camera_.reset(level_->player().body.pos);
