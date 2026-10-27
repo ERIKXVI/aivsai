@@ -18,7 +18,7 @@ yourself from spell cards.
 | ![The map: the portal is the goal, guardians are optional](docs/media/map.jpg) | ![The Grimoire](docs/media/grimoire.jpg) |
 | ![Alchemy Sandbox](docs/media/sandbox.jpg) | ![Wand editing](docs/media/inventory.jpg) |
 | ![A Volatile omen announced on the title card](docs/media/omen.jpg) | ![The chronicle of recent runs](docs/media/chronicle.jpg) |
-| ![The White Wraith in its lair](docs/media/guardian.jpg) | ![The death screen: the culprit, the next path and a retry](docs/media/deathscreen.jpg) |
+| ![The White Wraith in its lair](docs/media/guardian.jpg) | ![The death screen: the culprit, how far down, the next path and a retry](docs/media/deathscreen.jpg) |
 | ![A lava breach floods a passage beside the Red Colossus' lair; three essences circle the alchemist](docs/media/breach.jpg) | ![Choosing an ordeal under the starting paths](docs/media/ordeals.jpg) |
 
 ## Playing
