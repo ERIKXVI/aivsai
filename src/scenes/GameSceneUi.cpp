@@ -277,15 +277,21 @@ void GameScene::drawReticle(float alpha) const {
 }
 
 void GameScene::drawHud() const {
+    drawVitals();
+    drawRunCorner();
+    drawHotbar();
+    drawFlask();
+    drawBossBar();
+}
+
+void GameScene::drawVitals() const {
     const float s = static_cast<float>(ui::scale());
-    const int size = ui::fontSize(ui::scale());
     const int small = ui::smallFontSize();
     const Player& pl = level_->player();
-    const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
 
     // Health, mana, levitation, breath.
     float x = 10.0f * s, y = 10.0f * s;
-    float barW = 110.0f * s;
+    const float barW = 110.0f * s;
     ui::bar({x, y, barW, 7.0f * s}, pl.hp / pl.maxHp, ui::color::kHealth, ui::color::kBarBack, hpTrail_.shown);
     ui::text(TextFormat("%d / %d", static_cast<int>(std::ceil(pl.hp)), static_cast<int>(pl.maxHp)), x + 3.0f * s,
              y + 3.5f * s - static_cast<float>(small) * 0.5f, small, WHITE);
@@ -294,7 +300,7 @@ void GameScene::drawHud() const {
         const Wand& w = *wand;
         ui::bar({x, y, barW, 4.0f * s}, w.mana / w.manaMax, ui::color::kMana);
         y += 5.0f * s;
-        float reload = w.cooldownTotal > 0.0f ? 1.0f - w.cooldown / w.cooldownTotal : 1.0f;
+        const float reload = w.cooldownTotal > 0.0f ? 1.0f - w.cooldown / w.cooldownTotal : 1.0f;
         ui::bar({x, y, barW, 2.0f * s}, reload, w.recharging ? Color{255, 170, 60, 255} : Color{200, 200, 220, 255});
         y += 3.0f * s;
     }
@@ -328,6 +334,13 @@ void GameScene::drawHud() const {
         ui::text(label, chipX, y + 2.0f * s, small, color);
         chipX += static_cast<float>(ui::measure(label, small)) + 8.0f * s;
     }
+}
+
+void GameScene::drawRunCorner() const {
+    const float s = static_cast<float>(ui::scale());
+    const int size = ui::fontSize(ui::scale());
+    const int small = ui::smallFontSize();
+    const float sw = static_cast<float>(app_.screenWidth());
 
     // Gold and stage.
     // A fresh coin pops the counter up a size and flashes it pale gold for a moment.
@@ -342,17 +355,23 @@ void GameScene::drawHud() const {
     const float essenceY = 10.0f * s + static_cast<float>(size + small) + 8.0f * s;
     drawEssences(sw - 10.0f * s, essenceY);
     if (!level_->isSanctum() && mode_ != Mode::Map) minimap_.drawCorner(*level_, sw, essenceY + 8.0f * s, time_);
+}
+
+void GameScene::drawHotbar() const {
+    const float s = static_cast<float>(ui::scale());
+    const int small = ui::smallFontSize();
+    const float sh = static_cast<float>(app_.screenHeight());
 
     // Wands and the active deck.
     const float icon = 13.0f * s;
     float wx = 10.0f * s, wy = sh - icon - 10.0f * s;
     for (size_t i = 0; i < run_.wands.size(); ++i) {
         const Wand& w = run_.wands[i];
-        bool active = static_cast<int>(i) == run_.activeWand;
-        Rectangle r{wx, wy, icon, icon};
+        const bool active = static_cast<int>(i) == run_.activeWand;
+        const Rectangle r{wx, wy, icon, icon};
         ui::panel(r, active ? Color{60, 44, 90, 235} : Color{20, 16, 28, 220}, active ? ui::color::kAccent : ui::color::kPanelBorder);
         // Tiny wand glyph.
-        Vector2 a{r.x + 3.0f * s, r.y + r.height - 3.0f * s}, b{r.x + r.width - 3.0f * s, r.y + 3.0f * s};
+        const Vector2 a{r.x + 3.0f * s, r.y + r.height - 3.0f * s}, b{r.x + r.width - 3.0f * s, r.y + 3.0f * s};
         DrawLineEx(a, b, 1.5f * s, hexColor(w.handleColor));
         DrawCircleV(b, 1.5f * s, hexColor(w.gemColor));
         ui::text(std::to_string(i + 1), r.x + 1.0f * s, r.y, small, ui::color::kTextDim);
@@ -360,12 +379,12 @@ void GameScene::drawHud() const {
     }
     if (const Wand* wand = run_.currentWand()) {
         const Wand& w = *wand;
-        float dx = wx + 8.0f * s;
+        const float dx = wx + 8.0f * s;
         ui::text(w.name, dx, wy - static_cast<float>(small) - 2.0f * s, small, ui::color::kText);
         const float slot = 11.0f * s;
-        int nextSlot = w.deckPos;
+        const int nextSlot = w.deckPos;
         for (int i = 0; i < w.capacity; ++i) {
-            Rectangle r{dx + static_cast<float>(i) * (slot + 2.0f * s), wy + (icon - slot) * 0.5f, slot, slot};
+            const Rectangle r{dx + static_cast<float>(i) * (slot + 2.0f * s), wy + (icon - slot) * 0.5f, slot, slot};
             // Slot order, not cast order: a shuffle wand gets no read-head highlight.
             const SpellId spell = w.slots[static_cast<size_t>(i)];
             ui::spellIcon(spell, r, i == nextSlot && !w.shuffle);
@@ -386,29 +405,39 @@ void GameScene::drawHud() const {
             ui::text("Satchel full", bx, by + (slot - static_cast<float>(small)) * 0.5f, small, ui::color::kDanger);
         }
     }
+}
 
-    // Flask.
-    {
-        const Flask& f = run_.flask;
-        float fw = 12.0f * s, fh = 18.0f * s;
-        Rectangle r{sw - fw - 12.0f * s, sh - fh - 10.0f * s, fw, fh};
-        DrawRectangleRec(r, Color{20, 24, 34, 220});
-        if (!f.empty()) {
-            Rgba c = cellColor(makeCell(f.mat, 128), 0, 0, 0);
-            float frac = static_cast<float>(f.amount) / Flask::kCapacity;
-            DrawRectangleRec({r.x, r.y + r.height * (1.0f - frac), r.width, r.height * frac}, Color{c.r, c.g, c.b, 255});
-        }
-        DrawRectangleLinesEx(r, s, Color{190, 220, 240, 200});
-        DrawRectangleRec({r.x + r.width * 0.3f, r.y - 3.0f * s, r.width * 0.4f, 3.0f * s}, Color{120, 80, 50, 255});
-        std::string label = f.empty() ? "Empty flask" : std::string(matDef(f.mat).name) + TextFormat(" %d%%", f.amount * 100 / Flask::kCapacity);
-        // The flask's name and its controls, on a dark plate so they read over ice and sulphur.
-        const char* legend = usingGamepad_ ? "LT pour  Y absorb  X drink" : "RMB pour  Q absorb  F drink";
-        const float plateW = static_cast<float>(std::max(ui::measure(label, small), ui::measure(legend, small))) + 6.0f * s;
-        const float plateY = r.y + r.height - static_cast<float>(small) * 2.2f - 2.0f * s;
-        DrawRectangleRec({r.x - 4.0f * s - plateW, plateY, plateW + 2.0f * s, r.y + r.height - plateY + 2.0f * s}, Color{10, 8, 16, 150});
-        ui::text(label, r.x - 4.0f * s, r.y + r.height - static_cast<float>(small), small, ui::color::kText, ui::Align::Right);
-        ui::text(legend, r.x - 4.0f * s, r.y + r.height - static_cast<float>(small) * 2.2f, small, ui::color::kTextDim, ui::Align::Right);
+void GameScene::drawFlask() const {
+    const float s = static_cast<float>(ui::scale());
+    const int small = ui::smallFontSize();
+    const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
+
+    const Flask& f = run_.flask;
+    const float fw = 12.0f * s, fh = 18.0f * s;
+    const Rectangle r{sw - fw - 12.0f * s, sh - fh - 10.0f * s, fw, fh};
+    DrawRectangleRec(r, Color{20, 24, 34, 220});
+    if (!f.empty()) {
+        const Rgba c = cellColor(makeCell(f.mat, 128), 0, 0, 0);
+        const float frac = static_cast<float>(f.amount) / Flask::kCapacity;
+        DrawRectangleRec({r.x, r.y + r.height * (1.0f - frac), r.width, r.height * frac}, Color{c.r, c.g, c.b, 255});
     }
+    DrawRectangleLinesEx(r, s, Color{190, 220, 240, 200});
+    DrawRectangleRec({r.x + r.width * 0.3f, r.y - 3.0f * s, r.width * 0.4f, 3.0f * s}, Color{120, 80, 50, 255});
+    const std::string label =
+        f.empty() ? "Empty flask" : std::string(matDef(f.mat).name) + TextFormat(" %d%%", f.amount * 100 / Flask::kCapacity);
+    // The flask's name and its controls, on a dark plate so they read over ice and sulphur.
+    const char* legend = usingGamepad_ ? "LT pour  Y absorb  X drink" : "RMB pour  Q absorb  F drink";
+    const float plateW = static_cast<float>(std::max(ui::measure(label, small), ui::measure(legend, small))) + 6.0f * s;
+    const float plateY = r.y + r.height - static_cast<float>(small) * 2.2f - 2.0f * s;
+    DrawRectangleRec({r.x - 4.0f * s - plateW, plateY, plateW + 2.0f * s, r.y + r.height - plateY + 2.0f * s}, Color{10, 8, 16, 150});
+    ui::text(label, r.x - 4.0f * s, r.y + r.height - static_cast<float>(small), small, ui::color::kText, ui::Align::Right);
+    ui::text(legend, r.x - 4.0f * s, r.y + r.height - static_cast<float>(small) * 2.2f, small, ui::color::kTextDim, ui::Align::Right);
+}
+
+void GameScene::drawBossBar() const {
+    const float s = static_cast<float>(ui::scale());
+    const int size = ui::fontSize(ui::scale());
+    const float sw = static_cast<float>(app_.screenWidth());
 
     // Boss (or guardian) health.
     if (const Enemy* boss = level_->bossBarTarget()) {

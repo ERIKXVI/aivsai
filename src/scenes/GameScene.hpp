@@ -61,8 +61,6 @@ private:
     /// Records a feat in the profile the first time it is earned, and queues its toast.
     void earnFeat(FeatId feat);
     void updateFeats(float dt);
-    void drawFeatToast() const;
-    void drawEssences(float right, float y) const;
     void updateEditorPad();
     /// Records the left stick's current direction, so a stick already held does not count as a flick.
     void syncStickFlick();
@@ -73,6 +71,18 @@ private:
 
     void drawWorldOverlays(float alpha) const;
     void drawHud() const;
+    /// Top left: the health, mana, reload, levitation and breath bars, and the status chips.
+    void drawVitals() const;
+    /// Top right: gold with its pop, the stage and its omen, the essences and the corner minimap.
+    void drawRunCorner() const;
+    /// Bottom left: the wand icons, the held wand's deck and the satchel's newest spell.
+    void drawHotbar() const;
+    /// Bottom right: the flask, its contents and its controls.
+    void drawFlask() const;
+    /// The boss's (or a guardian's) health bar along the top.
+    void drawBossBar() const;
+    void drawFeatToast() const;
+    void drawEssences(float right, float y) const;
     void drawCompass(float alpha) const;
     /// A floor or shop wand's slots and stats, ending just above `bottom` (the pickup prompt),
     /// compared with the wand in hand.
