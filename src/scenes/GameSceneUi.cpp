@@ -934,7 +934,8 @@ void GameScene::drawEndScreen(bool victory) {
                             !prof.history[0].victory && !prof.history[1].victory;
     if (struggling) {
         const Rectangle easier{sw * 0.5f - bw, y + bh + gap, bw * 2.0f, bh};
-        if (ui::button(easier, "Try as Apprentice")) {
+        const bool easierKey = input::keyPressed(KEY_P) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT);
+        if (ui::button(easier, usingGamepad_ ? "Try as Apprentice (X)" : "Try as Apprentice (P)") || easierKey) {
             app_.settings().difficulty = static_cast<int>(Difficulty::Apprentice);
             if (!app_.options().automated()) saveSettings(app_.settings());
             app_.setScene(std::make_unique<GameScene>(app_, newRun(randomRunSeed(), Difficulty::Apprentice, false, run_.loadout, 0)));

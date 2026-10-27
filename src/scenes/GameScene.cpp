@@ -433,7 +433,9 @@ void GameScene::updateModeInput(float dt) {
     // Alt-tabbing away pauses the run.
     if (mode_ == Mode::Playing && !IsWindowFocused() && !app_.options().automated()) mode_ = Mode::Paused;
     if (mode_ == Mode::Playing) {
-        confirmAbandon_ = confirmQuit_ = false; // the pause menu opens unarmed
+        // The pause menu opens unarmed, with no entry focused (it starts on Resume).
+        confirmAbandon_ = confirmQuit_ = false;
+        pauseNav_ = ui::NavList{};
         latchInput();
         if (input::keyPressed(KEY_ESCAPE) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT)) mode_ = Mode::Paused;
         else if (input::keyPressed(KEY_TAB) || input::keyPressed(KEY_I) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT)) {

@@ -535,7 +535,7 @@ void Level::addDamageNumber(uint32_t owner, Vec2 pos, float amount, bool crit) {
         t.scale = t.crit ? 1.3f : 1.0f;
         t.life = kLife;
         t.pop = 1.0f;
-        t.pos.x = pos.x;
+        t.pos = pos; // back over the creature: a long fight must not float its tally away
         return;
     }
     addFloatText(pos, "", crit ? 0xffe040 : 0xffffff, crit ? 1.3f : 1.0f);

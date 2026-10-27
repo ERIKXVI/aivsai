@@ -193,8 +193,9 @@ void Player::move(Level& level, const Environment& env) {
         // Variable jump: keep rising on the initial press, then levitate once falling.
         bool rising = body.vel.y < 0.0f && jumpedThisPress_;
         const bool lifting = !rising && levitation_ > 0.0f;
+        // Once per hold: lifting flickers on and off as the rise and the hover alternate.
         if (lifting && !levitating_) level.audio().play(Sfx::Levitate, 0.35f, level.fxRng().range(0.9f, 1.1f));
-        levitating_ = lifting;
+        if (lifting) levitating_ = true;
         if (lifting) {
             body.vel.y = approach(body.vel.y, -kLevitateSpeed, kLevitateAccel * dt);
             levitation_ = std::max(0.0f, levitation_ - dt / levMax);
@@ -220,12 +221,12 @@ void Player::move(Level& level, const Environment& env) {
         footstepTimer_ -= dt * std::fabs(body.vel.x) / kRunSpeed;
         if (footstepTimer_ <= 0.0f) {
             footstepTimer_ = 0.26f;
-            const MaterialDef& under = matDef(level.world().matAt(floorToInt(body.pos.x), floorToInt(body.pos.y + body.halfH + 1.0f)));
+            const MaterialDef& under = matDef(level.world().matAt(floorToInt(body.pos.x), floorToInt(body.pos.y + body.halfH + 0.6f)));
             const float pitch = under.phase == Phase::Powder || under.hardness < 50 ? 0.8f : (under.hardness >= 140 ? 1.25f : 1.0f);
             level.audio().play(Sfx::Step, 0.22f, pitch * level.fxRng().range(0.92f, 1.08f));
         }
-    } else {
-        footstepTimer_ = 0.0f; // the first step lands as soon as the alchemist sets off
+    } else if (body.onGround) {
+        footstepTimer_ = 0.0f; // the first step lands as soon as the alchemist sets off (not after a step down)
     }
     if (body.onGround && !grounded && lastFallSpeed_ > 150.0f) {
         level.audio().play(Sfx::Land, std::min(1.0f, lastFallSpeed_ / 400.0f));

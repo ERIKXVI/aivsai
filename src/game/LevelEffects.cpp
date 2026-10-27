@@ -29,6 +29,8 @@ std::optional<AlchemyKill> alchemyOf(const Actor& victim) {
     if (cause == nullptr) return std::nullopt;
     for (int i = 1; i < kSpellCount; ++i)
         if (std::strcmp(cause, spellDef(static_cast<SpellId>(i)).name) == 0) return std::nullopt;
+    for (int i = 0; i < kPerkCount; ++i) // the alchemist's own gifts (Thorns) are no accident of the world
+        if (std::strcmp(cause, perkDef(static_cast<PerkId>(i)).name) == 0) return std::nullopt;
     if (enemyNamed(cause)) return AlchemyKill{"Friendly fire!", 0xffa0e0};
     if (std::strcmp(cause, "a cave-in") == 0) return AlchemyKill{"Crushed!", 0xd0b890};
     switch (victim.lastHitType) {
@@ -148,7 +150,8 @@ void Level::explode(Vec2 c, const ExplosionSpec& s) {
             if (d > scorchR || !w.inBounds(x, y)) continue;
             Cell& cell = w.at(x, y);
             const MaterialDef& md = matDef(cell.mat);
-            if (md.phase != Phase::Solid || md.hardness >= 255) continue;
+            // Gold ore and coal keep their flecks (the top of their palettes), so they still read.
+            if (md.phase != Phase::Solid || md.hardness >= 255 || cell.mat == mat::GoldOre || cell.mat == mat::Coal) continue;
             const int burn = static_cast<int>(110.0f * (1.0f - d / scorchR));
             cell.var = static_cast<uint8_t>(std::max(0, static_cast<int>(cell.var) - burn));
         }
@@ -426,21 +429,28 @@ void Level::shatter(const Enemy& e) {
     // fade. Cosmetic randomness only, so seeded runs are untouched.
     constexpr size_t kMaxShards = 600;
     const Enemy::SpritePose pose = e.pose(time_);
-    const SpriteFrame& frame = spriteFrame(pose.sprite, pose.frame);
-    if (frame.pixels.empty()) return;
     const Vec2 away = (e.body.pos - player_->body.pos).normalized();
-    const float s = static_cast<float>(pose.scale);
-    const size_t stride = frame.pixels.size() / kMaxShards + 1;
-    for (size_t i = 0; i < frame.pixels.size(); i += stride) {
-        const SpritePixel& px = frame.pixels[i];
-        const float lx = static_cast<float>(pose.flip ? frame.w - 1 - px.x : px.x);
-        const Vec2 at = pose.topLeft + Vec2{(lx + 0.5f) * s, (static_cast<float>(px.y) + 0.5f) * s};
-        const Vec2 vel = away * fxRng_.range(40.0f, 110.0f) + (at - e.body.pos) * fxRng_.range(3.0f, 8.0f) +
-                         Vec2{fxRng_.range(-25.0f, 25.0f), fxRng_.range(-90.0f, -30.0f)};
-        const Rgba col{static_cast<uint8_t>(px.color.r * pose.tint.r / 255), static_cast<uint8_t>(px.color.g * pose.tint.g / 255),
-                       static_cast<uint8_t>(px.color.b * pose.tint.b / 255), 255};
-        particles_.addVisual(at, vel, col, px.emissive ? col : Rgba{0, 0, 0, 0}, fxRng_.range(0.6f, 1.4f), 1.0f, partflag::kFade);
-    }
+    // One sprite's pixels around `centre`, at most `budget` of them.
+    auto burst = [&](const SpriteFrame& frame, Vec2 topLeft, float s, bool flip, Vec2 centre, size_t budget) {
+        if (frame.pixels.empty() || budget == 0) return;
+        const size_t stride = frame.pixels.size() / budget + 1;
+        for (size_t i = 0; i < frame.pixels.size(); i += stride) {
+            const SpritePixel& px = frame.pixels[i];
+            const float lx = static_cast<float>(flip ? frame.w - 1 - px.x : px.x);
+            const Vec2 at = topLeft + Vec2{(lx + 0.5f) * s, (static_cast<float>(px.y) + 0.5f) * s};
+            const Vec2 vel = away * fxRng_.range(40.0f, 110.0f) + (at - centre) * fxRng_.range(3.0f, 8.0f) +
+                             Vec2{fxRng_.range(-25.0f, 25.0f), fxRng_.range(-90.0f, -30.0f)};
+            const Rgba col{static_cast<uint8_t>(px.color.r * pose.tint.r / 255), static_cast<uint8_t>(px.color.g * pose.tint.g / 255),
+                           static_cast<uint8_t>(px.color.b * pose.tint.b / 255), 255};
+            particles_.addVisual(at, vel, col, px.emissive ? col : Rgba{0, 0, 0, 0}, fxRng_.range(0.6f, 1.4f), 1.0f, partflag::kFade);
+        }
+    };
+    // A worm's body breaks apart segment by segment along with its head, sharing the budget.
+    const size_t parts = 1 + e.segments.size();
+    burst(spriteFrame(pose.sprite, pose.frame), pose.topLeft, static_cast<float>(pose.scale), pose.flip, e.body.pos, kMaxShards / parts);
+    const SpriteFrame& segment = spriteFrame(SpriteId::WormBody, 0);
+    for (const Vec2& c : e.segments)
+        burst(segment, c - Vec2{static_cast<float>(segment.w) * 0.5f, static_cast<float>(segment.h) * 0.5f}, 1.0f, false, c, kMaxShards / parts);
 }
 
 void Level::creditAlchemy(const Enemy& e) {

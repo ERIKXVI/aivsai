@@ -181,7 +181,8 @@ void Enemy::contactPlayer(Level& level) {
     if (def_->contactType == DamageType::Ice) pl.status.chilled = 2.0f;
     contactDamageCooldown = 0.7f;
     if (level.run().hasPerk(PerkId::Thorns))
-        applyDamage(level, {15.0f * level.run().perkCount(PerkId::Thorns), DamageType::Physical, kb * -1.0f, Team::Player});
+        applyDamage(level, {15.0f * level.run().perkCount(PerkId::Thorns), DamageType::Physical, kb * -1.0f, Team::Player, false, false,
+                            perkDef(PerkId::Thorns).name});
 }
 
 void Enemy::wake(Level& level) {
@@ -467,9 +468,10 @@ void Enemy::tickKamikaze(Level& level, Vec2 toPlayer, bool /*sees*/) {
         else wanderDir_ = -wanderDir_;
     }
     if (aggro_ && dist < 10.0f) {
-        // Detonate on contact.
+        // Detonate on contact (its own doing: no earlier hit is credited with it).
         hp = 0.0f;
         dead = true;
+        lastHitCause = nullptr;
         onKilled(level, {});
     }
 }
@@ -676,7 +678,8 @@ void Enemy::onDamaged(Level& level, const DamageInfo& info, float dealt) {
     // Hit reactions: the knockback carries a moment before the creature recovers. A heavy blow
     // makes it flinch and lose a telegraphed attack, and poise then guards against a stun-lock.
     const Behaviour b = def_->behaviour;
-    if (def_->guardian || b == Behaviour::Boss || b == Behaviour::Burrower) return;
+    // Rooted creatures (sentinels, shrooms) hold their ground.
+    if (def_->guardian || b == Behaviour::Boss || b == Behaviour::Burrower || b == Behaviour::Turret || b == Behaviour::Spore) return;
     stagger_ = std::max(stagger_, 0.08f);
     const bool heavy = info.crit || info.type == DamageType::Explosion || info.type == DamageType::Electric || dealt >= maxHp * 0.12f;
     if (heavy && poise_ <= 0.0f) {

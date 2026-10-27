@@ -158,7 +158,7 @@ void pullIntoWell(Level& level, Projectile& p, float dt) {
         if (dist < 70.0f && dist > 0.5f) {
             e->body.vel += to.normalized() * (900.0f * dt * (1.0f - dist / 70.0f));
             if (dist < d.digRadius + 3.0f && p.hitCooldown <= 0.0f)
-                e->applyDamage(level, {d.damage * p.damageMul, DamageType::Physical, {}, p.team, false, true});
+                e->applyDamage(level, {d.damage * p.damageMul, DamageType::Physical, {}, p.team, false, true, projectileCause(level, p)});
         }
     }
     if (p.hitCooldown <= 0.0f) p.hitCooldown = 0.1f;

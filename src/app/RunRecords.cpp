@@ -113,6 +113,8 @@ RunRecord recordRun(Profile& profile, const RunState& run, bool victory, const s
 Milestones milestonesOf(const Profile& p) {
     int guardians = 0;
     for (int i = 0; i < kGuardianCount; ++i) guardians += p.creatureKills[static_cast<size_t>(guardianFor(i))];
+    // The Hermeticist once opened to a victory: a victor keeps the path they earned.
+    if (p.victories > 0) guardians = std::max(guardians, 1);
     return {p.deepest, p.victories, p.chestsOpened, p.totalKills, guardians};
 }
 

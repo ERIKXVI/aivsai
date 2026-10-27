@@ -160,10 +160,14 @@ TEST_CASE("loadouts unlock through milestones") {
     p.creatureKills[static_cast<size_t>(EnemyType::Ghoul)] = 30; // not a guardian
     const Milestones m = milestonesOf(p);
     CHECK(m.deepest == 5 && m.victories == 1 && m.chestsOpened == 40 && m.totalKills == 1000 && m.guardiansSlain == 2);
-    // The Hermeticist opens to a guardian's slayer, before any victory.
+    // The Hermeticist opens to a guardian's slayer, before any victory...
     Milestones slayer;
     slayer.guardiansSlain = 1;
     CHECK(loadoutUnlocked(LoadoutId::Hermeticist, slayer));
+    // ...and stays open for a victor from before, who earned it under the old rule.
+    Profile victor;
+    victor.victories = 1;
+    CHECK(loadoutUnlocked(LoadoutId::Hermeticist, milestonesOf(victor)));
 }
 
 TEST_CASE("suspended runs survive a save and load") {
