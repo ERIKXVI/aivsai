@@ -148,6 +148,8 @@ private:
     int shownGold_ = -1;         ///< gold total the HUD last saw
     uint32_t announcedGuardian_ = 0; ///< id of the guardian whose title card was last shown
     ui::BarTrail hpTrail_, bossTrail_; ///< the pale chips a hit leaves on the health bars
+    int satchelNew_ = 0;              ///< spells gone to the satchel since the editor was last opened
+    int satchelCounted_ = 0;          ///< the level's spellsToSatchel() already added to satchelNew_
     uint32_t bossTrailId_ = 0;        ///< whose health the boss chip follows
     struct Toast {
         FeatId feat;

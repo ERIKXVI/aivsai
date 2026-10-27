@@ -353,6 +353,21 @@ void GameScene::drawHud() const {
             const SpellId spell = w.slots[static_cast<size_t>(i)];
             ui::spellIcon(spell, r, i == nextSlot && !w.shuffle);
         }
+        // Spells waiting in the satchel: the newest one in a pulsing gold frame, and the way in.
+        const float bx = dx + static_cast<float>(w.capacity) * (slot + 2.0f * s) + 10.0f * s;
+        const float by = wy + (icon - slot) * 0.5f;
+        const bool full = std::none_of(run_.inventory.begin(), run_.inventory.end(), [](SpellId sp) { return sp == SpellId::None; });
+        if (satchelNew_ > 0 && level_->lastToSatchel() != SpellId::None) {
+            const Rectangle r{bx, by, slot, slot};
+            ui::spellIcon(level_->lastToSatchel(), r);
+            const auto pulse = static_cast<unsigned char>(150.0f + 100.0f * std::sin(time_ * 5.0f));
+            DrawRectangleLinesEx({r.x - s, r.y - s, r.width + 2.0f * s, r.height + 2.0f * s}, s,
+                                 Color{ui::color::kGold.r, ui::color::kGold.g, ui::color::kGold.b, pulse});
+            ui::text(TextFormat("+%d  %s", satchelNew_, usingGamepad_ ? "Back" : "Tab"), r.x + slot + 4.0f * s,
+                     r.y + (slot - static_cast<float>(small)) * 0.5f, small, ui::color::kGold);
+        } else if (full) {
+            ui::text("Satchel full", bx, by + (slot - static_cast<float>(small)) * 0.5f, small, ui::color::kDanger);
+        }
     }
 
     // Flask.

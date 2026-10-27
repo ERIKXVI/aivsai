@@ -76,6 +76,7 @@ void GameScene::finishLoading() {
     hints_.reset();
     minimap_.reset(*level_);
     guide_.reset(level_->layout().playerStart, level_->layout().mainPath, level_->exitPos());
+    satchelCounted_ = 0; // each level counts its own satchel pickups
     mode_ = Mode::Playing;
     applyLaunchOptions();
     guide_.update(level_->player().body.pos);
@@ -408,6 +409,9 @@ void GameScene::frame(float dt) {
         eventNoticeTime_ = 0.0f;
     }
     if (mode_ == Mode::Playing) eventNoticeTime_ += dt;
+    // Spells that went to the satchel wait on a HUD badge until the editor is opened.
+    satchelNew_ += level_->spellsToSatchel() - satchelCounted_;
+    satchelCounted_ = level_->spellsToSatchel();
     // Health bars keep a pale chip of what a hit took, draining after a moment.
     if (mode_ == Mode::Playing || mode_ == Mode::Dead) {
         const Player& pl = level_->player();
@@ -468,6 +472,7 @@ void GameScene::updateModeInput(float dt) {
         else if (input::keyPressed(KEY_TAB) || input::keyPressed(KEY_I) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT)) {
             mode_ = Mode::Inventory;
             hints_.markSeen(Hint::EditWands); // found the editor; no need to point at it
+            satchelNew_ = 0;
             // A stick still held from walking must not count as a flick of the slot cursor.
             syncStickFlick();
         }

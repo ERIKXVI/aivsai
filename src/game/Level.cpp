@@ -418,6 +418,7 @@ void Level::interact() {
         } else {
             addFloatText(p.body.pos - Vec2{0.0f, 4.0f}, "to the satchel", 0x9fb4d0, 0.6f);
             ++spellsToSatchel_;
+            lastToSatchel_ = p.spell;
         }
         break;
     }

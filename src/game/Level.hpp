@@ -142,6 +142,8 @@ public:
     void earnFeat(FeatId feat) { feats_.push_back(feat); }
     /// Spells picked up on this stage that went to the satchel rather than onto a wand.
     int spellsToSatchel() const { return spellsToSatchel_; }
+    /// The spell most recently picked up into the satchel (None before the first).
+    SpellId lastToSatchel() const { return lastToSatchel_; }
     uint32_t ticks() const { return ticks_; }
     float shake() const { return shake_; }
     float combatIntensity() const { return intensity_; }
@@ -258,6 +260,7 @@ private:
     PlayerInput input_;
     float time_ = 0.0f;
     int spellsToSatchel_ = 0;
+    SpellId lastToSatchel_ = SpellId::None;
     std::vector<FeatId> feats_;
     std::array<float, 3> recentKills_{-9.0f, -9.0f, -9.0f}; ///< times of the last three kills (Carnage)
     size_t killRing_ = 0;
