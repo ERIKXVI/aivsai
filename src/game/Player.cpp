@@ -139,6 +139,23 @@ Vec2 Player::wandTip() const {
     return handPos(body.pos, facingRight_) + aimDir_ * len;
 }
 
+Vec2 Player::castOrigin(const World& world) const {
+    const Wand* w = run_.currentWand();
+    const int len = w ? w->length : 8; // as wandTip()
+    const Vec2 hand = handPos(body.pos, facingRight_);
+    Vec2 origin = hand;
+    // Half-cell steps, so the walk does not step over the corner of a wall.
+    for (int i = 1; i <= 2 * len; ++i) {
+        const Vec2 q = hand + aimDir_ * (0.5f * static_cast<float>(i));
+        const int x = floorToInt(q.x), y = floorToInt(q.y);
+        if (!world.inBounds(x, y)) break;
+        const Cell& c = world.at(x, y);
+        if (isSolidForCollision(c.mat) && !(c.flags & cellflag::kRime)) break;
+        origin = q;
+    }
+    return origin;
+}
+
 void Player::tick(Level& level) {
     body.prevPos = body.pos;
     const float dt = kTickDt;
@@ -375,16 +392,18 @@ void Player::handleWands(Level& level) {
     }
     if (outcome.status != CastStatus::Cast) return;
     float angle = angleOf(aimDir_);
-    level.castShot(outcome.shot, wandTip(), angle, Team::Player, id, damageMul());
+    // Spells leave the wand where it is still open: a tip pushed into or through a wall casts from its near face.
+    const Vec2 muzzle = castOrigin(level.world());
+    level.castShot(outcome.shot, muzzle, angle, Team::Player, id, damageMul());
     run_.stats.spellsCast++;
     castFlash_ = kCastFlashTime;
 
     const CastVoice v = castVoice(outcome.shot);
     level.audio().play(v.sfx, 0.55f, level.rng().range(0.93f, 1.07f));
-    // A burst of sparks from the wand tip in the spell's colour (fewer for rapid-fire wands), and a
+    // A burst of sparks from the muzzle in the spell's colour (fewer for rapid-fire wands), and a
     // kick of the view that even the lightest spell makes visible.
     const bool rapid = wand.castDelay < 0.05f;
-    castSparks(level, angle, v.color, rapid);
+    castSparks(level, muzzle, angle, v.color, rapid);
     recoil_ -= aimDir_ * clamp(0.15f + v.weight * 0.02f, rapid ? 0.25f : 0.6f, 1.5f);
 }
 
@@ -392,18 +411,19 @@ void Player::fizzle(Level& level) {
     if (level.ticks() % 20 == 0) {
         level.audio().play(Sfx::Fizzle, 0.3f);
         Rng& fx = level.fxRng();
+        const Vec2 muzzle = castOrigin(level.world());
         for (int i = 0; i < 4; ++i)
-            level.particles().addVisual(wandTip(), fromAngle(angleOf(aimDir_) + fx.range(-0.6f, 0.6f), fx.range(20.0f, 50.0f)),
+            level.particles().addVisual(muzzle, fromAngle(angleOf(aimDir_) + fx.range(-0.6f, 0.6f), fx.range(20.0f, 50.0f)),
                                         {150, 145, 160, 220}, {0, 0, 0, 0}, fx.range(0.15f, 0.3f), 0.5f);
     }
 }
 
-void Player::castSparks(Level& level, float angle, uint32_t color, bool rapid) {
+void Player::castSparks(Level& level, Vec2 muzzle, float angle, uint32_t color, bool rapid) {
     const Rgba spark = hexRgba(color);
     Rng& fx = level.fxRng();
     for (int i = 0, n = rapid ? 2 : 5; i < n; ++i) {
         const Vec2 dir = fromAngle(angle + fx.range(-0.22f, 0.22f));
-        level.particles().addVisual(wandTip(), dir * fx.range(70.0f, 150.0f), spark, spark, fx.range(0.08f, 0.16f), 0.0f,
+        level.particles().addVisual(muzzle, dir * fx.range(70.0f, 150.0f), spark, spark, fx.range(0.08f, 0.16f), 0.0f,
                                     partflag::kFade | partflag::kStreak | partflag::kDieOnHit | partflag::kNoGravity);
     }
 }
@@ -511,6 +531,7 @@ void Player::handleFlask(Level& level) {
             const int gold = static_cast<int>(std::lround(60.0f * fraction));
             if (gold > 0) {
                 run_.gold += gold;
+                run_.stats.goldCollected += gold;
                 level.addFloatText(body.pos, "+" + std::to_string(gold) + " gold", 0xffd040);
             }
             break;

@@ -58,7 +58,7 @@ private:
     void updateLens(float dt);
     /// Low-health heartbeat cue; it quickens as hp falls below a quarter of max.
     void updateHeartbeat(float dt);
-    /// Pause on focus loss, per-mode key/pad transitions (pause, inventory, map) and mode timers.
+    /// Pause on focus loss or a disconnected pad, per-mode key/pad transitions (pause, inventory, map) and mode timers.
     void updateModeInput(float dt);
     /// Raises the title card (stage or guardian); its height on screen is picked again as it fades in.
     void showTitleCard(std::string title, std::string subtitle, std::string omen = {});
@@ -154,6 +154,7 @@ private:
     bool loadSkipped_ = false;   ///< the player pressed on past the motto
     bool castBlocked_ = false;   ///< the left button was held over a menu; ignore it until released
     bool exiting_ = false;       ///< fading out towards the next stage
+    bool pauseOnArrival_ = false; ///< a pause asked for during the portal fade or the loading screen opens on the next stage
     float titleTimer_ = 0.0f;
     float titleTop_ = -1.0f; ///< the card's top as a fraction of the screen height; picked when it appears
     std::string titleMain_, titleSub_, titleOmen_;
@@ -169,7 +170,8 @@ private:
     Vec2 botAim_;              ///< where the autoplay bot aims (its reticle is drawn there)
     Vec2 padAim_{1.0f, 0.0f}; ///< the gamepad's aim direction, kept when the right stick is released
     bool padAimSet_ = false;   ///< the right stick has aimed at least once
-    bool usingGamepad_ = false;  ///< last input came from a gamepad (for button prompts)
+    bool usingGamepad_ = false;  ///< last input came from a gamepad (for button prompts); a run starts with the menu's device
+    bool padWasAvailable_ = false; ///< pad 0 was connected (and readable) last frame, to notice it dropping out
     float heartbeat_ = 0.0f;     ///< seconds until the next low-health heartbeat
     // Matter lens: names what the resting cursor points at.
     struct Lens {

@@ -23,6 +23,11 @@ bool g_anyKey = false;
 bool g_wasFocused = true;
 bool g_mouseBlocked = false; ///< swallowing the click that refocused the window
 double g_focusAt = 0.0;
+bool g_padBlocked = false; ///< another window has the focus, or it only just came back
+constexpr float kTriggerPull = 0.3f; ///< a trigger past this is pulled (as when casting)
+bool g_leftTrigger = false, g_rightTrigger = false; ///< each trigger was past kTriggerPull last frame
+bool g_triggerPulled = false; ///< a trigger crossed kTriggerPull this frame
+bool g_usingGamepad = false; ///< the last device used was the gamepad
 bool g_captured = false;
 GLFWcursor* g_blankCursor = nullptr;
 
@@ -51,6 +56,16 @@ void beginFrame() {
         g_focusAt = GetTime();
     }
     g_wasFocused = focused;
+    // A gamepad is shared by every app: what it does while another window has the focus, or in
+    // the moment that window hands it back, is not meant for this one.
+    g_padBlocked = !focused || GetTime() - g_focusAt <= kRefocusGrace;
+    // A trigger counts once, as it crosses the threshold, so a held one does not keep taking the
+    // prompts back from a moving mouse.
+    const bool left = padAxis(GAMEPAD_AXIS_LEFT_TRIGGER) > kTriggerPull;
+    const bool right = padAxis(GAMEPAD_AXIS_RIGHT_TRIGGER) > kTriggerPull;
+    g_triggerPulled = (left && !g_leftTrigger) || (right && !g_rightTrigger);
+    g_leftTrigger = left;
+    g_rightTrigger = right;
     if (g_mouseBlocked && GetTime() - g_focusAt > kRefocusGrace && !IsMouseButtonDown(MOUSE_BUTTON_LEFT) &&
         !IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
         g_mouseBlocked = false;
@@ -109,17 +124,31 @@ void setPlayCursor(bool captured) {
     g_captured = captured;
 }
 
-bool usingGamepad(bool wasGamepad) {
+bool padAvailable() { return !g_padBlocked && IsGamepadAvailable(0); }
+
+bool padPressed(int button) { return !g_padBlocked && IsGamepadButtonPressed(0, button); }
+
+bool padDown(int button) { return !g_padBlocked && IsGamepadButtonDown(0, button); }
+
+float padAxis(int axis) { return g_padBlocked ? 0.0f : GetGamepadAxisMovement(0, axis); }
+
+bool usingGamepad() {
     const Vector2 mouseDelta = GetMouseDelta();
-    if (anyKeyPressed() || mousePressed(MOUSE_BUTTON_LEFT) || mouseDelta.x * mouseDelta.x + mouseDelta.y * mouseDelta.y > 4.0f)
+    if (anyKeyPressed() || mousePressed(MOUSE_BUTTON_LEFT) || mouseDelta.x * mouseDelta.x + mouseDelta.y * mouseDelta.y > 4.0f) {
+        g_usingGamepad = false;
         return false;
-    if (!IsGamepadAvailable(0)) return wasGamepad;
-    const float lx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X), ly = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y),
-                rx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X), ry = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y);
-    if (std::fabs(lx) > 0.4f || std::fabs(ly) > 0.4f || rx * rx + ry * ry > 0.2f || GetGamepadButtonPressed() != GAMEPAD_BUTTON_UNKNOWN)
-        return true;
-    return wasGamepad;
+    }
+    if (!padAvailable()) return g_usingGamepad;
+    const float lx = padAxis(GAMEPAD_AXIS_LEFT_X), ly = padAxis(GAMEPAD_AXIS_LEFT_Y), rx = padAxis(GAMEPAD_AXIS_RIGHT_X),
+                ry = padAxis(GAMEPAD_AXIS_RIGHT_Y);
+    // raylib reports the triggers as axes only (never as the last button pressed), hence the pull.
+    if (std::fabs(lx) > 0.4f || std::fabs(ly) > 0.4f || rx * rx + ry * ry > 0.2f || g_triggerPulled ||
+        GetGamepadButtonPressed() != GAMEPAD_BUTTON_UNKNOWN)
+        g_usingGamepad = true;
+    return g_usingGamepad;
 }
+
+bool lastUsedGamepad() { return g_usingGamepad; }
 
 int WheelStepper::step(float delta, float dt) {
     cooldown_ = std::max(0.0f, cooldown_ - dt);

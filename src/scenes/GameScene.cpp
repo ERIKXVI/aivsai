@@ -32,7 +32,8 @@ void logAutoplay(const char* message) {
 } // namespace
 
 GameScene::GameScene(App& app, RunState run)
-    : Scene(app), run_(std::move(run)), levelRenderer_(scene_, app.sprites(), app.pool()), hints_(app.hintsShown()) {
+    : Scene(app), run_(std::move(run)), levelRenderer_(scene_, app.sprites(), app.pool()), hints_(app.hintsShown()),
+      usingGamepad_(input::lastUsedGamepad()) {
     requestLevel();
 }
 
@@ -50,6 +51,8 @@ GameScene::~GameScene() {
 }
 
 void GameScene::requestLevel() {
+    // A pause that opened during the portal fade (the focus lost, the pad gone) carries over to the next stage.
+    if (mode_ == Mode::Paused || mode_ == Mode::Settings || mode_ == Mode::Help) pauseOnArrival_ = true;
     mode_ = Mode::Loading;
     eventNotice_ = {}; // a notice raised just before the portal stays with its stage
     // A drag begun during the exit fade must not carry wand/slot indices into the next stage.
@@ -108,6 +111,8 @@ void GameScene::finishLoading() {
     run_.stats.deepest = std::max(run_.stats.deepest, run_.levelIndex + 1);
     // Every stage start is a resume point.
     if (!app_.options().previewOnly()) saveSuspendedRun(run_);
+    // A pause asked for on the way here opens now (not over a screen a launch option opened, nor in bot runs).
+    if (std::exchange(pauseOnArrival_, false) && mode_ == Mode::Playing && !app_.options().automated()) mode_ = Mode::Paused;
 }
 
 void GameScene::showTitleCard(std::string title, std::string subtitle, std::string omen) {
@@ -187,17 +192,17 @@ void GameScene::enterEndScreen(bool victory) {
 
 void GameScene::latchInput() {
     if (input::keyPressed(KEY_SPACE) || input::keyPressed(KEY_W) || input::keyPressed(KEY_UP) ||
-        IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN))
+        input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_DOWN))
         latchJump_ = true;
-    if (input::keyPressed(KEY_E) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT)) latchInteract_ = true;
-    if (input::keyPressed(KEY_F) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT)) latchDrink_ = true;
+    if (input::keyPressed(KEY_E) || input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_RIGHT)) latchInteract_ = true;
+    if (input::keyPressed(KEY_F) || input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_LEFT)) latchDrink_ = true;
     if (input::mousePressed(MOUSE_BUTTON_LEFT)) latchCast_ = true; // a tap shorter than a frame still casts
     for (int i = 0; i < RunState::kMaxWands; ++i)
         if (input::keyPressed(KEY_ONE + i)) latchWand_ = i;
     // Vertical only (a sideways swipe does not cycle); wheel up is the previous wand.
     latchCycle_ -= wheel_.step(GetMouseWheelMoveV().y, GetFrameTime());
-    if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_TRIGGER_1)) latchCycle_ -= 1;
-    if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_1)) latchCycle_ += 1;
+    if (input::padPressed(GAMEPAD_BUTTON_LEFT_TRIGGER_1)) latchCycle_ -= 1;
+    if (input::padPressed(GAMEPAD_BUTTON_RIGHT_TRIGGER_1)) latchCycle_ += 1;
 }
 
 void GameScene::updateLens(float dt) {
@@ -266,15 +271,15 @@ PlayerInput GameScene::gatherInput() {
     float move = 0.0f;
     if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) move -= 1.0f;
     if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) move += 1.0f;
-    const bool pad = IsGamepadAvailable(0);
+    const bool pad = input::padAvailable(); // idle while another window has the focus
     if (pad) {
-        float lx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X);
+        float lx = input::padAxis(GAMEPAD_AXIS_LEFT_X);
         if (std::fabs(lx) > 0.25f) move = lx;
     }
     in.moveX = clamp(move, -1.0f, 1.0f);
     in.jumpPressed = latchJump_;
     in.jumpHeld = IsKeyDown(KEY_SPACE) || IsKeyDown(KEY_W) || IsKeyDown(KEY_UP) ||
-                  (pad && IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN));
+                  (pad && input::padDown(GAMEPAD_BUTTON_RIGHT_FACE_DOWN));
     in.downHeld = IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN);
     in.aim = scene_.screenToWorld(GetMousePosition());
     // A click that closed a menu (Resume, Tab mid-drag) must not keep casting once play resumes.
@@ -283,7 +288,7 @@ PlayerInput GameScene::gatherInput() {
     in.sprayHeld = input::mouseDown(MOUSE_BUTTON_RIGHT);
     in.absorbHeld = IsKeyDown(KEY_Q);
     if (pad) {
-        float rx = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X), ry = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y);
+        float rx = input::padAxis(GAMEPAD_AXIS_RIGHT_X), ry = input::padAxis(GAMEPAD_AXIS_RIGHT_Y);
         if (rx * rx + ry * ry > 0.1f) {
             padAim_ = Vec2{rx, ry}.normalized();
             padAimSet_ = true;
@@ -292,9 +297,9 @@ PlayerInput GameScene::gatherInput() {
         }
         // On a pad the aim keeps the stick's last direction instead of snapping to the idle mouse pointer.
         if (usingGamepad_ && level_) in.aim = level_->player().body.pos + padAim_ * 80.0f;
-        if (GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_TRIGGER) > 0.3f) in.castHeld = true;
-        if (GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_TRIGGER) > 0.3f) in.sprayHeld = true;
-        if (IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_UP)) in.absorbHeld = true;
+        if (input::padAxis(GAMEPAD_AXIS_RIGHT_TRIGGER) > 0.3f) in.castHeld = true;
+        if (input::padAxis(GAMEPAD_AXIS_LEFT_TRIGGER) > 0.3f) in.sprayHeld = true;
+        if (input::padDown(GAMEPAD_BUTTON_RIGHT_FACE_UP)) in.absorbHeld = true;
     }
     in.interactPressed = latchInteract_;
     in.drinkPressed = latchDrink_;
@@ -378,7 +383,10 @@ void GameScene::frame(float dt) {
         constexpr float kMinLoadSeconds = 1.6f;
         fade_ = 1.0f;
         loadTimer_ += dt;
-        if (input::anyKeyPressed() || input::mousePressed(MOUSE_BUTTON_LEFT) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN))
+        // Esc or Start asks for the pause menu on arrival; it does not hurry the motto along.
+        if (input::keyPressed(KEY_ESCAPE) || input::padPressed(GAMEPAD_BUTTON_MIDDLE_RIGHT)) pauseOnArrival_ = true;
+        else if (input::anyKeyPressed() || input::mousePressed(MOUSE_BUTTON_LEFT) ||
+                 input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_DOWN))
             loadSkipped_ = true;
         const bool lingered = loadTimer_ >= kMinLoadSeconds || loadSkipped_ || app_.options().autoplay;
         if (lingered && pending_.valid() && pending_.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
@@ -419,7 +427,7 @@ void GameScene::frame(float dt) {
     if (input::keyPressed(KEY_F3)) debugOverlay_ = !debugOverlay_;
     updateHeartbeat(dt);
     if (mode_ != Mode::Playing) castBlocked_ = true;
-    usingGamepad_ = input::usingGamepad(usingGamepad_); // button prompts follow the device used last
+    usingGamepad_ = input::usingGamepad(); // button prompts follow the device used last
     updateModeInput(dt);
 
     // Camera and audio follow the alchemist.
@@ -482,33 +490,45 @@ void GameScene::updateHeartbeat(float dt) {
 void GameScene::updateModeInput(float dt) {
     // Alt-tabbing away pauses the run.
     if (mode_ == Mode::Playing && !IsWindowFocused() && !app_.options().automated()) mode_ = Mode::Paused;
+    // So does the pad in use dropping out (a flat battery, a pulled cable). An unfocused window
+    // reads the pad as gone too, so only a focused one counts it: the focus pause covers the rest.
+    const bool padNow = input::padAvailable();
+    if (mode_ == Mode::Playing && usingGamepad_ && padWasAvailable_ && !padNow && IsWindowFocused() && !app_.options().automated())
+        mode_ = Mode::Paused;
+    padWasAvailable_ = padNow;
     if (mode_ == Mode::Playing) {
         // The pause menu opens unarmed, with no entry focused (it starts on Resume).
         confirmAbandon_ = confirmQuit_ = false;
         pauseNav_ = ui::NavList{};
         latchInput();
-        if (input::keyPressed(KEY_ESCAPE) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT)) mode_ = Mode::Paused;
-        else if (input::keyPressed(KEY_TAB) || input::keyPressed(KEY_I) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT)) {
+        const bool pausePressed = input::keyPressed(KEY_ESCAPE) || input::padPressed(GAMEPAD_BUTTON_MIDDLE_RIGHT);
+        if (exiting_) {
+            // Through the portal no menu opens over the fade (the stage is about to go): a pause
+            // waits for the next stage.
+            if (pausePressed) pauseOnArrival_ = true;
+        } else if (pausePressed) {
+            mode_ = Mode::Paused;
+        } else if (input::keyPressed(KEY_TAB) || input::keyPressed(KEY_I) || input::padPressed(GAMEPAD_BUTTON_MIDDLE_LEFT)) {
             mode_ = Mode::Inventory;
             hints_.markSeen(Hint::EditWands); // found the editor; no need to point at it
             satchelNew_ = 0;
             // A stick still held from walking must not count as a flick of the slot cursor.
             syncStickFlick();
-        }
-        else if (!level_->isSanctum() && (input::keyPressed(KEY_M) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN)))
+        } else if (!level_->isSanctum() && (input::keyPressed(KEY_M) || input::padPressed(GAMEPAD_BUTTON_LEFT_FACE_DOWN))) {
             mode_ = Mode::Map;
+        }
     } else if (mode_ == Mode::Map) {
         if (input::keyPressed(KEY_M) || input::keyPressed(KEY_ESCAPE) || input::keyPressed(KEY_TAB) ||
-            IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT))
+            input::padPressed(GAMEPAD_BUTTON_LEFT_FACE_DOWN) || input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_RIGHT))
             mode_ = Mode::Playing;
     } else if (mode_ == Mode::Inventory) {
         firstCastFlash_ = std::max(0.0f, firstCastFlash_ - dt);
         // B puts back a spell picked up with the pad cursor, otherwise it closes the editor.
-        const bool padBack = IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT);
+        const bool padBack = input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_RIGHT);
         if (padBack && drag_.active) {
             drag_ = Drag{};
         } else if (padBack || input::keyPressed(KEY_TAB) || input::keyPressed(KEY_I) || input::keyPressed(KEY_ESCAPE) ||
-                   IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT)) {
+                   input::padPressed(GAMEPAD_BUTTON_MIDDLE_LEFT)) {
             mode_ = Mode::Playing;
             drag_ = Drag{};
             firstCastFlash_ = 0.0f;
@@ -517,7 +537,7 @@ void GameScene::updateModeInput(float dt) {
             updateEditorPad();
         }
     } else if (mode_ == Mode::Paused) {
-        if (ui::backPressed() || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT)) mode_ = Mode::Playing;
+        if (ui::backPressed() || input::padPressed(GAMEPAD_BUTTON_MIDDLE_RIGHT)) mode_ = Mode::Playing;
     } else if (mode_ == Mode::Dead) {
         endTimer_ += dt;
     }

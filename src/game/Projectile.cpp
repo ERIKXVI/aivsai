@@ -294,17 +294,17 @@ void updateProjectile(Level& level, Projectile& p, float dt) {
 
         if ((d.flags & kDigs) && !(d.flags & kGravityWell)) level.dig(next, d.digRadius, d.digPower, true);
 
-        const MatId m = world.at(nx, ny).mat;
-        const MaterialDef& md = matDef(m);
         if (blocks(nx, ny) && !(d.flags & kNoCollideWorld)) {
             if (d.flags & kRolls) {
-                // Saw blades ride along floors and turn around at walls.
-                bool wallX = blocks(nx, floorToInt(p.pos.y));
-                if (wallX) p.vel.x = -p.vel.x;
-                else p.vel.y = std::min(p.vel.y, 0.0f) * 0.2f;
-                break;
-            }
-            if (p.bouncesLeft > 0) {
+                // Saw blades turn around at walls and ride along floors (and ceilings), keeping only the
+                // slide along the surface; they go on below to cut whatever they roll into.
+                if (blocks(nx, floorToInt(p.pos.y))) {
+                    p.vel.x = -p.vel.x;
+                    break;
+                }
+                p.vel.y = std::min(p.vel.y, 0.0f) * 0.2f;
+                next.y = p.pos.y;
+            } else if (p.bouncesLeft > 0) {
                 bool blockX = blocks(nx, floorToInt(p.pos.y));
                 bool blockY = blocks(floorToInt(p.pos.x), ny);
                 if (blockX) p.vel.x = -p.vel.x;
@@ -315,13 +315,16 @@ void updateProjectile(Level& level, Projectile& p, float dt) {
                 --p.bouncesLeft;
                 if (d.visual == ProjVisual::Bomb && p.vel.length() > 60.0f) level.audio().playAt(Sfx::Land, p.pos, 0.3f, 1.5f);
                 break;
+            } else {
+                // A thud as it strikes matter (blasts and diggers have their own sounds).
+                if (d.explosionRadius <= 0.0f && !(d.flags & kDigs))
+                    level.audio().playAt(Sfx::Impact, p.pos, 0.22f, level.fxRng().range(0.85f, 1.15f));
+                impact(level, p, p.pos);
+                return;
             }
-            // A thud as it strikes matter (blasts and diggers have their own sounds).
-            if (d.explosionRadius <= 0.0f && !(d.flags & kDigs))
-                level.audio().playAt(Sfx::Impact, p.pos, 0.22f, level.fxRng().range(0.85f, 1.15f));
-            impact(level, p, p.pos);
-            return;
         }
+        // The matter moved into: a rolling saw's slide keeps it on the open row it rolls along.
+        const MaterialDef& md = matDef(world.at(floorToInt(next.x), floorToInt(next.y)).mat);
         if (md.phase == Phase::Liquid) {
             if ((d.damageType == DamageType::Fire || (d.flags & kIncendiary)) && (md.flags & matflag::kExtinguisher) &&
                 d.explosionRadius < 12.0f) {

@@ -187,12 +187,20 @@ void GameScene::drawPickupPrompt(const Pickup& p) const {
     } else if (p.type == PickupType::PerkAltar) {
         lines.push_back({perkDef(p.perk).description, ui::color::kText});
     } else if (p.type == PickupType::Potion) {
-        // What the liquid does, and that a different one trades places with the flask's.
+        // What the liquid does, and that a different one trades places with the flask's. The same one
+        // pours in only what fits: a full flask takes none, and what is left over stays in the bottle.
         lines.push_back({matDescription(p.mat), ui::color::kText});
         const Flask& f = run_.flask;
-        if (f.empty() || f.mat == p.mat) lines.push_back({"Fills your flask", ui::color::kAccent});
-        else lines.push_back({std::string("Swaps with your flask of ") + matDef(f.mat).name + ", left here in its place",
-                              ui::color::kTextDim});
+        if (f.empty() || f.mat == p.mat) {
+            const int held = f.empty() ? 0 : f.amount;
+            if (held >= Flask::kCapacity) lines.push_back({"Your flask is full", ui::color::kDanger});
+            else if (held + p.amount > Flask::kCapacity)
+                lines.push_back({"Tops up your flask - the rest stays here", ui::color::kAccent});
+            else lines.push_back({"Fills your flask", ui::color::kAccent});
+        } else {
+            lines.push_back({std::string("Swaps with your flask of ") + matDef(f.mat).name + ", left here in its place",
+                             ui::color::kTextDim});
+        }
     }
     const int size = ui::fontSize(s);
     const float lineH = static_cast<float>(small) + 2.0f * fs;
@@ -624,9 +632,15 @@ void GameScene::drawEventNotice() const {
     if (eventNotice_.text.empty() || eventNoticeTime_ > kShow) return;
     const float a = clamp(std::min(eventNoticeTime_ * 3.0f, (kShow - eventNoticeTime_) / 0.8f), 0.0f, 1.0f);
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
+    const float s = static_cast<float>(ui::scale());
     Color c = hexColor(eventNotice_.color);
     c.a = static_cast<unsigned char>(255.0f * a);
-    ui::text(eventNotice_.text, sw * 0.5f, sh * 0.3f, ui::fontSize(ui::scale() + 1), c, ui::Align::Center);
+    // In the larger hand where it fits; a long line in a narrow window takes the body font, and
+    // wraps (centred) if even that is too wide.
+    const float room = sw - 24.0f * s;
+    int size = ui::fontSize(ui::scale() + 1);
+    if (static_cast<float>(ui::measure(eventNotice_.text, size)) > room) size = ui::fontSize(ui::scale());
+    ui::textWrapped(eventNotice_.text, sw * 0.5f - room * 0.5f, sh * 0.3f, room, size, c, ui::Align::Center);
 }
 
 void GameScene::drawPortalBloom() const {

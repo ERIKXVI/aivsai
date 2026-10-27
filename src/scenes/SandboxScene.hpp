@@ -5,6 +5,7 @@
 #include <memory>
 #include <vector>
 
+#include "app/InputLatch.hpp"
 #include "app/Scene.hpp"
 #include "render/Background.hpp"
 #include "render/SceneRenderer.hpp"
@@ -41,6 +42,7 @@ private:
     float zoom_ = 1.0f;
     MatId brush_ = mat::Sand;
     int brushRadius_ = 6;
+    input::WheelStepper wheel_; ///< mouse wheel to brush-size steps
     float simMs_ = 0.0f;
     bool paused_ = false;
     bool pointerOverUi_ = false;

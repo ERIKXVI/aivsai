@@ -15,7 +15,7 @@ constexpr PerkDef kPerks[] = {
     {"Insulated",         "Immune to electricity.",                               0xc0d8ff, false},
     {"Feather Soul",      "Levitate twice as long.",                              0xe0e8ff, true},
     {"Quicksilver Feet",  "Move 25% faster.",                                     0xb0c0d0, true},
-    {"Midas' Greed",      "Gold is worth half again and flies to you from afar.", 0xffd040, false},
+    {"Midas' Greed",      "Coins worth half again. Gold flies to you from afar.", 0xffd040, false},
     {"Vampirism",         "Heal 4 health for every kill.",                        0xc02040, true},
     {"Glass Cannon",      "Deal double damage. Max health halved.",               0x80e0ff, false},
     {"Arcane Flow",       "Wands recharge mana 60% faster.",                      0x8a70ff, true},

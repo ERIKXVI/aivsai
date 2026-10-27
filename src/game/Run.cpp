@@ -6,10 +6,11 @@
 namespace pm {
 
 bool RunState::addSpell(SpellId s) {
-    noteSpell(s);
     for (SpellId& slot : inventory) {
         if (slot == SpellId::None) {
             slot = s;
+            // Only a spell actually carried counts as discovered; a full satchel's refusal does not.
+            noteSpell(s);
             return true;
         }
     }

@@ -27,6 +27,10 @@ public:
     float breath() const { return breath_; }
     Vec2 aimDir() const { return aimDir_; }
     Vec2 wandTip() const;
+    /// Where casts leave the wand: the last point along it, out from the hand, that a spell could fly
+    /// through (as projectiles judge it: liquid and the alchemist's rime are open). A tip pushed into
+    /// or through a wall or thin floor casts from its near face instead.
+    Vec2 castOrigin(const World& world) const;
     /// What the alchemist's spells deal relative to their base damage (perks, difficulty, fury).
     float damageMul() const;
     bool facingRight() const { return facingRight_; }
@@ -50,8 +54,9 @@ private:
     void handleWands(Level& level);
     /// The wand coughs grey sparks instead of casting: it lacks the mana.
     void fizzle(Level& level);
-    /// A burst of sparks in the spell's colour from the wand tip (fewer for rapid-fire wands).
-    void castSparks(Level& level, float angle, uint32_t color, bool rapid);
+    /// A burst of sparks in the spell's colour from `muzzle`, where the spells left the wand (fewer
+    /// for rapid-fire wands).
+    void castSparks(Level& level, Vec2 muzzle, float angle, uint32_t color, bool rapid);
     /// The plunge into a liquid: its sound, and droplets thrown up from the surface.
     void splash(Level& level, MatId liquid);
     void handleFlask(Level& level);

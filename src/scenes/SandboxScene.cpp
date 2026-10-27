@@ -163,13 +163,15 @@ void SandboxScene::tick() {
 
 void SandboxScene::frame(float dt) {
     app_.audio().update(dt);
-    float wheel = GetMouseWheelMove();
-    if (wheel != 0.0f) brushRadius_ = clamp(brushRadius_ + (wheel > 0 ? 1 : -1), 1, kMaxBrush);
+    // Vertical motion only, in whole notches: a touchpad's sideways swipe or a smooth wheel's
+    // stream of small deltas must not resize the brush a step per frame.
+    brushRadius_ = clamp(brushRadius_ + wheel_.step(GetMouseWheelMoveV().y, dt), 1, kMaxBrush);
     if (input::keyPressed(KEY_LEFT_BRACKET)) brushRadius_ = std::max(1, brushRadius_ - 1);
     if (input::keyPressed(KEY_RIGHT_BRACKET)) brushRadius_ = std::min(kMaxBrush, brushRadius_ + 1);
     if (input::keyPressed(KEY_P) || input::keyPressed(KEY_SPACE)) paused_ = !paused_;
     if (input::keyPressed(KEY_X) || input::mousePressed(MOUSE_BUTTON_MIDDLE)) explodeQueued_ = true;
-    if (input::keyPressed(KEY_ESCAPE)) app_.setScene(std::make_unique<MenuScene>(app_));
+    // Esc or B (as in every menu), or Start, so a gamepad can leave too.
+    if (ui::backPressed() || input::padPressed(GAMEPAD_BUTTON_MIDDLE_RIGHT)) app_.setScene(std::make_unique<MenuScene>(app_));
 }
 
 Rectangle SandboxScene::drawPalette() {
@@ -292,7 +294,7 @@ void SandboxScene::render(float alpha) {
     const float hx = panel.x + panel.width + (sw - panel.x - panel.width) * 0.5f;
     ui::text(TextFormat("%s   brush %d%s", matDef(brush_).name, brushRadius_, paused_ ? "   PAUSED" : ""), hx, 8.0f * s,
              ui::fontSize(ui::scale()), ui::color::kText, ui::Align::Center);
-    ui::text("LMB paint   RMB erase   Wheel brush size   F fire   X / MMB blast   Space pause   Esc menu", hx,
+    ui::text("LMB paint   RMB erase   Wheel brush size   F fire   X / MMB blast   Space pause   Esc / B menu", hx,
              sh - static_cast<float>(small) - 8.0f * s, small, ui::color::kTextDim, ui::Align::Center);
     if (app_.settings().showFps)
         ui::text(TextFormat("sim %.2f ms  chunks %d  fps %d", simMs_, world_->activeChunkCount(), GetFPS()), sw - 8.0f * s, 8.0f * s,

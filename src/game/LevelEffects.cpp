@@ -76,11 +76,26 @@ void Level::launch(const ProjectileLaunch& l, Vec2 origin, float angle, Team tea
     p.chainsLeft = l.def.chains;
 
     if (p.def.flags & projflag::kFromSky) {
-        // Find the ceiling above a point ahead of the caster and drop from there.
-        Vec2 target = origin + fromAngle(angle, 110.0f);
+        // Find the ceiling above a point ahead of the caster and drop from there. The point is the
+        // last open cell along the aim (up to 110 cells), so the meteor never starts inside a wall or
+        // beyond the world's edge (out of bounds reads as bedrock). The alchemist's rime is open, as
+        // it is to their other spells.
+        const World& w = world();
+        auto openCell = [&](Vec2 q) {
+            const int x = floorToInt(q.x), y = floorToInt(q.y);
+            if (!isSolidForCollision(w.matAt(x, y))) return true;
+            return team == Team::Player && w.inBounds(x, y) && (w.at(x, y).flags & cellflag::kRime) != 0;
+        };
+        const Vec2 dir = fromAngle(angle);
+        Vec2 target = origin;
+        for (int i = 1; i <= 110; ++i) {
+            const Vec2 q = origin + dir * static_cast<float>(i);
+            if (!openCell(q)) break;
+            target = q;
+        }
         Vec2 spawn = target;
         for (int i = 0; i < 160; ++i) {
-            if (isSolidForCollision(world().matAt(floorToInt(spawn.x), floorToInt(spawn.y - 1.0f)))) break;
+            if (isSolidForCollision(w.matAt(floorToInt(spawn.x), floorToInt(spawn.y - 1.0f)))) break;
             spawn.y -= 1.0f;
         }
         p.pos = p.prevPos = spawn;
@@ -124,19 +139,24 @@ void Level::explode(Vec2 c, const ExplosionSpec& s) {
                 continue;
             }
             if (cell.mat == mat::GoldOre) cell = makeCell(mat::GoldDust, rng_.next());
+            const bool gold = cell.mat == mat::GoldDust;
             w.clear(x, y);
             const bool fly = md.phase == Phase::Liquid ? rng_.chance(0.5f) : rng_.chance(t > 0.55f ? 0.45f : 0.12f);
             if (fly) {
                 Vec2 dir = Vec2{static_cast<float>(dx), static_cast<float>(dy)}.normalized();
                 float speed = rng_.range(80.0f, 240.0f) * (1.25f - t * 0.5f) * std::min(1.5f, s.radius / 12.0f + 0.5f);
+                if (gold) speed *= 0.4f; // flung gold lands within reach, as dug gold does
                 if (s.incendiary && md.flammability > 0 && rng_.chance(0.5f)) {
                     cell.flags |= cellflag::kBurning;
                     cell.life = md.burnTime;
                 }
                 particles_.addMatter({static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f},
                                      dir * speed + Vec2{0.0f, -60.0f}, cell, rng_.range(1.5f, 4.0f));
-            } else if (s.incendiary && rng_.chance(0.2f)) {
-                w.place(x, y, mat::Fire);
+            } else {
+                const bool fire = s.incendiary && rng_.chance(0.2f); // drawn for gold too, so the stream is the same
+                // Gold that is not flung drops back into the crater instead of vanishing with the rock.
+                if (gold) w.set(x, y, cell);
+                else if (fire) w.place(x, y, mat::Fire);
             }
         }
     }

@@ -19,6 +19,13 @@ void Generator::placeTransmuter(World& world, LevelLayout& out) {
         // Drop to the chamber floor.
         while (y < h_ - 20 && world.inBounds(x, y + 1) && !isSolidForCollision(world.at(x, y + 1).mat)) ++y;
         if (y >= h_ - 20 || (Vec2{static_cast<float>(x), static_cast<float>(y)} - start_).length() < 120.0f) continue;
+        // Not at the bottom of a natural pool (the drop sinks through liquid): it would pour back into
+        // the basin, and as the circle counts only matter the alchemist brought, it could never fill.
+        bool flooded = false;
+        for (int dy = -30; dy <= 0 && !flooded; ++dy)
+            for (int dx = -16; dx <= 16 && !flooded; ++dx)
+                flooded = world.inBounds(x + dx, y + dy) && phaseOf(world.at(x + dx, y + dy).mat) == Phase::Liquid;
+        if (flooded) continue;
         // Clear headroom and build the basin: a runestone tub with a raised rim.
         for (int dy = -14; dy <= 0; ++dy)
             for (int dx = -11; dx <= 11; ++dx)

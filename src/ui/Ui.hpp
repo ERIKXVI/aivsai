@@ -41,8 +41,9 @@ int fontSize(int step);
 int smallFontSize();
 int measure(const std::string& text, int size);
 void text(const std::string& text, float x, float y, int size, Color c, Align align = Align::Left, bool shadow = true);
-/// Draws text wrapped to `width`; returns the height used.
-float textWrapped(const std::string& text, float x, float y, float width, int size, Color c);
+/// Draws text wrapped to `width`; returns the height used. Centred or right-aligned text lines
+/// up each line within the box [x, x + width], so `x` stays its left edge.
+float textWrapped(const std::string& text, float x, float y, float width, int size, Color c, Align align = Align::Left);
 /// Height textWrapped would use for the same text, without drawing it.
 float wrappedHeight(const std::string& text, float width, int size);
 /// "m:ss" for a duration in seconds (whole seconds, truncated).

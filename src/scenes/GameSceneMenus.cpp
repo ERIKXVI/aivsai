@@ -92,14 +92,20 @@ float GameScene::drawDescent(float y, unsigned char alpha) const {
     const float section = bar.width / static_cast<float>(kStageCount);
     DrawRectangleRec(bar, Color{40, 34, 52, alpha});
     DrawRectangleRec({bar.x, bar.y, bar.width * fill, bar.height}, Color{255, 210, 110, alpha});
+    // Every stage is named, the ones still unseen in a dim hand: the way down is the lure. Where a
+    // name would run into the next (at UI scale 1 the small font is large for the strip), every
+    // stage shows its numeral alone; the caption below names the stages that matter.
+    auto stageName = [](int i) { return std::string(stageNumeral(i)) + " " + biomeDef(biomeForDepth(i)).name; };
+    bool named = true;
+    for (int i = 0; i < kStageCount; ++i)
+        if (static_cast<float>(ui::measure(stageName(i), small)) > section - 4.0f * s) named = false;
     for (int i = 0; i < kStageCount; ++i) {
         const float x = bar.x + section * static_cast<float>(i);
         if (i > 0) DrawRectangleRec({x - 0.5f * s, bar.y - 2.0f * s, 1.0f * s, bar.height + 4.0f * s}, Color{120, 100, 140, alpha});
-        // Every stage is named, the ones still unseen in a dim hand: the way down is the lure.
         const bool reached = i <= run_.levelIndex;
         const Color c = i == run_.levelIndex ? Color{255, 210, 110, alpha} : reached ? Color{200, 190, 170, alpha} : Color{110, 100, 125, alpha};
-        ui::text(TextFormat("%s %s", stageNumeral(i), biomeDef(biomeForDepth(i)).name), x + section * 0.5f, bar.y + bar.height + 3.0f * s,
-                 small, c, ui::Align::Center);
+        ui::text(named ? stageName(i) : std::string(stageNumeral(i)), x + section * 0.5f, bar.y + bar.height + 3.0f * s, small, c,
+                 ui::Align::Center);
     }
     y = bar.y + bar.height + 5.0f * s + static_cast<float>(small);
     const std::string here = biomeDef(biomeForDepth(run_.levelIndex)).name;
@@ -136,6 +142,7 @@ void GameScene::drawEndScreen(bool victory) {
     ui::text(title, sw * 0.5f, sh * 0.2f, ui::fontSize(ui::scale() * 3), titleColor, ui::Align::Center);
     const float subY = sh * 0.2f + static_cast<float>(ui::fontSize(ui::scale() * 3)) + 8.0f * s;
     ui::text(sub, sw * 0.5f, subY, font, Color{210, 200, 220, al}, ui::Align::Center);
+    float adviceExtra = 0.0f; // what the death advice takes past one line, pushing the stats down
     if (!victory && level_) {
         const Player& player = level_->player();
         const std::string cause = deathCause(player);
@@ -154,8 +161,16 @@ void GameScene::drawEndScreen(bool victory) {
                 app_.sprites().drawScaled(def.sprite, 0, {x, causeY + fontH * 0.5f - h * 0.5f}, scale, false, tint);
             }
         }
-        if (const char* advice = deathAdvice(player))
-            ui::text(advice, sw * 0.5f, subY + fontH * 2.8f, font, Color{170, 160, 185, al}, ui::Align::Center);
+        if (const char* advice = deathAdvice(player)) {
+            // Too long for a narrow (4:3) window, the advice takes the small font, so the buttons at the
+            // foot stay on screen; wider than even that, it wraps, centred.
+            const float room = sw - 24.0f * s;
+            const int adviceSize = static_cast<float>(ui::measure(advice, font)) <= room ? font : ui::smallFontSize();
+            const float adviceW = std::min(room, static_cast<float>(ui::measure(advice, adviceSize)));
+            const float adviceH = ui::textWrapped(advice, sw * 0.5f - adviceW * 0.5f, subY + fontH * 2.8f, adviceW, adviceSize,
+                                                  Color{170, 160, 185, al}, ui::Align::Center);
+            adviceExtra = std::max(0.0f, adviceH - fontH * 1.25f);
+        }
     }
 
     // The run in two columns either side of a central gutter.
@@ -176,7 +191,7 @@ void GameScene::drawEndScreen(bool victory) {
         TextFormat("Seed: %u", run_.seed) + seedNote,
     };
     const Color statColor{220, 210, 200, al};
-    float y = std::max(sh * 0.38f, subY + lineH * 3.7f);
+    float y = std::max(sh * 0.38f, subY + lineH * 3.7f + adviceExtra);
     const float gutter = 14.0f * s;
     for (size_t i = 0; i < std::size(left); ++i)
         ui::text(left[i], sw * 0.5f - gutter, y + lineH * static_cast<float>(i), font, statColor, ui::Align::Right);
@@ -195,21 +210,29 @@ float GameScene::drawEndProgress(float y, unsigned char alpha) const {
     const int font = ui::fontSize(ui::scale());
     const float fontH = static_cast<float>(font);
     const float lineH = fontH * 1.35f;
+    // A line too wide for a narrow (4:3) window wraps, centred between the screen's margins.
+    auto centredLine = [&](const std::string& content, Color c) {
+        const float room = sw - 24.0f * s;
+        if (static_cast<float>(ui::measure(content, font)) <= room) {
+            ui::text(content, sw * 0.5f, y, font, c, ui::Align::Center);
+            y += lineH;
+        } else {
+            y += ui::textWrapped(content, sw * 0.5f - room * 0.5f, y, room, font, c, ui::Align::Center) - fontH * 1.25f + lineH;
+        }
+    };
     // Lasting progress: personal bests, new Grimoire entries, unlocked paths and the next one.
     if (!record_.records.empty()) {
         std::string line;
         for (const std::string& r : record_.records) line += (line.empty() ? "" : "  -  ") + r;
-        ui::text(line, sw * 0.5f, y, font, Color{255, 220, 120, alpha}, ui::Align::Center);
-        y += lineH;
+        centredLine(line, Color{255, 220, 120, alpha});
     }
-    if (!record_.discoveries.empty()) {
-        ui::text("New in the Grimoire: " + record_.discoveries, sw * 0.5f, y, font, Color{190, 160, 255, alpha}, ui::Align::Center);
-        y += lineH;
-    }
-    for (const LoadoutId path : record_.unlockedPaths) {
-        ui::text(std::string("Path unlocked: the ") + loadoutDef(path).name, sw * 0.5f, y, font, Color{255, 210, 110, alpha},
-                 ui::Align::Center);
-        y += lineH;
+    if (!record_.discoveries.empty()) centredLine("New in the Grimoire: " + record_.discoveries, Color{190, 160, 255, alpha});
+    // Every path the run opened on one line, so the buttons under them stay on screen.
+    if (!record_.unlockedPaths.empty()) {
+        std::string paths = record_.unlockedPaths.size() > 1 ? "Paths unlocked: " : "Path unlocked: ";
+        for (size_t i = 0; i < record_.unlockedPaths.size(); ++i)
+            paths += std::string(i > 0 ? ", the " : "the ") + loadoutDef(record_.unlockedPaths[i]).name;
+        centredLine(paths, Color{255, 210, 110, alpha});
     }
     if (record_.unlockedOrdeal > 0) {
         ui::text(ordealLabel(record_.unlockedOrdeal) + " unlocked: " + ordealDef(record_.unlockedOrdeal).name, sw * 0.5f, y, font,
@@ -245,8 +268,8 @@ void GameScene::drawEndActions(bool victory, float y) {
     // moment after the fade, once those buttons have been let go.
     constexpr float kArmDelay = 1.1f; // after the fade, before pad/Enter shortcuts wake
     const bool settled = endTimer_ > (victory ? kVictoryScreenDelay : kDeathScreenDelay) + kArmDelay;
-    const bool held = IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN) || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT) ||
-                      IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_UP) || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT) ||
+    const bool held = input::padDown(GAMEPAD_BUTTON_RIGHT_FACE_DOWN) || input::padDown(GAMEPAD_BUTTON_RIGHT_FACE_RIGHT) ||
+                      input::padDown(GAMEPAD_BUTTON_RIGHT_FACE_UP) || input::padDown(GAMEPAD_BUTTON_RIGHT_FACE_LEFT) ||
                       IsKeyDown(KEY_ENTER);
     if (settled && !held) endInputArmed_ = true;
     const bool armed = endInputArmed_;
@@ -267,7 +290,7 @@ void GameScene::drawEndActions(bool victory, float y) {
         return;
     }
     bx += bw + gap;
-    const bool retryKey = input::keyPressed(KEY_T) || (armed && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_UP));
+    const bool retryKey = input::keyPressed(KEY_T) || (armed && input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_UP));
     if (ui::button({bx, y, bw, bh}, usingGamepad_ ? "Retry Seed (Y)" : "Retry Seed (T)") || retryKey) {
         startRun(run_.seed, run_.difficulty, run_.loadout, carriedOrdeal); // the same stages and treasures, outside the Daily Rite
         return;
@@ -285,7 +308,7 @@ void GameScene::drawEndActions(bool victory, float y) {
         const LoadoutId fresh = record_.unlockedPaths.back();
         const LoadoutDef& def = loadoutDef(fresh);
         const Rectangle offer{sw * 0.5f - bw, y + bh + gap, bw * 2.0f, bh};
-        const bool offerKey = input::keyPressed(KEY_N) || (armed && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT));
+        const bool offerKey = input::keyPressed(KEY_N) || (armed && input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_LEFT));
         const char* offerLabel = TextFormat(usingGamepad_ ? "Begin as the %s (X)" : "Begin as the %s (N)", def.name);
         if (ui::button(offer, offerLabel, true, true) || offerKey) {
             app_.settings().loadout = static_cast<int>(fresh); // Choose Your Path remembers it too
@@ -303,7 +326,7 @@ void GameScene::drawEndActions(bool victory, float y) {
                             !prof.history[0].victory && !prof.history[1].victory;
     if (struggling) {
         const Rectangle easier{sw * 0.5f - bw, y + bh + gap, bw * 2.0f, bh};
-        const bool easierKey = input::keyPressed(KEY_P) || (armed && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT));
+        const bool easierKey = input::keyPressed(KEY_P) || (armed && input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_LEFT));
         if (ui::button(easier, usingGamepad_ ? "Try as Apprentice (X)" : "Try as Apprentice (P)") || easierKey) {
             app_.settings().difficulty = static_cast<int>(Difficulty::Apprentice);
             rememberSettings();

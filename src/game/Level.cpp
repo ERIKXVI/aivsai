@@ -443,13 +443,23 @@ void Level::interact() {
         break;
     }
     case PickupType::Potion: {
-        pay();
         Flask& f = run_.flask;
         if (f.empty() || f.mat == p.mat) {
+            // Pour in only what fits; the rest stays in the bottle on the ground.
+            const int have = f.empty() ? 0 : f.amount;
+            const int moved = std::min(p.amount, Flask::kCapacity - have);
+            if (moved <= 0) {
+                audio_.play(Sfx::UiDeny, 0.6f);
+                addFloatText(p.body.pos - Vec2{0.0f, 10.0f}, "Flask is full", 0xff8060);
+                return;
+            }
+            pay();
             f.mat = p.mat;
-            f.amount = std::min(Flask::kCapacity, f.amount + p.amount);
-            p.dead = true;
+            f.amount = have + moved;
+            p.amount -= moved;
+            if (p.amount <= 0) p.dead = true;
         } else {
+            pay();
             std::swap(f.mat, p.mat);
             std::swap(f.amount, p.amount);
         }
@@ -629,8 +639,13 @@ void Level::updateTransmuters() {
         particles_.burst(t.pos - Vec2{0.0f, 4.0f}, 80, 180.0f, col, {255, 230, 180, 255}, 1.0f, rng_, -0.1f);
         addShake(0.3f);
         audio_.play(Sfx::Portal, 0.6f, 1.6f);
-        if (player_->alive() && (player_->body.pos - t.pos).length() < 400.0f)
-            grantPerk(rollPerk({PerkId::GlassCannon, PerkId::PhoenixStep}), "Transmutation!"); // nothing that turns on you
+        if (player_->alive() && (player_->body.pos - t.pos).length() < 400.0f) {
+            // Nothing that turns on you, nor what a waiting altar offers (it would then hand out a second copy).
+            std::vector<PerkId> exclude{PerkId::GlassCannon, PerkId::PhoenixStep};
+            for (const Pickup& p : pickups_)
+                if (!p.dead && p.type == PickupType::PerkAltar) exclude.push_back(p.perk);
+            grantPerk(rollPerk(exclude), "Transmutation!");
+        }
     }
 }
 

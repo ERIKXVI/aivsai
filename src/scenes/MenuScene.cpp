@@ -47,7 +47,8 @@ void cycleDifficulty(Settings& st) {
 
 } // namespace
 
-MenuScene::MenuScene(App& app) : Scene(app), rng_(static_cast<uint64_t>(std::time(nullptr))) {
+MenuScene::MenuScene(App& app)
+    : Scene(app), rng_(static_cast<uint64_t>(std::time(nullptr))), usingGamepad_(input::lastUsedGamepad()) {
     buildWorld();
     background_.setBiome(BiomeId::Sanctum, 7u);
     for (int i = 0; i < kLoadoutCount; ++i) {
@@ -121,7 +122,14 @@ void MenuScene::buildWorld() {
     w.wakeAll();
 }
 
-Milestones MenuScene::milestones() const { return milestonesOf(app_.profile()); }
+Milestones MenuScene::milestones() const {
+    if (!suspended_) return milestonesOf(app_.profile());
+    // A path the suspended run earned is open: Begin records that run before the new one starts.
+    // Folded into a copy, so nothing is kept (it is cheap enough to redo every frame).
+    Profile scratch = app_.profile();
+    foldRun(scratch, *suspended_, false, "");
+    return milestonesOf(scratch);
+}
 
 void MenuScene::abandonSuspendedRun() {
     if (!suspended_) return;
@@ -214,7 +222,7 @@ void MenuScene::render(float alpha) {
     (void)alpha;
     ui::beginFrame(app_.screenWidth(), app_.screenHeight());
     input::setPlayCursor(false); // a run hides and confines it
-    usingGamepad_ = input::usingGamepad(usingGamepad_);
+    usingGamepad_ = input::usingGamepad();
     const float zoom = SceneRenderer::kViewHeightCells / static_cast<float>(kMenuH);
     scene_.beginFrame({kMenuW * 0.5f, kMenuH * 0.5f}, app_.screenWidth(), app_.screenHeight(), zoom);
     const ViewInfo& v = scene_.view();
@@ -244,6 +252,7 @@ void MenuScene::render(float alpha) {
     lp.ambientB = 0.15f;
     scene_.present(lp, time_);
 
+    if (panel_ != Panel::Loadout) confirmBegin_ = false; // an armed Begin lapses once its panel closes
     switch (panel_) {
     case Panel::Main: drawMain(); break;
     case Panel::Settings:
@@ -300,8 +309,9 @@ void MenuScene::drawMain() {
             ui::tooltipBeside(last, "Continue the Work", where + TextFormat("  -  %s, %d gold", loadoutDef(r.loadout).name, r.gold), ui::color::kGold);
         }
     }
+    const int beginIndex = index;
     if (item("Begin the Great Work")) panel_ = Panel::Loadout;
-    if (suspended_ && ui::hovered(last))
+    if (suspended_ && (ui::hovered(last) || nav_.focused(beginIndex)))
         ui::tooltipBeside(last, "Begin the Great Work", "Starting anew abandons your suspended run.", ui::color::kDanger);
     // Everyone attempts the daily rite with the same seed and the same kit. With a run
     // suspended, the first press only asks for confirmation.
@@ -372,15 +382,16 @@ void MenuScene::drawLoadouts() {
         ui::panel(row, isSelected ? Color{58, 42, 86, 240} : Color{24, 19, 32, 230},
                   isSelected ? ui::color::kGold : (hover ? ui::color::kAccent : ui::color::kPanelBorder));
         const float tx = row.x + 8.0f * s, infoY = row.y + 7.0f * s + static_cast<float>(size);
+        const std::string info = unlocked ? std::string(def.description) : loadoutRequirement(id, m);
         if (unlocked) {
             ui::text(def.name, tx, row.y + 5.0f * s, size, isSelected ? ui::color::kGold : ui::color::kText);
-            ui::text(def.description, tx, infoY, small, ui::color::kTextDim);
+            ui::text(info, tx, infoY, small, ui::color::kTextDim);
         } else {
             // A sealed path still shows what it offers and how far along the way to it you are.
             ui::text(def.name, tx, row.y + 5.0f * s, size, Color{110, 100, 120, 255});
             ui::text("SEALED", tx + static_cast<float>(ui::measure(def.name, size)) + 6.0f * s,
                      row.y + 5.0f * s + static_cast<float>(size - small) * 0.5f, small, ui::color::kTextDim);
-            ui::text(loadoutRequirement(id, m), tx, infoY, small, ui::color::kTextDim);
+            ui::text(info, tx, infoY, small, ui::color::kTextDim);
             if (const UnlockProgress p = loadoutProgress(id, m); p.target > 1)
                 ui::bar({tx, infoY + static_cast<float>(small) + 3.0f * s, 120.0f * s, 3.0f * s},
                         static_cast<float>(p.value) / static_cast<float>(p.target), Color{150, 120, 70, 255});
@@ -388,14 +399,21 @@ void MenuScene::drawLoadouts() {
         // Starting kit preview: the first wand's spells, shaded while the path is sealed.
         const float icon = 14.0f * s;
         float ix = row.x + row.width - 8.0f * s - icon;
+        const std::vector<SpellId>& slots = kitPreview_[static_cast<size_t>(i)];
+        const auto kitSpells = std::count_if(slots.begin(), slots.end(), [](SpellId spell) { return spell != SpellId::None; });
+        const float kitIcons = def.randomKit ? 1.0f : static_cast<float>(kitSpells);
+        const float kitLeft = ix + icon - kitIcons * icon - std::max(0.0f, kitIcons - 1.0f) * 3.0f * s;
+        // Centred in the row, unless the line under the name would run beneath it (at UI scale 1 the
+        // small font is as large as the body text): then it moves up beside the name.
+        const bool kitBesideName = tx + static_cast<float>(ui::measure(info, small)) + 4.0f * s > kitLeft;
+        const float iconY = kitBesideName ? row.y + 2.0f * s : row.y + (rowH - icon) * 0.5f;
         if (def.randomKit) {
-            ui::text("?", ix + icon * 0.5f, row.y + (rowH - static_cast<float>(size)) * 0.5f, size,
+            ui::text("?", ix + icon * 0.5f, iconY + (icon - static_cast<float>(size)) * 0.5f, size,
                      unlocked ? ui::color::kAccent : ui::color::kTextDim, ui::Align::Center);
         } else {
-            const std::vector<SpellId>& slots = kitPreview_[static_cast<size_t>(i)];
             for (auto it = slots.rbegin(); it != slots.rend(); ++it) {
                 if (*it == SpellId::None) continue;
-                Rectangle ir{ix, row.y + (rowH - icon) * 0.5f, icon, icon};
+                Rectangle ir{ix, iconY, icon, icon};
                 ui::spellIcon(*it, ir);
                 if (!unlocked) DrawRectangleRec(ir, Color{14, 12, 20, 170});
                 if (ui::hovered(ir)) {
@@ -412,6 +430,7 @@ void MenuScene::drawLoadouts() {
             }
             st.loadout = i;
             saveSettings(st);
+            confirmBegin_ = false;
         }
         y += rowH + rowGap;
     }
@@ -425,6 +444,7 @@ void MenuScene::drawLoadouts() {
             if (loadoutUnlocked(static_cast<LoadoutId>(next), m)) {
                 st.loadout = next;
                 saveSettings(st);
+                confirmBegin_ = false;
                 break;
             }
         }
@@ -439,14 +459,29 @@ void MenuScene::drawLoadouts() {
         tipBody = difficultyDetail(diff);
     }
     y += diffR.height + 6.0f * s;
-    drawOrdealRow({r.x + 10.0f * s, y, r.width - 20.0f * s, 20.0f * s}, tipTitle, tipBody);
+    const Rectangle ordealR{r.x + 10.0f * s, y, r.width - 20.0f * s, 20.0f * s};
+    drawOrdealRow(ordealR, tipTitle, tipBody);
 
     const float bw = 100.0f * s, bh = 16.0f * s, by = r.y + r.height - 24.0f * s;
-    if (ui::button({sw * 0.5f - bw - 4.0f * s, by, bw, bh}, "Begin") || ui::confirmPressed()) {
-        startRun(false, selected);
-        return;
+    // Enter or A start the run from anywhere on this panel, so the warning cannot sit in a tooltip.
+    // It fits the 16-unit gap above the buttons: the small font is never taller than 10 units.
+    if (suspended_) {
+        const float warnY = (ordealR.y + ordealR.height + by - static_cast<float>(small)) * 0.5f;
+        ui::text("Beginning abandons your suspended run", sw * 0.5f, warnY, small, ui::color::kDanger, ui::Align::Center);
     }
-    if (ui::button({sw * 0.5f + 4.0f * s, by, bw, bh}, "Back") || ui::backPressed()) panel_ = Panel::Main;
+    // With a run suspended, the first press only asks for confirmation, as the Daily Rite does.
+    if (ui::button({sw * 0.5f - bw - 4.0f * s, by, bw, bh}, confirmBegin_ ? "Abandon run?" : "Begin") || ui::confirmPressed()) {
+        if (suspended_ && !confirmBegin_) {
+            confirmBegin_ = true;
+        } else {
+            startRun(false, selected);
+            return;
+        }
+    }
+    if (ui::button({sw * 0.5f + 4.0f * s, by, bw, bh}, "Back") || ui::backPressed()) {
+        panel_ = Panel::Main;
+        confirmBegin_ = false;
+    }
     if (!tipTitle.empty()) ui::tooltip(tipTitle, tipBody, ui::color::kAccent);
 }
 

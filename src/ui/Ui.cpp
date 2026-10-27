@@ -101,8 +101,10 @@ template <typename Emit> float wrapLines(const std::string& s, float width, int 
 }
 } // namespace
 
-float textWrapped(const std::string& s, float x, float y, float width, int size, Color c) {
-    return wrapLines(s, width, size, [&](const std::string& line, float dy) { text(line, x, y + dy, size, c); });
+float textWrapped(const std::string& s, float x, float y, float width, int size, Color c, Align align) {
+    // Each line lines up within the box, so the anchor is its left edge, middle or right edge.
+    const float anchor = align == Align::Center ? x + width * 0.5f : align == Align::Right ? x + width : x;
+    return wrapLines(s, width, size, [&](const std::string& line, float dy) { text(line, anchor, y + dy, size, c, align); });
 }
 
 float wrappedHeight(const std::string& s, float width, int size) {
@@ -188,23 +190,23 @@ void NavList::update(int count, bool wrap) {
     }
     index_ = std::min(index_, count - 1);
     const bool confirm = input::keyPressed(KEY_ENTER) || input::keyPressed(KEY_SPACE) ||
-                         IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN);
+                         input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_DOWN);
     if (confirm && active_) {
         confirm_ = true;
         if (g_audio) g_audio->play(Sfx::UiClick, 0.7f);
-    } else if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN)) {
+    } else if (input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_DOWN)) {
         active_ = true; // a gamepad's first A press reveals the focus
     }
 }
 
-bool backPressed() { return input::keyPressed(KEY_ESCAPE) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT); }
+bool backPressed() { return input::keyPressed(KEY_ESCAPE) || input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_RIGHT); }
 
-bool confirmPressed() { return input::keyPressed(KEY_ENTER) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN); }
+bool confirmPressed() { return input::keyPressed(KEY_ENTER) || input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_DOWN); }
 
 namespace {
 /// One menu direction: its arrow key, its WASD key or its D-pad button, pressed this frame.
 bool navPressed(int arrow, int wasd, int dpad) {
-    return input::keyPressed(arrow) || input::keyPressed(wasd) || IsGamepadButtonPressed(0, dpad);
+    return input::keyPressed(arrow) || input::keyPressed(wasd) || input::padPressed(dpad);
 }
 } // namespace
 

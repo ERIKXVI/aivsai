@@ -464,6 +464,29 @@ TEST_CASE("rime-trailed bolts fly over their own ice and each other's, but not o
     CHECK(level.projectiles().empty());
 }
 
+TEST_CASE("a sawblade rolls on along a floor too hard to cut") {
+    SanctumRun s(15);
+    Level& level = s.level;
+    World& w = level.world();
+    // A long corridor in the brick under the sanctum floor, far from the player, floored with rock.
+    constexpr int kRow = 205, kStartX = 40, kEndX = 380;
+    for (int x = kStartX; x < kEndX; ++x) {
+        for (int y = kRow - 2; y <= kRow + 2; ++y) w.clear(x, y);
+        w.place(x, kRow + 3, mat::Rock);
+    }
+    const CastShot shot = castOnce({SpellId::Sawblade});
+    REQUIRE(shot.projectiles.size() == 1);
+    REQUIRE(matDef(mat::Rock).hardness > shot.projectiles.front().def.digPower);
+    // Launched level, just above the floor: it lands at once and must keep rolling, not stop dead.
+    const Vec2 tip{static_cast<float>(kStartX) + 10.5f, static_cast<float>(kRow) + 2.5f};
+    level.launch(shot.projectiles.front(), tip, 0.0f, Team::Player, 0, 1.0f);
+    for (int i = 0; i < 60; ++i) level.tick(PlayerInput{}); // a second
+    REQUIRE(level.projectiles().size() == 1);
+    const Projectile& saw = level.projectiles().front();
+    CHECK(saw.pos.x > tip.x + 100.0f);
+    CHECK(saw.pos.y < static_cast<float>(kRow + 3)); // still on the floor, not in it
+}
+
 TEST_CASE("holding jump climbs on levitation once the jump's rise is spent") {
     SanctumRun s(16);
     Level& level = s.level;

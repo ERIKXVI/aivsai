@@ -109,12 +109,12 @@ void GameScene::dropDragOnto(int wand, int slot) {
 }
 
 void GameScene::syncStickFlick() {
-    stickX_ = stickStep(GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X));
-    stickY_ = stickStep(GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y));
+    stickX_ = stickStep(input::padAxis(GAMEPAD_AXIS_LEFT_X));
+    stickY_ = stickStep(input::padAxis(GAMEPAD_AXIS_LEFT_Y));
 }
 
 void GameScene::updateEditorPad() {
-    if (!IsGamepadAvailable(0)) return;
+    if (!input::padAvailable()) return;
     // The cursor walks a grid: one row per wand, then the satchel's two rows of eight.
     const int wands = static_cast<int>(run_.wands.size());
     auto rowWidth = [&](int row) { return row < wands ? run_.wands[static_cast<size_t>(row)].capacity : kSatchelCols; };
@@ -124,10 +124,10 @@ void GameScene::updateEditorPad() {
     col = std::clamp(col, 0, rowWidth(row) - 1);
 
     int dx = 0, dy = 0;
-    if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_LEFT)) dx = -1;
-    if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_RIGHT)) dx = 1;
-    if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_UP)) dy = -1;
-    if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN)) dy = 1;
+    if (input::padPressed(GAMEPAD_BUTTON_LEFT_FACE_LEFT)) dx = -1;
+    if (input::padPressed(GAMEPAD_BUTTON_LEFT_FACE_RIGHT)) dx = 1;
+    if (input::padPressed(GAMEPAD_BUTTON_LEFT_FACE_UP)) dy = -1;
+    if (input::padPressed(GAMEPAD_BUTTON_LEFT_FACE_DOWN)) dy = 1;
     // A flick of the left stick moves one slot.
     const int prevX = stickX_, prevY = stickY_;
     syncStickFlick();
@@ -141,11 +141,11 @@ void GameScene::updateEditorPad() {
     padCursor_ = row < wands ? SlotRef{row, col} : SlotRef{-1, (row - wands) * kSatchelCols + col};
 
     SpellId& at = editorSlot(padCursor_.wand, padCursor_.slot);
-    if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN)) {
+    if (input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_DOWN)) {
         if (drag_.active) dropDragOnto(padCursor_.wand, padCursor_.slot);
         else if (at != SpellId::None) drag_ = {true, at, padCursor_.wand, padCursor_.slot};
     }
-    if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_UP) && !drag_.active && padCursor_.wand >= 0 && at != SpellId::None) {
+    if (input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_UP) && !drag_.active && padCursor_.wand >= 0 && at != SpellId::None) {
         if (run_.addSpell(at)) at = SpellId::None;
         app_.audio().play(Sfx::UiClick, 0.6f);
     }
@@ -163,17 +163,10 @@ void GameScene::drawInventory() {
     // One wand row: its slots and first-cast line, or its four lines of figures if those are taller
     // (at the smallest UI scale).
     const float wandRowH = std::max(slot * 1.9f + 6.0f * s, 4.0f * (static_cast<float>(small) + s) + 4.0f * s);
-    // Tall enough for every wand row, the satchel and the info card with the rules of wands.
+    // The layout's 520 units across, or what a narrow (4:3) window has: all that runs across the
+    // panel (the slots, the perk column, the info card) is placed from its edges.
     constexpr float kCardW = 130.0f;
-    const float panelH = std::max({200.0f * s, 104.0f * s + wandRowH * static_cast<float>(run_.wands.size()),
-                                   56.0f * s + rulesHeight(kCardW * s)});
-    Rectangle panelR{sw * 0.5f - 260.0f * s, sh * 0.5f - panelH * 0.5f, 520.0f * s, panelH};
-    ui::panel(panelR);
-    ui::text("SATCHEL OF SPELLS", panelR.x + panelR.width * 0.5f, panelR.y + 6.0f * s, size, ui::color::kGold, ui::Align::Center);
-    ui::text(pad ? "D-pad moves. A picks up and places a spell, Y returns it to the satchel, B closes."
-                 : "Drag spells between wands and satchel. Right-click returns a spell to the satchel. Tab closes.",
-             panelR.x + panelR.width * 0.5f, panelR.y + 8.0f * s + static_cast<float>(size), small, ui::color::kTextDim,
-             ui::Align::Center);
+    const float panelW = std::min(520.0f * s, sw - 8.0f * s);
 
     // Guided first edit: until a satchel spell has been moved onto a wand once, a satchel spell
     // worth using and its destination glow, with a ghost icon drifting between them. An attack
@@ -181,7 +174,38 @@ void GameScene::drawInventory() {
     // spell, which it then sits in front of. The hardest-hitting wand comes first, never the
     // digging wand by accident.
     const WandGuide guide = hints_.seen(Hint::WandGuide) ? WandGuide{} : pickWandGuide(run_);
+    const char* caption = HintTracker::text(Hint::WandGuide, pad);
+    if (guide.booster)
+        caption = pad ? "Pick up the glowing booster with A and place it on the glowing spell - it boosts the spell after it"
+                      : "Drag the glowing booster onto the glowing spell - it goes in front and boosts the spell after it";
     Rectangle guideFromR{}, guideToR{}, cursorR{};
+
+    // Under the wands, the satchel's two rows with the perks in a column beside them (offsets from
+    // the panel's left edge and top). The guide's caption goes under the satchel, across to the info
+    // card, unless the perk column runs down past the satchel: then only as wide as the satchel.
+    const float perkX = 10.0f * s + static_cast<float>(kSatchelCols) * (slot + gap) + 14.0f * s;
+    const float satchelTop = 32.0f * s + wandRowH * static_cast<float>(run_.wands.size()) + static_cast<float>(small) + 4.0f * s;
+    const float satchelH = static_cast<float>(kSatchelRows) * (slot + gap);
+    const char* noPerks = "None yet - sanctum altars, transmutation circles and guardians grant them";
+    const float noPerksW = panelW - 146.0f * s - perkX;
+    int perksHeld = 0;
+    for (int p = 0; p < kPerkCount; ++p) perksHeld += run_.perkCount(static_cast<PerkId>(p)) > 0 ? 1 : 0;
+    const float perksH = perksHeld > 0 ? static_cast<float>(perksHeld) * static_cast<float>(small) * 1.2f
+                                       : ui::wrappedHeight(noPerks, noPerksW, small);
+    const float captionW = perksH > satchelH ? perkX - 18.0f * s : panelW - (kCardW + 30.0f) * s;
+    const float captionH = guide.active() ? ui::wrappedHeight(caption, captionW, small) : 0.0f;
+    // Tall enough for every wand row, the satchel with the caption under it (clear of the run's
+    // figures at the foot) and the info card with the rules of wands.
+    const float panelH = std::max({200.0f * s, 104.0f * s + wandRowH * static_cast<float>(run_.wands.size()),
+                                   56.0f * s + rulesHeight(kCardW * s),
+                                   satchelTop + satchelH + 3.0f * s + captionH + static_cast<float>(small) + 6.0f * s});
+    Rectangle panelR{sw * 0.5f - panelW * 0.5f, sh * 0.5f - panelH * 0.5f, panelW, panelH};
+    ui::panel(panelR);
+    ui::text("SATCHEL OF SPELLS", panelR.x + panelR.width * 0.5f, panelR.y + 6.0f * s, size, ui::color::kGold, ui::Align::Center);
+    ui::text(pad ? "D-pad moves. A picks up and places a spell, Y returns it to the satchel, B closes."
+                 : "Drag spells between wands and satchel. Right-click returns a spell to the satchel. Tab closes.",
+             panelR.x + panelR.width * 0.5f, panelR.y + 8.0f * s + static_cast<float>(size), small, ui::color::kTextDim,
+             ui::Align::Center);
 
     struct Hover {
         SpellId spell = SpellId::None;
@@ -282,7 +306,7 @@ void GameScene::drawInventory() {
     const float satchelBottom = y + static_cast<float>(kSatchelRows) * (slot + gap);
 
     // Perks beside the satchel.
-    float px = panelR.x + 10.0f * s + static_cast<float>(kSatchelCols) * (slot + gap) + 14.0f * s;
+    const float px = panelR.x + perkX;
     ui::text("Perks", px, y - static_cast<float>(small) - 2.0f * s, small, ui::color::kTextDim);
     float py = y;
     bool anyPerk = false;
@@ -300,9 +324,7 @@ void GameScene::drawInventory() {
         py += static_cast<float>(small) * 1.2f;
         if (py > panelR.y + panelR.height - 14.0f * s) break;
     }
-    if (!anyPerk)
-        ui::textWrapped("None yet - sanctum altars, transmutation circles and guardians grant them", px, py,
-                        panelR.x + panelR.width - 146.0f * s - px, small, ui::color::kTextDim);
+    if (!anyPerk) ui::textWrapped(noPerks, px, py, noPerksW, small, ui::color::kTextDim);
     ui::text(TextFormat("Kills %d   Gold %d   Time %s", run_.stats.kills, run_.gold,
                         ui::formatClock(run_.stats.time).c_str()),
              panelR.x + panelR.width - 10.0f * s, panelR.y + panelR.height - static_cast<float>(small) - 6.0f * s, small,
@@ -324,12 +346,7 @@ void GameScene::drawInventory() {
         const Rectangle ghost{guideFromR.x + (guideToR.x - guideFromR.x) * e, guideFromR.y + (guideToR.y - guideFromR.y) * e, slot, slot};
         ui::spellIcon(run_.inventory[static_cast<size_t>(guide.from)], ghost, false);
         DrawRectangleRec(ghost, Color{14, 12, 20, static_cast<unsigned char>(255.0f * (1.0f - std::sin(k * PI)))});
-        const char* caption = HintTracker::text(Hint::WandGuide, pad);
-        if (guide.booster)
-            caption = pad ? "Pick up the glowing booster with A and place it on the glowing spell - it boosts the spell after it"
-                          : "Drag the glowing booster onto the glowing spell - it goes in front and boosts the spell after it";
-        ui::textWrapped(caption, panelR.x + 10.0f * s, satchelBottom + 3.0f * s, panelR.width - (kCardW + 30.0f) * s, small,
-                        ui::color::kGold);
+        ui::textWrapped(caption, panelR.x + 10.0f * s, satchelBottom + 3.0f * s, captionW, small, ui::color::kGold);
     }
     if (pad && !hints_.seen(Hint::WandGuide) && cursorR.width <= 0.0f) cursorR = guideFromR;
     if (pad && cursorR.width > 0.0f) {

@@ -39,6 +39,7 @@ TEST_CASE("stages I-IV hide a guardian's lair") {
 TEST_CASE("generated levels are traversable from entrance to exit") {
     initMaterials();
     ThreadPool pool;
+    int transmuters = 0;
     for (uint32_t seed : {11u, 4242u, 90001u}) {
         for (int level = 0; level < kStageCount; ++level) {
             LevelLayout layout = generateLevel(biomeForDepth(level), level, seed + static_cast<uint32_t>(level), pool);
@@ -52,8 +53,22 @@ TEST_CASE("generated levels are traversable from entrance to exit") {
                 if (!open) std::printf("    sealed vault: seed %u level %d at %.0f,%.0f\n", seed, level, v.x, v.y);
                 CHECK(open);
             }
+            // A transmutation circle never sits in a natural pool: the liquid would fill the basin
+            // (the box Level::updateTransmuters counts) and leave no room for the alchemist's offering.
+            for (const SpawnPoint& s : layout.spawns) {
+                if (s.kind != SpawnKind::Transmuter) continue;
+                ++transmuters;
+                const int cx = static_cast<int>(s.pos.x), floorY = static_cast<int>(s.pos.y);
+                int wet = 0;
+                for (int y = floorY - 6; y <= floorY; ++y)
+                    for (int x = cx - 9; x <= cx + 9; ++x)
+                        wet += layout.world->inBounds(x, y) && phaseOf(layout.world->at(x, y).mat) == Phase::Liquid ? 1 : 0;
+                if (wet > 0) std::printf("    flooded transmuter: seed %u level %d at %d,%d\n", seed, level, cx, floorY);
+                CHECK(wet == 0);
+            }
         }
     }
+    CHECK(transmuters > 0);
 }
 
 TEST_CASE("generation is deterministic for a seed, whatever the worker count") {
