@@ -44,6 +44,8 @@ protected:
 private:
     void move(Level& level, const Environment& env);
     void handleWands(Level& level);
+    /// The plunge into a liquid: its sound, and droplets thrown up from the surface.
+    void splash(Level& level, MatId liquid);
     void handleFlask(Level& level);
     void collectGold(Level& level);
     void drawEssences(DrawContext& ctx, Vec2 p) const;

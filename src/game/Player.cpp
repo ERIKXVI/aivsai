@@ -124,7 +124,7 @@ void Player::tick(Level& level) {
     } else {
         breath_ = std::min(1.0f, breath_ + dt / 2.0f);
     }
-    if (env.submerged > 0.3f && !wasInLiquid_ && body.vel.y > 60.0f) level.audio().playAt(Sfx::Splash, body.pos, 0.6f);
+    if (env.submerged > 0.3f && !wasInLiquid_ && body.vel.y > 60.0f) splash(level, env.liquid);
     wasInLiquid_ = env.submerged > 0.3f;
 
     if (run_.hasPerk(PerkId::PhoenixStep) && body.onGround && std::fabs(body.vel.x) > 20.0f && level.rng().chance(0.25f)) {
@@ -237,6 +237,28 @@ void Player::move(Level& level, const Environment& env) {
                                         {0, 0, 0, 0}, 0.35f, 0.8f);
         }
     }
+}
+
+void Player::splash(Level& level, MatId liquid) {
+    level.audio().playAt(Sfx::Splash, body.pos, 0.6f);
+    // Droplets of the liquid leap from its surface, more and higher the harder the plunge.
+    // Cosmetic randomness only.
+    const World& world = level.world();
+    const int sx = floorToInt(body.pos.x);
+    float surfaceY = body.pos.y;
+    for (int y = floorToInt(body.pos.y - body.halfH) - 2; y <= floorToInt(body.pos.y + body.halfH); ++y)
+        if (phaseOf(world.matAt(sx, y)) == Phase::Liquid) {
+            surfaceY = static_cast<float>(y);
+            break;
+        }
+    const Rgba col = materialColor(liquid), g = matDef(liquid).glow;
+    const Rgba glow{g.r, g.g, g.b, static_cast<uint8_t>(g.a / 2)};
+    const float k = std::min(1.0f, body.vel.y / 250.0f);
+    const int n = clamp(static_cast<int>(body.vel.y / 25.0f), 6, 18);
+    Rng& fx = level.fxRng();
+    for (int i = 0; i < n; ++i)
+        level.particles().addVisual({body.pos.x + fx.range(-4.0f, 4.0f), surfaceY - 0.5f}, {fx.range(-55.0f, 55.0f), -fx.range(60.0f, 150.0f) * k},
+                                    Rgba{col.r, col.g, col.b, 230}, glow, fx.range(0.45f, 0.8f), 0.9f);
 }
 
 void Player::handleWands(Level& level) {
