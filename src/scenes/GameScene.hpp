@@ -83,6 +83,8 @@ private:
     void drawEndScreen(bool victory);
     void drawTitleCard() const;
     void drawEventNotice() const;
+    /// Steps graphics down to Low once if the GPU cannot keep up on High.
+    void watchFrameRate();
     void drawLoading() const;
     void drawControlsHint() const;
     void drawDebugOverlay() const;
@@ -141,6 +143,8 @@ private:
     float goldPop_ = 0.0f;       ///< seconds left on the HUD gold counter's pop
     EventNotice eventNotice_;    ///< the line announcing a stage event...
     float eventNoticeTime_ = 0.0f; ///< ... and how long it has shown
+    float frameAvg_ = 0.0f;        ///< smoothed real frame time, seconds
+    float slowFor_ = 0.0f;         ///< how long play has run slower than the High-quality threshold
 
     // Input pressed between ticks is latched so nothing is lost at high frame rates.
     bool latchJump_ = false, latchInteract_ = false, latchDrink_ = false, latchCast_ = false;

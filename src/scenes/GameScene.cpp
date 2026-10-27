@@ -22,6 +22,7 @@ namespace {
 
 bool g_deathPreviewShown = false; ///< --ui death fells only the first run of the session
 uint32_t g_previewFeats = 0;      ///< feats announced in a preview session, kept out of the profile
+bool g_qualityStepped = false;    ///< graphics already lowered once this session for a slow GPU
 
 void logAutoplay(const char* message) {
     std::printf("[autoplay] %s\n", message);
@@ -472,8 +473,30 @@ void GameScene::updateModeInput(float dt) {
     }
 }
 
+void GameScene::watchFrameRate() {
+    // A GPU that cannot hold about 45 fps on High during play is stepped down to Low once, with a
+    // note, so a weak laptop runs smoothly without the player hunting through the settings.
+    constexpr float kSlowFrame = 1.0f / 45.0f, kPatience = 4.0f;
+    Settings& st = app_.settings();
+    if (g_qualityStepped || !st.highQuality || app_.options().automated() || mode_ != Mode::Playing || !level_ ||
+        level_->time() < 3.0f || !IsWindowFocused()) {
+        slowFor_ = 0.0f;
+        return;
+    }
+    const float frame = GetFrameTime();
+    frameAvg_ = frameAvg_ <= 0.0f ? frame : frameAvg_ * 0.95f + frame * 0.05f;
+    slowFor_ = frameAvg_ > kSlowFrame ? slowFor_ + frame : 0.0f;
+    if (slowFor_ < kPatience) return;
+    g_qualityStepped = true;
+    st.highQuality = false;
+    saveSettings(st);
+    eventNotice_ = {"Graphics set to Low to keep the game smooth - change it in Settings", 0xc8c0e0};
+    eventNoticeTime_ = 0.0f;
+}
+
 void GameScene::render(float alpha) {
     ui::beginFrame(app_.screenWidth(), app_.screenHeight());
+    watchFrameRate();
     // The system cursor gives way to the reticle in play, and is back in every menu and screen.
     if (showReticle() != IsCursorHidden()) {
         if (showReticle()) HideCursor();
