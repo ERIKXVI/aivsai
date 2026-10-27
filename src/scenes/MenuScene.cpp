@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <ctime>
+#include <string>
 #include <vector>
 
 #include "app/App.hpp"
@@ -34,6 +35,14 @@ uint32_t dailySeed() {
 #endif
     int ymd = (local.tm_year + 1900) * 10000 + (local.tm_mon + 1) * 100 + local.tm_mday;
     return hash32(static_cast<uint32_t>(ymd) ^ 0xDA11u);
+}
+
+std::string difficultyLabel(Difficulty d) { return std::string("Difficulty: ") + difficultyName(d); }
+
+/// Steps the chosen difficulty on (Archmage wraps to Apprentice) and saves it.
+void cycleDifficulty(Settings& st) {
+    st.difficulty = (static_cast<int>(difficultyFromIndex(st.difficulty)) + 1) % kDifficultyCount;
+    saveSettings(st);
 }
 
 } // namespace
@@ -302,12 +311,9 @@ void MenuScene::drawMain() {
             ui::tooltipBeside(last, "Daily Rite", "Today's seed, the same for every alchemist, with the Apprentice's kit.", ui::color::kGold);
     }
     Settings& st = app_.settings();
-    const int d = clamp(st.difficulty, 0, kDifficultyCount - 1);
-    if (item(std::string("Difficulty: ") + difficultyName(difficultyFromIndex(d)))) {
-        st.difficulty = (d + 1) % kDifficultyCount;
-        saveSettings(st);
-    }
-    if (ui::hovered(last)) ui::tooltipBeside(last, difficultyName(difficultyFromIndex(d)), difficultyDetail(difficultyFromIndex(d)), ui::color::kGold);
+    const Difficulty diff = difficultyFromIndex(st.difficulty);
+    if (item(difficultyLabel(diff))) cycleDifficulty(st);
+    if (ui::hovered(last)) ui::tooltipBeside(last, difficultyName(diff), difficultyDetail(diff), ui::color::kGold);
     if (item("Alchemy Sandbox")) app_.setScene(std::make_unique<SandboxScene>(app_));
     if (item("Grimoire")) panel_ = Panel::Grimoire;
     if (item("How to Play")) panel_ = Panel::Help;
@@ -418,10 +424,7 @@ void MenuScene::drawLoadouts() {
     // The difficulty, where the run is committed to (a click cycles it).
     const Difficulty diff = difficultyFromIndex(st.difficulty);
     const Rectangle diffR{sw * 0.5f - 90.0f * s, y, 180.0f * s, 16.0f * s};
-    if (ui::button(diffR, std::string("Difficulty: ") + difficultyName(diff))) {
-        st.difficulty = (static_cast<int>(diff) + 1) % kDifficultyCount;
-        saveSettings(st);
-    }
+    if (ui::button(diffR, difficultyLabel(diff))) cycleDifficulty(st);
     if (ui::hovered(diffR)) {
         tipTitle = difficultyName(diff);
         tipBody = difficultyDetail(diff);
