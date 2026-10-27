@@ -9,7 +9,9 @@ namespace pm::input {
 
 /// Chains onto raylib's mouse-button callback. Call once after the window exists.
 void installLatch();
-/// Starts a frame: presses latched since the previous frame become visible.
+/// Starts a frame: presses latched since the previous frame become visible. The click that
+/// brings the window back into focus is swallowed, and the mouse buttons stay quiet until it
+/// is let go, so it cannot press whatever button lies under the cursor.
 void beginFrame();
 /// True if `button` went down since the previous frame, however briefly.
 bool mousePressed(int button);
@@ -20,6 +22,9 @@ bool keyPressed(int key);
 bool anyKeyPressed();
 /// Hides `key`'s press from the rest of this frame, once a global shortcut has used it.
 void consumeKey(int key);
+/// During play the cursor is hidden (the reticle replaces it) and confined to the window, so
+/// aiming at a screen edge cannot click on another monitor. Anywhere else it is free.
+void setPlayCursor(bool captured);
 /// Which device the player is using, for button prompts: a key, a click or a mouse movement
 /// means keyboard and mouse; a gamepad button or a deflected stick means the gamepad.
 /// Returns `wasGamepad` when nothing was touched this frame.

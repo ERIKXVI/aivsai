@@ -37,6 +37,7 @@ GameScene::GameScene(App& app, RunState run)
 }
 
 GameScene::~GameScene() {
+    input::setPlayCursor(false);
     if (pending_.valid()) pending_.wait();
     // Closing the window mid-run leaves the suspended-run save for "Continue the Work".
     if (app_.options().autoplay) {
@@ -537,10 +538,7 @@ void GameScene::render(float alpha) {
     ui::beginFrame(app_.screenWidth(), app_.screenHeight());
     watchFrameRate();
     // The system cursor gives way to the reticle in play, and is back in every menu and screen.
-    if (showReticle() != IsCursorHidden()) {
-        if (showReticle()) HideCursor();
-        else ShowCursor();
-    }
+    input::setPlayCursor(showReticle() && !app_.options().automated());
     ScopedTimer renderTimer(ProfileSection::Render);
     ClearBackground(BLACK);
     if (level_) {

@@ -20,6 +20,11 @@ std::array<bool, kButtons> g_buttons{};
 std::array<bool, kKeys> g_keys{};
 std::array<bool, kKeys> g_consumed{};
 bool g_anyKey = false;
+bool g_wasFocused = true;
+bool g_mouseBlocked = false; ///< swallowing the click that refocused the window
+double g_focusAt = 0.0;
+bool g_captured = false;
+GLFWcursor* g_blankCursor = nullptr;
 
 void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
     if (action == GLFW_PRESS && button >= 0 && button < kButtons) g_latchedButtons[static_cast<size_t>(button)] = true;
@@ -37,6 +42,19 @@ void installLatch() {
 
 void beginFrame() {
     g_buttons = g_latchedButtons;
+    // A press reported a poll after the focus event still counts as the refocusing click, hence
+    // the moment's grace before the block can lift.
+    constexpr double kRefocusGrace = 0.15;
+    const bool focused = IsWindowFocused();
+    if (focused && !g_wasFocused) {
+        g_mouseBlocked = true;
+        g_focusAt = GetTime();
+    }
+    g_wasFocused = focused;
+    if (g_mouseBlocked && GetTime() - g_focusAt > kRefocusGrace && !IsMouseButtonDown(MOUSE_BUTTON_LEFT) &&
+        !IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
+        g_mouseBlocked = false;
+    if (g_mouseBlocked) g_buttons.fill(false);
     g_latchedButtons.fill(false);
     g_keys.fill(false);
     g_consumed.fill(false);
@@ -50,6 +68,7 @@ void beginFrame() {
 }
 
 bool mousePressed(int button) {
+    if (g_mouseBlocked) return false;
     const bool latched = button >= 0 && button < kButtons && g_buttons[static_cast<size_t>(button)];
     return latched || IsMouseButtonPressed(button);
 }
@@ -66,6 +85,26 @@ bool anyKeyPressed() { return g_anyKey; }
 void consumeKey(int key) {
     if (key > 0 && key < kKeys) g_consumed[static_cast<size_t>(key)] = true;
     g_anyKey = false;
+}
+
+void setPlayCursor(bool captured) {
+    if (captured == g_captured) return;
+    GLFWwindow* window = glfwGetCurrentContext();
+    if (window == nullptr) return;
+    if (captured) {
+        // A transparent cursor, set before capturing: GLFW's captured mode shows the cursor.
+        if (g_blankCursor == nullptr) {
+            static unsigned char pixels[16 * 16 * 4] = {};
+            const GLFWimage image{16, 16, pixels};
+            g_blankCursor = glfwCreateCursor(&image, 0, 0);
+        }
+        glfwSetCursor(window, g_blankCursor);
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_CAPTURED);
+    } else {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        glfwSetCursor(window, nullptr);
+    }
+    g_captured = captured;
 }
 
 bool usingGamepad(bool wasGamepad) {

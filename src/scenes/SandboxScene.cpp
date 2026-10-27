@@ -236,7 +236,7 @@ Rectangle SandboxScene::drawPalette() {
 void SandboxScene::render(float alpha) {
     (void)alpha;
     ui::beginFrame(app_.screenWidth(), app_.screenHeight());
-    if (IsCursorHidden()) ShowCursor(); // a run's reticle hides it
+    input::setPlayCursor(false); // a run hides and confines it
     // Centre the world in the space right of the palette.
     const float cellPx = static_cast<float>(app_.screenHeight()) / SceneRenderer::kViewHeightCells * zoom_;
     camera_.x = world_->width() * 0.5f - paletteWidth_ * 0.5f / std::max(0.1f, cellPx);
