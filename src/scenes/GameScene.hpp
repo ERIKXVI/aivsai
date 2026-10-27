@@ -150,6 +150,7 @@ private:
     ui::BarTrail hpTrail_, bossTrail_; ///< the pale chips a hit leaves on the health bars
     int satchelNew_ = 0;              ///< spells gone to the satchel since the editor was last opened
     int satchelCounted_ = 0;          ///< the level's spellsToSatchel() already added to satchelNew_
+    SpellId satchelLatest_ = SpellId::None; ///< the newest of them, kept across stages
     uint32_t bossTrailId_ = 0;        ///< whose health the boss chip follows
     struct Toast {
         FeatId feat;

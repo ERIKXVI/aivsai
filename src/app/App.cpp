@@ -41,7 +41,8 @@ void applyTestWand(RunState& run, const std::string& list) {
         }
         start = end + 1;
     }
-    w.capacity = std::max(1, static_cast<int>(w.slots.size()));
+    if (w.slots.empty()) w.slots.push_back(SpellId::None);
+    w.capacity = static_cast<int>(w.slots.size());
     w.manaMax = w.mana = 2000.0f;
     w.manaCharge = 1000.0f;
     w.resetDeck();

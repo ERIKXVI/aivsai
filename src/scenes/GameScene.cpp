@@ -145,6 +145,7 @@ void GameScene::advanceStage() {
         run_.levelIndex++;
     } else if (run_.levelIndex >= kFinalStage) {
         mode_ = Mode::Victory;
+        exiting_ = false; // the portal's fade is spent; the end screen fades in on its own
         endTimer_ = 0.0f;
         endInputArmed_ = false;
         titleTimer_ = 0.0f;
@@ -410,8 +411,11 @@ void GameScene::frame(float dt) {
     }
     if (mode_ == Mode::Playing) eventNoticeTime_ += dt;
     // Spells that went to the satchel wait on a HUD badge until the editor is opened.
-    satchelNew_ += level_->spellsToSatchel() - satchelCounted_;
-    satchelCounted_ = level_->spellsToSatchel();
+    if (level_->spellsToSatchel() > satchelCounted_) {
+        satchelNew_ += level_->spellsToSatchel() - satchelCounted_;
+        satchelCounted_ = level_->spellsToSatchel();
+        satchelLatest_ = level_->lastToSatchel();
+    }
     // Health bars keep a pale chip of what a hit took, draining after a moment.
     if (mode_ == Mode::Playing || mode_ == Mode::Dead) {
         const Player& pl = level_->player();

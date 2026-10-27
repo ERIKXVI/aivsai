@@ -182,7 +182,9 @@ void GameScene::drawInventory() {
             if (empty == slots.end()) continue;
             auto to = empty;
             if (guideBooster) {
-                // Onto the first attack spell that has room behind it to move along.
+                // Onto the first attack spell that has room behind it to move along; a shuffle
+                // wand has no "after it" to boost.
+                if (run_.wands[static_cast<size_t>(wi)].shuffle) continue;
                 to = std::find_if(slots.begin(), slots.end(), [](SpellId s) { return s != SpellId::None && spellDef(s).type == SpellType::Projectile; });
                 if (to == slots.end() || std::find(to + 1, slots.end(), SpellId::None) == slots.end()) continue;
             }

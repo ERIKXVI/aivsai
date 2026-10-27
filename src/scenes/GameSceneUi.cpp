@@ -119,8 +119,11 @@ void GameScene::drawWorldOverlays(float alpha) const {
         lines.push_back({spellStats(p.spell), ui::color::kTextDim});
         lines.push_back({d.description, ui::color::kText});
         const Wand* wand = run_.currentWand();
+        const bool satchelRoom = std::find(run_.inventory.begin(), run_.inventory.end(), SpellId::None) != run_.inventory.end();
         if (run_.canAutoSlot(p.spell) && wand) lines.push_back({"Goes into " + wand->name, ui::color::kAccent});
-        else lines.push_back({usingGamepad_ ? "Goes to your satchel - Back to place it" : "Goes to your satchel - Tab to place it", ui::color::kTextDim});
+        else if (satchelRoom)
+            lines.push_back({usingGamepad_ ? "Goes to your satchel - Back to place it" : "Goes to your satchel - Tab to place it", ui::color::kTextDim});
+        else lines.push_back({usingGamepad_ ? "Satchel full - make room with Back" : "Satchel full - make room with Tab", ui::color::kDanger});
     } else if (p.type == PickupType::PerkAltar) {
         lines.push_back({perkDef(p.perk).description, ui::color::kText});
     }
@@ -357,9 +360,9 @@ void GameScene::drawHud() const {
         const float bx = dx + static_cast<float>(w.capacity) * (slot + 2.0f * s) + 10.0f * s;
         const float by = wy + (icon - slot) * 0.5f;
         const bool full = std::none_of(run_.inventory.begin(), run_.inventory.end(), [](SpellId sp) { return sp == SpellId::None; });
-        if (satchelNew_ > 0 && level_->lastToSatchel() != SpellId::None) {
+        if (satchelNew_ > 0 && satchelLatest_ != SpellId::None) {
             const Rectangle r{bx, by, slot, slot};
-            ui::spellIcon(level_->lastToSatchel(), r);
+            ui::spellIcon(satchelLatest_, r);
             const auto pulse = static_cast<unsigned char>(150.0f + 100.0f * std::sin(time_ * 5.0f));
             DrawRectangleLinesEx({r.x - s, r.y - s, r.width + 2.0f * s, r.height + 2.0f * s}, s,
                                  Color{ui::color::kGold.r, ui::color::kGold.g, ui::color::kGold.b, pulse});
