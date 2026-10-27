@@ -5,6 +5,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "app/App.hpp"
 #include "app/InputLatch.hpp"
@@ -139,9 +142,70 @@ void GameScene::drawWorldOverlays(float alpha) const {
             } else if (p->type == PickupType::PerkAltar) {
                 ui::text(perkDef(p->perk).description, sp.x, sp.y + 12.0f * s, ui::smallFontSize(),
                          ui::color::kTextDim, ui::Align::Center);
+            } else if (p->type == PickupType::Wand && p->wand) {
+                drawWandCard(*p->wand, sp.x, sp.y - 3.0f * s); // above the prompt, clear of the wand itself
             }
         }
     }
+}
+
+void GameScene::drawWandCard(const Wand& w, float cx, float bottom) const {
+    // A wand on the floor or in a shop: its slots and numbers, each number green or red against
+    // the wand in hand (lower is better for the delays).
+    const float s = static_cast<float>(ui::scale());
+    const int small = ui::smallFontSize();
+    const Wand* held = run_.currentWand();
+    constexpr Color kBetter{130, 230, 130, 255}, kWorse{240, 110, 100, 255};
+    auto judge = [&](float mine, float theirs, bool lowerIsBetter) {
+        if (!held || std::fabs(mine - theirs) < 1e-3f) return ui::color::kText;
+        return (mine < theirs) == lowerIsBetter ? kBetter : kWorse;
+    };
+    using Segment = std::pair<std::string, Color>;
+    const std::vector<Segment> timing = {
+        {"delay ", ui::color::kTextDim}, {TextFormat("%.2fs", w.castDelay), judge(w.castDelay, held ? held->castDelay : 0.0f, true)},
+        {"  recharge ", ui::color::kTextDim}, {TextFormat("%.2fs", w.rechargeTime), judge(w.rechargeTime, held ? held->rechargeTime : 0.0f, true)}};
+    std::vector<Segment> mana = {
+        {"mana ", ui::color::kTextDim}, {TextFormat("%d", static_cast<int>(w.manaMax)), judge(w.manaMax, held ? held->manaMax : 0.0f, false)},
+        {" (+", ui::color::kTextDim}, {TextFormat("%d", static_cast<int>(w.manaCharge)), judge(w.manaCharge, held ? held->manaCharge : 0.0f, false)},
+        {"/s)", ui::color::kTextDim}};
+    if (w.spellsPerCast > 1) mana.push_back({"  multicast", ui::color::kAccent});
+    if (w.shuffle) mana.push_back({"  shuffle", ui::color::kTextDim});
+    const bool full = static_cast<int>(run_.wands.size()) >= RunState::kMaxWands;
+    const std::string swap = full && held ? "Replaces your " + held->name + ", which drops here" : std::string{};
+
+    auto widthOf = [&](const std::vector<Segment>& line) {
+        int width = 0;
+        for (const Segment& seg : line) width += ui::measure(seg.first, small);
+        return static_cast<float>(width);
+    };
+    const float icon = 10.0f * s, gap = 2.0f * s;
+    const float iconsW = static_cast<float>(w.capacity) * (icon + gap) - gap;
+    const float lineH = static_cast<float>(small) + 2.0f * s;
+    float cardW = std::max({iconsW, widthOf(timing), widthOf(mana), static_cast<float>(ui::measure(swap, small))}) + 10.0f * s;
+    const float cardH = 4.0f * s + icon + 3.0f * s + lineH * (swap.empty() ? 2.0f : 3.0f) + 2.0f * s;
+    Rectangle card{cx - cardW * 0.5f, std::max(4.0f * s, bottom - cardH), cardW, cardH};
+    card.x = clamp(card.x, 4.0f * s, static_cast<float>(app_.screenWidth()) - cardW - 4.0f * s);
+    DrawRectangleRec(card, Color{10, 8, 16, 190});
+    const float mid = card.x + cardW * 0.5f;
+    float y = card.y + 4.0f * s;
+    for (int i = 0; i < w.capacity; ++i) {
+        const SpellId spell = w.slots[static_cast<size_t>(i)];
+        const Rectangle r{mid - iconsW * 0.5f + static_cast<float>(i) * (icon + gap), y, icon, icon};
+        if (spell == SpellId::None) DrawRectangleLinesEx(r, std::max(1.0f, s * 0.5f), Color{90, 80, 110, 200});
+        else ui::spellIcon(spell, r);
+    }
+    y += icon + 3.0f * s;
+    auto drawLine = [&](const std::vector<Segment>& line) {
+        float x = mid - widthOf(line) * 0.5f;
+        for (const Segment& seg : line) {
+            ui::text(seg.first, x, y, small, seg.second);
+            x += static_cast<float>(ui::measure(seg.first, small));
+        }
+        y += lineH;
+    };
+    drawLine(timing);
+    drawLine(mana);
+    if (!swap.empty()) ui::text(swap, mid, y, small, Color{255, 180, 110, 255}, ui::Align::Center);
 }
 
 void GameScene::drawCompass(float alpha) const {

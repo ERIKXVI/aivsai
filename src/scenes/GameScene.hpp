@@ -72,6 +72,9 @@ private:
     void drawWorldOverlays(float alpha) const;
     void drawHud() const;
     void drawCompass(float alpha) const;
+    /// A floor or shop wand's slots and stats, ending just above `bottom` (the pickup prompt),
+    /// compared with the wand in hand.
+    void drawWandCard(const Wand& w, float cx, float bottom) const;
     /// The aim reticle (in place of the system cursor) with a ring showing the wand's readiness.
     void drawReticle(float alpha) const;
     bool showReticle() const { return mode_ == Mode::Playing && level_ && level_->player().alive() && !exiting_; }
