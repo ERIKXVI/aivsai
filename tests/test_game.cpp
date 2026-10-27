@@ -24,6 +24,7 @@
 #include "game/Run.hpp"
 #include "game/Spells.hpp"
 #include "game/Wand.hpp"
+#include "scenes/Hints.hpp"
 #include "tests/TestFramework.hpp"
 
 using namespace pm;
@@ -115,6 +116,16 @@ TEST_CASE("a booster dropped onto a spell goes in front of it") {
     const std::vector<SpellId> dangling{SpellId::SparkBolt, SpellId::DoubleCast, SpellId::None};
     CHECK(trailingBooster(dangling) == SpellId::DoubleCast);
     CHECK(trailingBooster(std::vector<SpellId>(3, SpellId::None)) == SpellId::None);
+}
+
+TEST_CASE("the Apprentice's first satchel card varies with the seed") {
+    std::vector<SpellId> seen;
+    for (uint32_t seed = 1; seed <= 40; ++seed) {
+        const RunState run = newRun(seed, Difficulty::Adept, false);
+        CHECK(guideCandidate(run.inventory[0])); // always one the guided first edit can teach with
+        if (std::find(seen.begin(), seen.end(), run.inventory[0]) == seen.end()) seen.push_back(run.inventory[0]);
+    }
+    CHECK(seen.size() >= 3);
 }
 
 TEST_CASE("every loadout builds a consistent kit") {

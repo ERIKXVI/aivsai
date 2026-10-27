@@ -92,9 +92,10 @@ Omen omenFor(int levelIndex, uint32_t levelSeed) {
     if (levelIndex >= kFinalStage) return Omen::None;
     const uint32_t h = hash32(levelSeed ^ 0x0E1Eu), pick = hashCombine(h, 1u);
     if (levelIndex <= 0) {
-        // The first stage is a first impression: only gentle omens, and only sometimes.
+        // The first stage is a first impression: only gentle omens, as often as deeper down, so
+        // the stage every run replays opens differently from run to run.
         static constexpr Omen kGentle[] = {Omen::Flooded, Omen::Overgrown, Omen::Gilded};
-        return hashToUnit(h) < 0.25f ? kGentle[pick % std::size(kGentle)] : Omen::None;
+        return hashToUnit(h) < 0.45f ? kGentle[pick % std::size(kGentle)] : Omen::None;
     }
     if (hashToUnit(h) >= 0.45f) return Omen::None;
     return static_cast<Omen>(1 + pick % (static_cast<uint32_t>(Omen::Count) - 1));

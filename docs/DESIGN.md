@@ -63,8 +63,8 @@ The descent follows the four stages of the alchemical Great Work:
   marked on the map from the start.
 - **Omens** give some stages a twist, announced on the title card: *Flooded*,
   *Overgrown*, *Volatile* (powder and oil everywhere), *Gilded* (rich gold veins and extra
-  chests) or *Teeming* (more creatures, more treasure). The first stage only draws gentle
-  omens and the Athanor none.
+  chests) or *Teeming* (more creatures, more treasure). The first stage draws only gentle
+  omens (Flooded, Overgrown, Gilded) and the Athanor none.
 - **Transmutation circles** crave a material; pour enough of it in with the flask to
   earn a perk. They teach the flask by rewarding it.
 - **Sanctums** between stages heal fully and offer a shop (three spells and a wand,

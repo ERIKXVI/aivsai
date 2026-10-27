@@ -121,7 +121,14 @@ RunState newRun(uint32_t seed, Difficulty difficulty, bool daily, LoadoutId load
     r.wands.push_back(makeStarterWand(0));
     r.wands.push_back(makeStarterWand(1));
     r.inventory.fill(SpellId::None);
-    r.addSpell(SpellId::BouncingBurst);
+    // A seeded first card for the satchel, so the guided first wand edit differs from run to
+    // run (the Daily Rite's is the same for everyone). Apprentices get Damage Plus anyway.
+    static constexpr SpellId kGifts[] = {SpellId::BouncingBurst, SpellId::FireBolt, SpellId::IceShard,
+                                         SpellId::DamageUp,      SpellId::DoubleCast, SpellId::Critical};
+    Rng gift(seed ^ 0x6a1f7u);
+    SpellId first = gift.pick(kGifts);
+    if (difficulty == Difficulty::Apprentice && first == SpellId::DamageUp) first = SpellId::BouncingBurst;
+    r.addSpell(first);
     r.flask.mat = mat::Water;
     r.flask.amount = 500;
     equipLoadout(r, loadout);
