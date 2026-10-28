@@ -319,6 +319,10 @@ void Generator::placePowders(World& world) {
         if (volatileOmen && rng_.chance(0.6f)) powder = mat::Gunpowder;
         if (powder == mat::Empty) continue;
         int r = rng_.rangeInt(4, 10) + (volatileOmen ? 2 : 0);
+        // Not above (or around) the start: on a surface stage it lies off the route, and loose powder
+        // would pour down onto the alchemist (checked after the draws, so other heaps keep their rolls).
+        if (std::abs(static_cast<float>(x) - start_.x) < static_cast<float>(r) + 40.0f && static_cast<float>(y) < start_.y + 20.0f)
+            continue;
         for (int dy = -r; dy <= r; ++dy)
             for (int dx = -r; dx <= r; ++dx)
                 if (dx * dx + dy * dy <= r * r) world.placeIfEmpty(x + dx, y + dy, powder);
@@ -353,6 +357,16 @@ void Generator::presimulate(World& world, ThreadPool& pool) {
     world.wakeAll();
     for (int i = 0; i < opt_.presimTicks; ++i) world.step(pool);
     world.events().clear();
+}
+
+void Generator::clearStart(World& world) {
+    const int sx = static_cast<int>(start_.x), sy = static_cast<int>(start_.y);
+    for (int y = sy - 18; y <= sy; ++y)
+        for (int x = sx - 8; x <= sx + 8; ++x) {
+            if (!world.inBounds(x, y)) continue;
+            const Phase ph = phaseOf(world.at(x, y).mat);
+            if (ph == Phase::Powder || ph == Phase::Liquid) world.clear(x, y);
+        }
 }
 
 void Generator::clearPath(World& world, int radius) {

@@ -53,6 +53,7 @@ LevelLayout Generator::run(ThreadPool& pool) {
         clearPath(world, radius);
         if (pathExists(world, start_, exit_)) break;
     }
+    clearStart(world);
 
     out.biome = biome_;
     out.levelIndex = level_;

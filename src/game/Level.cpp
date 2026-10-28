@@ -31,6 +31,7 @@ Level::Level(LevelLayout layout, RunState& run, Audio& audio, ThreadPool& pool)
     : layout_(std::move(layout)), run_(run), audio_(audio), pool_(pool), rng_(layout_.seed ^ 0x9E3779B9u),
       fxRng_(layout_.seed ^ 0x51ED270Bu) {
     player_ = std::make_unique<Player>(layout_.playerStart - Vec2{0.0f, 6.0f}, run_);
+    unbury(player_->body, world()); // never arrive inside matter, whatever settled there
     player_->id = nextId();
     populate();
     events_.begin(*this, rng_);

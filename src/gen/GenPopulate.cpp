@@ -13,6 +13,9 @@ namespace pm::gen_detail {
 
 void Generator::placeTransmuter(World& world, LevelLayout& out) {
     std::vector<Vec2> candidates = chambers_;
+    // The basin and its rim must never close the route (a chamber the route squeezes through).
+    const bool routeOpen = pathExists(world, start_, exit_);
+    std::vector<Cell> saved;
     for (int attempt = 0; attempt < 40 && !candidates.empty(); ++attempt) {
         const Vec2 c = candidates[static_cast<size_t>(rng_.rangeInt(0, static_cast<int>(candidates.size()) - 1))];
         int x = static_cast<int>(c.x) + rng_.rangeInt(-20, 20), y = static_cast<int>(c.y);
@@ -27,6 +30,9 @@ void Generator::placeTransmuter(World& world, LevelLayout& out) {
                 flooded = world.inBounds(x + dx, y + dy) && phaseOf(world.at(x + dx, y + dy).mat) == Phase::Liquid;
         if (flooded) continue;
         // Clear headroom and build the basin: a runestone tub with a raised rim.
+        saved.clear();
+        for (int dy = -14; dy <= 4; ++dy)
+            for (int dx = -11; dx <= 11; ++dx) saved.push_back(world.inBounds(x + dx, y + dy) ? world.at(x + dx, y + dy) : Cell{});
         for (int dy = -14; dy <= 0; ++dy)
             for (int dx = -11; dx <= 11; ++dx)
                 if (world.inBounds(x + dx, y + dy) && world.at(x + dx, y + dy).mat != mat::Bedrock) world.clear(x + dx, y + dy);
@@ -38,6 +44,13 @@ void Generator::placeTransmuter(World& world, LevelLayout& out) {
         for (int dy = -6; dy <= 0; ++dy) {
             world.place(x - 10, y + dy, mat::Rune);
             world.place(x + 10, y + dy, mat::Rune);
+        }
+        if (routeOpen && !pathExists(world, start_, exit_)) {
+            size_t i = 0;
+            for (int dy = -14; dy <= 4; ++dy)
+                for (int dx = -11; dx <= 11; ++dx, ++i)
+                    if (world.inBounds(x + dx, y + dy)) world.set(x + dx, y + dy, saved[i]);
+            continue;
         }
         out.spawns.push_back({SpawnKind::Transmuter, {static_cast<float>(x), static_cast<float>(y)}, 0.5f});
         return;

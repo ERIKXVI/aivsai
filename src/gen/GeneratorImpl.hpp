@@ -80,6 +80,9 @@ private:
     void placeExitPlatform(World& world);
     void presimulate(World& world, ThreadPool& pool);
     void clearPath(World& world, int radius);
+    /// Clears loose powder and liquid from the pocket the alchemist arrives in (on a surface stage
+    /// the start lies off the route that clearPath keeps open).
+    void clearStart(World& world);
 
     // Spawns, transmuters and vaults (GenPopulate.cpp).
     /// A runestone basin that rewards the alchemist for pouring in a particular material.
