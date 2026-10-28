@@ -375,16 +375,26 @@ void Level::updatePickups(float dt) {
 }
 
 const Pickup* Level::focusedPickup() const {
+    const Vec2 at = player_->body.pos;
     const Pickup* best = nullptr;
-    float bestDist = kInteractRange;
+    const Pickup* ware = nullptr;
+    float bestDist = kInteractRange, wareDist = kInteractRange;
     for (const Pickup& p : pickups_) {
         if (p.dead || !p.interactive() || (p.type == PickupType::Chest && p.opened)) continue;
-        float d = (p.body.pos - player_->body.pos).length();
+        const float d = (p.body.pos - at).length();
         if (d < bestDist) {
             bestDist = d;
             best = &p;
         }
+        if (p.price > 0 && d < wareDist) {
+            wareDist = d;
+            ware = &p;
+        }
     }
+    // A shop's ware floats over its pedestal, 7 cells above the alchemist's centre, while a spell set
+    // down beside it lies at the feet: within reach of a ware, anything else takes E only when the
+    // alchemist stands right over it.
+    if (ware && best != ware && std::fabs(best->body.pos.x - at.x) >= 2.0f) return ware;
     return best;
 }
 

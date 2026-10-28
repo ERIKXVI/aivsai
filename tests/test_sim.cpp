@@ -1,6 +1,7 @@
 // Simulation invariants: movement conserves matter, reactions behave, chunks go to sleep,
 // and vines cut loose from the ceiling fall.
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "core/ThreadPool.hpp"
@@ -143,6 +144,42 @@ TEST_CASE("matter that lands in a full pocket does not pass through the rock abo
     for (int y = 1; y < 60; ++y)
         for (int x = 1; x < 127; ++x) above += w.at(x, y).mat == mat::Water ? 1 : 0;
     CHECK(above == 0);
+}
+
+TEST_CASE("the alchemist's mark passes only to what their own matter becomes") {
+    // Salt dissolving in water turns into brine; the water is kept. The brine is the alchemist's when
+    // their salt made it, not when their water merely turned someone else's salt.
+    initMaterials();
+    ThreadPool pool(2);
+    auto brineMarks = [&](bool waterMine, bool saltMine) {
+        World w(64, 64, 9);
+        buildBox(w);
+        for (int x = 1; x < 63; ++x)
+            for (int y = 40; y < 63; ++y) w.place(x, y, mat::Rock);
+        for (int x = 20; x < 44; ++x) {
+            Cell water = makeCell(mat::Water, static_cast<uint32_t>(x));
+            if (waterMine) water.flags |= cellflag::kPlayerMade;
+            w.set(x, 39, water);
+            Cell salt = makeCell(mat::Salt, static_cast<uint32_t>(x) * 7u);
+            if (saltMine) salt.flags |= cellflag::kPlayerMade;
+            w.set(x, 38, salt);
+        }
+        for (int i = 0; i < 300; ++i) w.step(pool);
+        int brine = 0, marked = 0;
+        for (int y = 0; y < 64; ++y)
+            for (int x = 0; x < 64; ++x)
+                if (w.at(x, y).mat == mat::Brine) {
+                    ++brine;
+                    marked += (w.at(x, y).flags & cellflag::kPlayerMade) ? 1 : 0;
+                }
+        return std::pair<int, int>{brine, marked};
+    };
+    const auto [brineA, markedA] = brineMarks(true, false); // the alchemist's water, stray salt
+    CHECK(brineA > 0);
+    CHECK(markedA == 0);
+    const auto [brineB, markedB] = brineMarks(false, true); // the alchemist's salt, stray water
+    CHECK(brineB > 0);
+    CHECK(markedB == brineB);
 }
 
 TEST_CASE("idle world sleeps") {

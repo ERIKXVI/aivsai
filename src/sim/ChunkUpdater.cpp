@@ -24,9 +24,14 @@ static_assert(2 * ChunkUpdater::kMaxReach <= World::kChunkSize, "same-phase chun
 using namespace cellflag;
 using namespace matflag;
 
-/// kPlayerMade if either reacting cell has it: what the alchemist brought stays theirs through a
+/// The kPlayerMade bit of a reaction's product: what the alchemist brought stays theirs through a
 /// reaction (salt they pour into water makes their brine), so a transmutation circle still counts it.
-uint8_t playerMade(const Cell& a, const Cell& b) { return static_cast<uint8_t>((a.flags | b.flags) & kPlayerMade); }
+/// When the other reagent is kept (a catalyst), the product keeps only the mark of the cell it
+/// replaces: the alchemist's water turning stray salt into brine must not claim that brine.
+uint8_t playerMade(const Cell& replaced, const Cell& partner, bool partnerConsumed) {
+    const uint8_t flags = partnerConsumed ? static_cast<uint8_t>(replaced.flags | partner.flags) : replaced.flags;
+    return static_cast<uint8_t>(flags & kPlayerMade);
+}
 
 } // namespace
 
@@ -232,10 +237,12 @@ bool ChunkUpdater::updateReactions(int x, int y) {
             if (re.other != o.mat) continue;
             pending = true;
             if (!rng_.chance256(re.chance)) continue;
-            const uint8_t made = playerMade(at(x, y), o); // read before either cell is replaced
-            if (re.otherInto != kKeep) replace(nx, ny, re.otherInto, made);
+            // Read both marks before either cell is replaced (`o` is a reference into the world).
+            const bool both = re.selfInto != kKeep && re.otherInto != kKeep;
+            const uint8_t otherMark = playerMade(o, at(x, y), both), selfMark = playerMade(at(x, y), o, both);
+            if (re.otherInto != kKeep) replace(nx, ny, re.otherInto, otherMark);
             if (re.selfInto != kKeep) {
-                replace(x, y, re.selfInto, made);
+                replace(x, y, re.selfInto, selfMark);
                 return true;
             }
             wake(x, y);
@@ -265,7 +272,7 @@ bool ChunkUpdater::updateReactions(int x, int y) {
             }
             if (od.flags & kMeltable) {
                 pending = true;
-                if (rng_.chance256(24)) replace(nx, ny, mat::Water, playerMade(at(x, y), o));
+                if (rng_.chance256(24)) replace(nx, ny, mat::Water, playerMade(o, at(x, y), false)); // the heat is kept
             }
         }
 
