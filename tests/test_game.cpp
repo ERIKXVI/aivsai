@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -159,10 +160,13 @@ TEST_CASE("the guided first edit takes a worthy satchel spell to the hardest-hit
     CHECK(g.booster);
     CHECK(g.wand == 0); // Spark Bolts outhit the Digging Bolt
     CHECK(g.slot == 0); // in front of the Rod's first attack spell
-    run.wands[0].shuffle = true; // a shuffle wand takes no booster
+    run.wands[0].shuffle = true; // a shuffle wand takes no booster...
+    CHECK(!pickWandGuide(run).active()); // ...nor the Delver's Wand: its Digging Bolt is no attack to boost
+    run.wands[1].slots = {SpellId::DiggingBolt, SpellId::SparkBolt, SpellId::None};
     g = pickWandGuide(run);
     CHECK(g.wand == 1);
-    CHECK(g.slot == 0);
+    CHECK(g.slot == 1); // in front of the Spark Bolt, not the Digging Bolt
+    run.wands[1] = makeStarterWand(1);
     run.wands[0].shuffle = false;
     run.inventory[2] = SpellId::SparkBolt; // an attack spell goes into an empty slot
     g = pickWandGuide(run);
@@ -214,6 +218,18 @@ TEST_CASE("every loadout builds a consistent kit") {
     RunState a = newRun(77u, Difficulty::Adept, false, LoadoutId::Hermeticist);
     RunState b = newRun(77u, Difficulty::Adept, false, LoadoutId::Hermeticist);
     CHECK(a.wands[0].slots == b.wands[0].slots);
+    // ...and the 'wand of power' always strikes: some projectile that hurts (no digging or blinking bolt).
+    for (uint32_t seed = 1; seed <= 300; ++seed) {
+        const RunState h = newRun(seed, Difficulty::Adept, false, LoadoutId::Hermeticist);
+        const auto& slots = h.wands[0].slots;
+        const bool strikes = std::any_of(slots.begin(), slots.end(), [](SpellId s) {
+            if (s == SpellId::None || s == SpellId::DiggingBolt || s == SpellId::Chainsaw || s == SpellId::TeleportBolt) return false;
+            const SpellDef& d = spellDef(s);
+            return d.type == SpellType::Projectile && (d.proj.damage >= 6.0f || d.proj.explosionRadius > 0.0f);
+        });
+        if (!strikes) std::printf("    Hermeticist seed %u starts without an attack\n", seed);
+        CHECK(strikes);
+    }
 }
 
 TEST_CASE("found attack spells go straight onto the active wand") {
@@ -519,6 +535,56 @@ TEST_CASE("a sawblade rolls on along a floor too hard to cut") {
     CHECK(saw.pos.y < static_cast<float>(kRow + 3)); // still on the floor, not in it
 }
 
+TEST_CASE("a sawblade climbs a floor that rises a cell at a time") {
+    SanctumRun s(15);
+    Level& level = s.level;
+    World& w = level.world();
+    // A corridor in the brick under the sanctum floor, far from the player, its rock floor rising a cell every 8 columns.
+    constexpr int kBase = 245, kStartX = 40, kEndX = 340;
+    auto floorRow = [&](int x) { return kBase - (x - kStartX) / 8; };
+    for (int x = kStartX; x < kEndX; ++x) {
+        for (int y = floorRow(x) - 6; y < floorRow(x); ++y) w.clear(x, y);
+        w.place(x, floorRow(x), mat::Rock);
+    }
+    const CastShot shot = castOnce({SpellId::Sawblade});
+    REQUIRE(shot.projectiles.size() == 1);
+    REQUIRE(matDef(mat::Rock).hardness > shot.projectiles.front().def.digPower); // it cannot cut the rises away
+    // Launched level just above the floor, a few columns short of the next rise.
+    const Vec2 tip{static_cast<float>(kStartX) + 10.5f, static_cast<float>(floorRow(kStartX + 10)) - 0.5f};
+    level.launch(shot.projectiles.front(), tip, 0.0f, Team::Player, 0, 1.0f);
+    for (int i = 0; i < 60; ++i) level.tick(PlayerInput{}); // a second
+    REQUIRE(level.projectiles().size() == 1);
+    const Projectile& saw = level.projectiles().front();
+    CHECK(saw.pos.x > tip.x + 100.0f); // up a dozen rises, never turned back at one
+    const float under = static_cast<float>(floorRow(floorToInt(saw.pos.x)));
+    CHECK(saw.pos.y < under);        // riding the floor...
+    CHECK(saw.pos.y > under - 2.0f); // ...not tossed up off it
+}
+
+TEST_CASE("a sawblade rides a soft floor rather than burrowing into it") {
+    SanctumRun s(15);
+    Level& level = s.level;
+    World& w = level.world();
+    // A long corridor in the brick under the sanctum floor, far from the player, floored three deep with salt rock the
+    // saw can cut.
+    constexpr int kRow = 205, kStartX = 40, kEndX = 380;
+    for (int x = kStartX; x < kEndX; ++x) {
+        for (int y = kRow - 2; y <= kRow + 2; ++y) w.clear(x, y);
+        for (int y = kRow + 3; y <= kRow + 5; ++y) w.place(x, y, mat::SaltRock);
+    }
+    const CastShot shot = castOnce({SpellId::Sawblade});
+    REQUIRE(shot.projectiles.size() == 1);
+    REQUIRE(matDef(mat::SaltRock).hardness <= shot.projectiles.front().def.digPower);
+    const Vec2 tip{static_cast<float>(kStartX) + 10.5f, static_cast<float>(kRow) + 2.5f};
+    level.launch(shot.projectiles.front(), tip, 0.0f, Team::Player, 0, 1.0f);
+    for (int i = 0; i < 60; ++i) level.tick(PlayerInput{}); // a second
+    REQUIRE(level.projectiles().size() == 1);
+    const Projectile& saw = level.projectiles().front();
+    CHECK(saw.pos.x > tip.x + 100.0f);
+    CHECK(saw.pos.y < static_cast<float>(kRow + 3));                // on the floor, not sunk into it
+    CHECK(w.at(floorToInt(tip.x), kRow + 3).mat == mat::SaltRock); // the floor it landed on is whole
+}
+
 TEST_CASE("a bomb rests where it lands until its long fuse runs out") {
     SanctumRun s(15);
     Level& level = s.level;
@@ -552,6 +618,53 @@ TEST_CASE("a bomb rests where it lands until its long fuse runs out") {
     CHECK(level.projectiles().empty());
     CHECK(ticks > 150);
     CHECK(!level.shockwaves().empty());
+}
+
+TEST_CASE("a seeking shot through one foe turns for the next, never back for the one it struck") {
+    SanctumRun s(15);
+    Level& level = s.level;
+    World& w = level.world();
+    // An open gallery in the brick under the sanctum floor, far from the player: a slime in the shot's path and a second
+    // well beyond it, off to one side.
+    constexpr int kRow = 225;
+    for (int y = kRow - 24; y <= kRow + 8; ++y)
+        for (int x = 40; x < 300; ++x) w.clear(x, y);
+    const Enemy& first = level.spawnEnemy(EnemyType::Slime, {140.0f, static_cast<float>(kRow) + 0.5f});
+    const Enemy& second = level.spawnEnemy(EnemyType::Slime, {190.0f, static_cast<float>(kRow) - 15.5f});
+    const CastShot shot = castOnce({SpellId::Homing, SpellId::EnergyOrb});
+    REQUIRE(shot.projectiles.size() == 1);
+    Projectile orb;
+    orb.spell = shot.projectiles.front().spell;
+    orb.def = shot.projectiles.front().def;
+    REQUIRE((orb.def.flags & projflag::kHoming) != 0 && (orb.def.flags & projflag::kPiercing) != 0);
+    orb.pos = orb.prevPos = {60.5f, static_cast<float>(kRow) + 0.5f};
+    orb.vel = {orb.def.speed, 0.0f};
+    for (int i = 0; i < 180 && !orb.dead; ++i) updateProjectile(level, orb, kTickDt);
+    CHECK(first.hp < first.maxHp);
+    CHECK(second.hp < second.maxHp); // it turned for the second slime instead of circling back to the first
+}
+
+TEST_CASE("an arc spark leaps on to a foe it has not struck, never back to one it has") {
+    SanctumRun s(15);
+    Level& level = s.level;
+    World& w = level.world();
+    // A corridor in the brick under the sanctum floor, far from the player, with three sentinels (which never stir from
+    // the spot) on its floor: the second 8 cells past the first, the third 20.
+    constexpr int kFloor = 230;
+    for (int y = kFloor - 16; y < kFloor; ++y)
+        for (int x = 40; x < 300; ++x) w.clear(x, y);
+    const float standY = static_cast<float>(kFloor) - enemyDef(EnemyType::Turret).halfH;
+    const Enemy& first = level.spawnEnemy(EnemyType::Turret, {150.0f, standY});
+    const Enemy& second = level.spawnEnemy(EnemyType::Turret, {158.0f, standY});
+    const Enemy& third = level.spawnEnemy(EnemyType::Turret, {170.0f, standY});
+    const CastShot shot = castOnce({SpellId::ArcBolt});
+    REQUIRE(shot.projectiles.size() == 1);
+    REQUIRE(shot.projectiles.front().def.chains >= 2);
+    level.launch(shot.projectiles.front(), {110.5f, standY}, 0.0f, Team::Player, 0, 1.0f);
+    for (int i = 0; i < 20; ++i) level.tick(PlayerInput{});
+    CHECK(first.hp < first.maxHp);
+    CHECK(second.hp < second.maxHp);
+    CHECK(third.hp < third.maxHp); // from the second it leapt on to the third, not back to the first
 }
 
 TEST_CASE("holding jump climbs on levitation once the jump's rise is spent") {
@@ -1130,6 +1243,33 @@ TEST_CASE("kills the world makes are counted, chained and paid") {
     CHECK(goldAfter >= goldBefore + 3);
     CHECK(std::any_of(level.floatTexts().begin(), level.floatTexts().end(),
                       [](const FloatText& t) { return t.text == "Chain reaction x3"; }));
+}
+
+TEST_CASE("an arc spark's own splash is the spell's kill, not the world's") {
+    SanctumRun s(12);
+    RunState& run = s.run;
+    Level& level = s.level;
+    World& w = level.world();
+    // A dry corridor in the brick under the sanctum floor (nothing in it conducts), ending in a wall, with a bat hanging
+    // above the spark's line just short of the wall.
+    constexpr int kRow = 225, kWallX = 260;
+    for (int y = kRow - 12; y <= kRow + 3; ++y)
+        for (int x = 200; x < kWallX; ++x) w.clear(x, y);
+    const Enemy& bat = level.spawnEnemy(EnemyType::Bat, {static_cast<float>(kWallX) - 7.0f, static_cast<float>(kRow) - 6.0f});
+    const CastShot shot = castOnce({SpellId::ArcBolt});
+    REQUIRE(shot.projectiles.size() == 1);
+    Projectile spark;
+    spark.spell = shot.projectiles.front().spell;
+    spark.def = shot.projectiles.front().def;
+    spark.pos = spark.prevPos = {210.5f, static_cast<float>(kRow) + 0.5f};
+    spark.vel = {spark.def.speed, 0.0f};
+    spark.damageMul = 10.0f; // its splash on the wall alone is a killing blow
+    const int kills = run.stats.kills, alchemical = run.stats.alchemicalKills;
+    for (int i = 0; i < 20 && !spark.dead; ++i) updateProjectile(level, spark, kTickDt);
+    CHECK(spark.dead);
+    CHECK(!bat.alive());
+    CHECK(run.stats.kills == kills + 1);
+    CHECK(run.stats.alchemicalKills == alchemical); // no "Electrocuted!": the spell slew it, not the world
 }
 
 TEST_CASE("hits on one creature add up into one number until the moment passes") {

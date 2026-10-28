@@ -24,6 +24,10 @@ static_assert(2 * ChunkUpdater::kMaxReach <= World::kChunkSize, "same-phase chun
 using namespace cellflag;
 using namespace matflag;
 
+/// kPlayerMade if either reacting cell has it: what the alchemist brought stays theirs through a
+/// reaction (salt they pour into water makes their brine), so a transmutation circle still counts it.
+uint8_t playerMade(const Cell& a, const Cell& b) { return static_cast<uint8_t>((a.flags | b.flags) & kPlayerMade); }
+
 } // namespace
 
 ChunkUpdater::ChunkUpdater(World& world, int cx, int cy)
@@ -91,9 +95,10 @@ void ChunkUpdater::swap(int x0, int y0, int x1, int y1) {
     wake(x1, y1);
 }
 
-void ChunkUpdater::replace(int x, int y, MatId m) {
+void ChunkUpdater::replace(int x, int y, MatId m, uint8_t carried) {
     Cell& c = at(x, y);
     c = (m == mat::Empty) ? Cell{} : makeCell(m, rng_.next());
+    if (!c.empty()) c.flags |= carried;
     wake(x, y);
 }
 
@@ -227,9 +232,10 @@ bool ChunkUpdater::updateReactions(int x, int y) {
             if (re.other != o.mat) continue;
             pending = true;
             if (!rng_.chance256(re.chance)) continue;
-            if (re.otherInto != kKeep) replace(nx, ny, re.otherInto);
+            const uint8_t made = playerMade(at(x, y), o); // read before either cell is replaced
+            if (re.otherInto != kKeep) replace(nx, ny, re.otherInto, made);
             if (re.selfInto != kKeep) {
-                replace(x, y, re.selfInto);
+                replace(x, y, re.selfInto, made);
                 return true;
             }
             wake(x, y);
@@ -241,7 +247,10 @@ bool ChunkUpdater::updateReactions(int x, int y) {
             pending = true;
             int chance = (od.flags & kOrganic) ? 70 : std::max(4, 48 - od.hardness / 4);
             if (rng_.chance256(static_cast<uint32_t>(chance))) {
-                replace(nx, ny, rng_.chance256(24) ? mat::ToxicGas : mat::Empty);
+                MatId residue = rng_.chance256(24) ? mat::ToxicGas : mat::Empty;
+                // The rock dissolves around the gold, freeing its acid-proof dust (as digging does).
+                if (o.mat == mat::GoldOre) residue = mat::GoldDust;
+                replace(nx, ny, residue);
                 if (rng_.chance256(46)) {
                     replace(x, y, rng_.chance256(60) ? mat::ToxicGas : mat::Empty);
                     return true;
@@ -256,7 +265,7 @@ bool ChunkUpdater::updateReactions(int x, int y) {
             }
             if (od.flags & kMeltable) {
                 pending = true;
-                if (rng_.chance256(24)) replace(nx, ny, mat::Water);
+                if (rng_.chance256(24)) replace(nx, ny, mat::Water, playerMade(at(x, y), o));
             }
         }
 
@@ -359,7 +368,7 @@ void ChunkUpdater::updateLiquid(int x, int y) {
     if (c.vx >= kRestless) {
         bool lonely = matAt(x - 1, y) != c.mat && matAt(x + 1, y) != c.mat && matAt(x, y - 1) != c.mat;
         if (lonely && rng_.chance256(6)) {
-            if (c.mat == mat::Lava) replace(x, y, mat::Basalt);
+            if (c.mat == mat::Lava) replace(x, y, mat::Basalt, static_cast<uint8_t>(c.flags & kPlayerMade));
             else if (!(d.flags & (kTransmuter | kHealing))) replace(x, y, mat::Empty);
             return;
         }

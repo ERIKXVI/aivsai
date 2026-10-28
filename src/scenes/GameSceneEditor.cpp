@@ -108,6 +108,31 @@ void GameScene::dropDragOnto(int wand, int slot) {
     drag_ = Drag{};
 }
 
+void GameScene::takeSpellOut(int wand, int slot) {
+    SpellId& spell = editorSlot(wand, slot);
+    if (wand >= 0 && run_.addSpell(spell)) {
+        spell = SpellId::None;
+        app_.audio().play(Sfx::UiClick, 0.6f);
+        return;
+    }
+    // From the satchel (or a wand, with the satchel full) the spell is set down at the alchemist's feet
+    // with a little toss, to be picked up again with E. Within reach of a shop's ware it lands a step
+    // aside: the ware floats over its pedestal, so a spell at the feet would be nearer and take E from it.
+    const Vec2 at = level_->player().body.pos;
+    float aside = 0.0f, nearest = 16.0f * 16.0f; // the reach of E, squared
+    for (const Pickup& ware : level_->pickups()) {
+        const float d = (ware.body.pos - at).lengthSq();
+        if (ware.price <= 0 || ware.dead || d >= nearest) continue;
+        nearest = d;
+        aside = ware.body.pos.x > at.x ? -30.0f : 30.0f;
+    }
+    Pickup dropped = makeSpellPickup(at, spell);
+    dropped.body.vel = {aside, -80.0f};
+    level_->spawnPickup(std::move(dropped));
+    spell = SpellId::None;
+    app_.audio().play(Sfx::UiClick, 0.6f, 0.8f);
+}
+
 void GameScene::syncStickFlick() {
     stickX_ = stickStep(input::padAxis(GAMEPAD_AXIS_LEFT_X));
     stickY_ = stickStep(input::padAxis(GAMEPAD_AXIS_LEFT_Y));
@@ -145,10 +170,8 @@ void GameScene::updateEditorPad() {
         if (drag_.active) dropDragOnto(padCursor_.wand, padCursor_.slot);
         else if (at != SpellId::None) drag_ = {true, at, padCursor_.wand, padCursor_.slot};
     }
-    if (input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_UP) && !drag_.active && padCursor_.wand >= 0 && at != SpellId::None) {
-        if (run_.addSpell(at)) at = SpellId::None;
-        app_.audio().play(Sfx::UiClick, 0.6f);
-    }
+    if (input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_UP) && !drag_.active && at != SpellId::None)
+        takeSpellOut(padCursor_.wand, padCursor_.slot);
 }
 
 void GameScene::drawInventory() {
@@ -171,8 +194,8 @@ void GameScene::drawInventory() {
     // Guided first edit: until a satchel spell has been moved onto a wand once, a satchel spell
     // worth using and its destination glow, with a ghost icon drifting between them. An attack
     // spell goes into an empty slot; a modifier or multicast goes onto the wand's first attack
-    // spell, which it then sits in front of. The hardest-hitting wand comes first, never the
-    // digging wand by accident.
+    // spell (never a digging one), which it then sits in front of. The hardest-hitting wand comes
+    // first, and never a wand whose only attack spells dig.
     const WandGuide guide = hints_.seen(Hint::WandGuide) ? WandGuide{} : pickWandGuide(run_);
     const char* caption = HintTracker::text(Hint::WandGuide, pad);
     if (guide.booster)
@@ -202,8 +225,8 @@ void GameScene::drawInventory() {
     Rectangle panelR{sw * 0.5f - panelW * 0.5f, sh * 0.5f - panelH * 0.5f, panelW, panelH};
     ui::panel(panelR);
     ui::text("SATCHEL OF SPELLS", panelR.x + panelR.width * 0.5f, panelR.y + 6.0f * s, size, ui::color::kGold, ui::Align::Center);
-    ui::text(pad ? "D-pad moves. A picks up and places a spell, Y returns it to the satchel, B closes."
-                 : "Drag spells between wands and satchel. Right-click returns a spell to the satchel. Tab closes.",
+    ui::text(pad ? "D-pad moves. A picks up and places a spell, Y returns it to the satchel or sets it down, B closes."
+                 : "Drag spells to move them. Right-click returns a spell to the satchel or sets it down. Tab closes.",
              panelR.x + panelR.width * 0.5f, panelR.y + 8.0f * s + static_cast<float>(size), small, ui::color::kTextDim,
              ui::Align::Center);
 
@@ -368,10 +391,8 @@ void GameScene::drawInventory() {
         }
         // Not while a spell is in hand (as with the pad's Y): emptying its slot would leave it held from
         // nowhere. Nor in the frame a left press moved spells: `hover` predates the move.
-        if (input::mousePressed(MOUSE_BUTTON_RIGHT) && !pressed && !drag_.active && hover.wand >= 0 && hover.spell != SpellId::None) {
-            if (run_.addSpell(hover.spell)) editorSlot(hover.wand, hover.slot) = SpellId::None;
-            app_.audio().play(Sfx::UiClick, 0.6f);
-        }
+        if (input::mousePressed(MOUSE_BUTTON_RIGHT) && !pressed && !drag_.active && hover.spell != SpellId::None)
+            takeSpellOut(hover.wand, hover.slot);
     }
     if (drag_.active) {
         // The held spell follows the mouse, or floats above the pad cursor.

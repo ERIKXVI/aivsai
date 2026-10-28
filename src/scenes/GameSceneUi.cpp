@@ -182,7 +182,8 @@ void GameScene::drawPickupPrompt(const Pickup& p) const {
         else if (satchelRoom)
             lines.push_back({usingGamepad_ ? "Goes to your satchel - Back to place it" : "Goes to your satchel - Tab to place it",
                              ui::color::kTextDim});
-        else lines.push_back({usingGamepad_ ? "Satchel full - make room with Back" : "Satchel full - make room with Tab",
+        else lines.push_back({usingGamepad_ ? "Satchel full - Back, then Y on a spell to set it down"
+                                            : "Satchel full - Tab, then right-click a spell to set it down",
                               ui::color::kDanger});
     } else if (p.type == PickupType::PerkAltar) {
         lines.push_back({perkDef(p.perk).description, ui::color::kText});

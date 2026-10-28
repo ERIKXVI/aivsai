@@ -4,6 +4,7 @@
 // the cell simulation, creatures, particles, sounds and screen effects in sync.
 
 #include <array>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -167,9 +168,13 @@ public:
     /// Queues a projectile; it joins the simulation after the current projectile update.
     void addProjectile(const Projectile& p) { pendingProjectiles_.push_back(p); }
     void explode(Vec2 pos, const ExplosionSpec& spec);
-    void dig(Vec2 pos, float radius, uint8_t power, bool debris);
+    /// Carves the matter within `radius` of `pos` that `power` can cut, leaving every row below `lowestRow` be;
+    /// with `debris`, some of what is cut flies off.
+    void dig(Vec2 pos, float radius, uint8_t power, bool debris, int lowestRow = std::numeric_limits<int>::max());
     void spawnBlob(Vec2 pos, MatId mat, int amount, Vec2 vel);
-    void electrify(Vec2 pos, float damage, Team team);
+    /// Charges the conductive matter around `pos`, shocking the creatures touching it (the world's work, blamed on
+    /// "electricity"), and splashes those right around `pos`, blamed on `cause` (nullptr: "electricity" too).
+    void electrify(Vec2 pos, float damage, Team team, const char* cause = nullptr);
     void freezeArea(Vec2 pos, float radius);
     void transmuteArea(Vec2 pos, float radius);
     void addFlash(Vec2 pos, uint32_t color, float intensity, float radius, float duration);
@@ -191,10 +196,11 @@ public:
     const char* actorName(uint32_t id) const;
     void bleed(Vec2 pos, MatId blood, int amount, Vec2 dir);
     /// Nearest living, undisguised actor not on `team` within `range` of `pos` (skipping
-    /// `excludeId`), or nullptr.
-    const Actor* nearestHostile(Vec2 pos, Team team, float range, uint32_t excludeId = 0) const;
-    Actor* nearestHostile(Vec2 pos, Team team, float range, uint32_t excludeId = 0) {
-        return const_cast<Actor*>(std::as_const(*this).nearestHostile(pos, team, range, excludeId));
+    /// `excludeId`, and every actor `struckBy` has already hit), or nullptr.
+    const Actor* nearestHostile(Vec2 pos, Team team, float range, uint32_t excludeId = 0,
+                                const Projectile* struckBy = nullptr) const;
+    Actor* nearestHostile(Vec2 pos, Team team, float range, uint32_t excludeId = 0, const Projectile* struckBy = nullptr) {
+        return const_cast<Actor*>(std::as_const(*this).nearestHostile(pos, team, range, excludeId, struckBy));
     }
     bool lineOfSight(Vec2 a, Vec2 b) const;
     /// Hanging lanterns within `radius` of the segment a-b are knocked loose: they drop and

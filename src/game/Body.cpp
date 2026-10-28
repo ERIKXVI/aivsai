@@ -97,7 +97,7 @@ void moveBody(Body& b, const World& world, float dt) {
     if (b.onGround && b.friction > 0.0f) b.vel.x = approach(b.vel.x, 0.0f, b.friction * dt);
 }
 
-Environment sampleEnvironment(const Body& b, const World& world) {
+Environment sampleEnvironment(const Body& b, const World& world, MatId ownBlood) {
     Environment env;
     const int x0 = floorToInt(b.pos.x - b.halfW) - 1, x1 = floorToInt(b.pos.x + b.halfW);
     const int y0 = floorToInt(b.pos.y - b.halfH) - 1, y1 = floorToInt(b.pos.y + b.halfH);
@@ -116,7 +116,8 @@ Environment sampleEnvironment(const Body& b, const World& world) {
                 ++counts[c.mat];
             }
             if (c.burning() || (d.flags & matflag::kHot)) env.fire = true;
-            if (d.flags & matflag::kExtinguisher) env.extinguishing = true;
+            // The creature's own blood, spilt by every hit, does not douse it on contact (submerged, it does).
+            if ((d.flags & matflag::kExtinguisher) && c.mat != ownBlood) env.extinguishing = true;
             if (c.mat == mat::Water || c.mat == mat::Brine) env.water = true;
             if (d.flags & matflag::kHealing) env.healing = true;
             if (d.flags & matflag::kSticky) env.sticky = true;

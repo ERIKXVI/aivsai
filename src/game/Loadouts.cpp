@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <iterator>
 #include <cstdio>
+#include <utility>
 
 #include "core/Rng.hpp"
 #include "game/Run.hpp"
@@ -60,6 +61,14 @@ Wand makeWand(const char* name, int capacity, float delay, float recharge, float
 void giveFlask(RunState& run, MatId mat, int amount) {
     run.flask.mat = mat;
     run.flask.amount = amount;
+}
+
+/// A spell that makes a wand one of power: a projectile that hits for 6 or more, or bursts. The tools
+/// do not count: Digging Bolt and Chainsaw carve rock, Teleport Bolt moves the caster.
+bool realAttack(SpellId s) {
+    if (s == SpellId::None || s == SpellId::DiggingBolt || s == SpellId::Chainsaw || s == SpellId::TeleportBolt) return false;
+    const SpellDef& d = spellDef(s);
+    return d.type == SpellType::Projectile && (d.proj.damage >= 6.0f || d.proj.explosionRadius > 0.0f);
 }
 
 } // namespace
@@ -123,7 +132,16 @@ void equipLoadout(RunState& run, LoadoutId id) {
         break;
     case LoadoutId::Hermeticist: {
         Rng rng(run.seed ^ 0x4e524d53u);
-        run.wands[0] = makeRandomWand(2, rng);
+        // Some rolls hold only boosters and utility bolts: the wand is rolled again, from the same
+        // stream so a seed keeps its kit, until it carries a real attack.
+        const auto armed = [](const Wand& w) { return std::any_of(w.slots.begin(), w.slots.end(), realAttack); };
+        Wand power = makeRandomWand(2, rng);
+        for (int tries = 0; tries < 16 && !armed(power); ++tries) power = makeRandomWand(2, rng);
+        if (!armed(power)) {
+            power.slots[0] = SpellId::SparkBolt; // all but impossible, but the kit must not rest on luck
+            power.resetDeck();
+        }
+        run.wands[0] = std::move(power);
         run.inventory.fill(SpellId::None);
         run.addSpell(SpellId::Homing);
         run.addSpell(randomSpell(2, rng));

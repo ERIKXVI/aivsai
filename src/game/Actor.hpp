@@ -58,6 +58,8 @@ public:
     float applyDamage(Level& level, const DamageInfo& info);
 
     bool alive() const { return !dead; }
+    /// True if damage of this type never lands on the actor (its resistance is zero).
+    bool immuneTo(DamageType type) const { return resist[static_cast<size_t>(type)] <= 0.0f; }
     Vec2 center() const { return body.pos; }
     Rectf bounds() const { return body.bounds(); }
 
@@ -79,8 +81,12 @@ public:
     DamageType lastHitType = DamageType::Physical;
 
 protected:
-    /// Burning, liquids, contact damage and status timers. Call once per tick.
+    /// Burning, liquids, contact damage and status timers. Call once per tick. An actor immune to
+    /// fire or to toxins is never left burning or poisoned, whatever set it alight or poisoned it.
     void updateStatus(Level& level, const Environment& env);
+    /// Phoenix Step's ward on the sampled environment, before updateStatus: ordinary flames neither
+    /// hurt nor set the actor alight (lava still does), and any burning goes out.
+    void applyPhoenixStep(Environment& env);
     virtual void onDamaged(Level& level, const DamageInfo& info, float dealt) { (void)level, (void)info, (void)dealt; }
     /// How much of a hit's knockback this actor takes (heavy creatures shrug most of it off).
     virtual float knockbackTaken() const { return 1.0f; }

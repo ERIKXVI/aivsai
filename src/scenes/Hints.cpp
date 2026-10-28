@@ -34,12 +34,16 @@ WandGuide pickWandGuide(const RunState& run) {
         byDamage.emplace_back(-damage, static_cast<int>(wi));
     }
     std::stable_sort(byDamage.begin(), byDamage.end());
-    const auto isAttack = [](SpellId s) { return s != SpellId::None && spellDef(s).type == SpellType::Projectile; };
+    // Digging spells are tools, not attacks: a booster never goes in front of one, and a wand whose
+    // only attack spells dig (the Delver's Wand) is never the guide's target.
+    const auto digs = [](SpellId s) { return s == SpellId::DiggingBolt || s == SpellId::Chainsaw; };
+    const auto isAttack = [&](SpellId s) { return s != SpellId::None && spellDef(s).type == SpellType::Projectile && !digs(s); };
     for (const auto& entry : byDamage) {
         const int wi = entry.second;
         const auto& slots = run.wands[static_cast<size_t>(wi)].slots;
         const auto empty = std::find(slots.begin(), slots.end(), SpellId::None);
         if (empty == slots.end()) continue;
+        if (std::none_of(slots.begin(), slots.end(), isAttack) && std::any_of(slots.begin(), slots.end(), digs)) continue;
         auto to = empty;
         if (guide.booster) {
             // Onto the first attack spell that has room behind it to move along; a shuffle

@@ -248,7 +248,7 @@ std::string matDescription(MatId id) {
     case Ichor: return "The glowing blood of fiends. Puts out flames. Drunk, it lends fury to your spells.";
     case Gunpowder: return "Explodes when lit, chaining into great blasts.";
     case GoldDust: return "Walk over it to collect it.";
-    case GoldOre: return "Blast or dig it to free the gold dust inside.";
+    case GoldOre: return "Blast, dig or dissolve it to free the gold dust inside.";
     case Sulphur: return "Burns readily into toxic gas.";
     case Salt: return "Turns water into brine and melts ice.";
     case Spore: return "Glowing spores; water sprouts them into glowcaps.";

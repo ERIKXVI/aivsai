@@ -30,7 +30,8 @@ private:
 
     void wake(int x, int y);
     void swap(int x0, int y0, int x1, int y1);
-    void replace(int x, int y, MatId m);
+    /// Turns the cell into a fresh cell of `m` that keeps the cellflag bits in `carried` (air keeps none).
+    void replace(int x, int y, MatId m, uint8_t carried = 0);
     void igniteCell(int x, int y);
     /// Ends a gas or fire cell's life: it becomes `d.decaysInto` with chance decayChance/256,
     /// otherwise it vanishes.

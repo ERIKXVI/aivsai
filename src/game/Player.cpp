@@ -165,15 +165,15 @@ void Player::tick(Level& level) {
 
     // Never leave the alchemist entombed: if no free spot is near, dig one out.
     if (!unbury(body, level.world())) level.dig(body.pos, std::max(body.halfW, body.halfH) + 1.0f, 254, false);
-    Environment env = sampleEnvironment(body, level.world());
+    Environment env = sampleEnvironment(body, level.world(), mat::Blood);
     if (run_.hasPerk(PerkId::PhoenixStep)) {
         // The phoenix is healed by ordinary flames and never set alight; lava still burns.
         if (env.fire) hp = std::min(maxHp, hp + 6.0f * dt);
-        if (env.contactMat == mat::Fire) env.contactDps = 0.0f;
-        if (env.contactMat != mat::Lava) env.fire = false;
-        status.burning = 0.0f;
+        applyPhoenixStep(env);
     }
-    const bool wasBurning = status.burning > 0.0f; // after Phoenix Step, whose flames never count
+    // After Phoenix Step, whose flames never count; nor do a fire-immune alchemist's, which
+    // updateStatus puts out before it looks for water.
+    const bool wasBurning = status.burning > 0.0f && !immuneTo(DamageType::Fire);
     updateStatus(level, env);
     if (dead) return;
     // Doused by touching water or brine (drinking it counts in handleFlask): the same cells, the
@@ -230,7 +230,7 @@ void Player::move(Level& level, const Environment& env) {
     const float dt = kTickDt;
     const bool swimming = env.submerged > 0.35f;
     float speedMul = run_.moveSpeedMul();
-    if (env.sticky) speedMul *= 0.45f;
+    if (env.sticky) speedMul *= kStickySpeed;
     if (status.chilled > 0.0f) speedMul *= 0.6f;
     if (status.hasted > 0.0f) speedMul *= kHasteSpeed;
     if (swimming) speedMul *= run_.hasPerk(PerkId::Gills) ? 1.0f : 0.7f;
@@ -521,11 +521,13 @@ void Player::handleFlask(Level& level) {
             break;
         case mat::Oil: status.oiled = 10.0f; break;
         case mat::Lava:
-            status.burning = 6.0f;
+            if (!immuneTo(DamageType::Fire)) status.burning = 6.0f; // Salamander Skin: it only warms
             applyDamage(level, {30.0f, DamageType::Fire, {}, Team::Monster, false, false, "a draught of lava"});
             break;
         case mat::Acid: applyDamage(level, {25.0f * fraction, DamageType::Acid, {}, Team::Monster, false, false, "a draught of acid"}); break;
-        case mat::Toxic: status.poisoned = 8.0f; break;
+        case mat::Toxic:
+            if (!immuneTo(DamageType::Toxic)) status.poisoned = 8.0f; // Toxic Blood shrugs it off
+            break;
         case mat::Blood:
             hp = std::min(maxHp, hp + 4.0f * fraction);
             status.burning = 0.0f; // as the matter lens promises
@@ -598,7 +600,7 @@ void Player::onDamaged(Level& level, const DamageInfo& info, float dealt) {
     run_.stats.damageTaken += dealt;
     if (info.silent) {
         // Damage over time (burning, poison, acid) only drips; a stream of blood every tick
-        // would also douse the alchemist's own flames.
+        // would pool around the alchemist, and wading in it douses their own flames.
         if (level.rng().chance(0.05f)) level.bleed(body.pos, mat::Blood, 1, {});
         return;
     }

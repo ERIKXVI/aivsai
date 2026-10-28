@@ -202,17 +202,21 @@ void Level::explode(Vec2 c, const ExplosionSpec& s) {
     damageRadius(c, s.radius * 1.25f, s.damage, DamageType::Explosion, s.team, s.knockback, s.hurtsOwner,
                  s.cause ? s.cause : "an explosion", s.crit);
     if (s.incendiary) {
-        for (auto& e : enemies_)
-            if (e->alive() && (e->body.pos - c).length() < s.radius && e->status.wet <= 0.0f) e->status.burning = 3.0f;
+        for (auto& e : enemies_) {
+            // A fireproof creature is never set alight: unharmed by the flames, it would only carry them about.
+            const bool fireproof = e->resist[static_cast<size_t>(DamageType::Fire)] <= 0.0f;
+            if (e->alive() && (e->body.pos - c).length() < s.radius && e->status.wet <= 0.0f && !fireproof)
+                e->status.burning = 3.0f;
+        }
     }
 }
 
-void Level::dig(Vec2 pos, float radius, uint8_t power, bool debris) {
+void Level::dig(Vec2 pos, float radius, uint8_t power, bool debris, int lowestRow) {
     World& w = world();
     const int r = static_cast<int>(std::ceil(radius));
     const int cx = floorToInt(pos.x), cy = floorToInt(pos.y);
     int removed = 0;
-    for (int dy = -r; dy <= r; ++dy) {
+    for (int dy = -r; dy <= r && cy + dy <= lowestRow; ++dy) {
         for (int dx = -r; dx <= r; ++dx) {
             if (static_cast<float>(dx * dx + dy * dy) > radius * radius) continue;
             const int x = cx + dx, y = cy + dy;
@@ -248,7 +252,7 @@ void Level::spawnBlob(Vec2 pos, MatId m, int amount, Vec2 vel) {
     if (phaseOf(m) == Phase::Liquid) audio_.playAt(Sfx::Splash, pos, 0.5f);
 }
 
-void Level::electrify(Vec2 pos, float damage, Team team) {
+void Level::electrify(Vec2 pos, float damage, Team team, const char* cause) {
     World& w = world();
     // Breadth-first flood over connected conductive matter. `charged` doubles as the queue
     // (charged[head..] is the frontier) and, once done, the list of every cell charged.
@@ -302,7 +306,8 @@ void Level::electrify(Vec2 pos, float damage, Team team) {
         }
         addFlash(pos, 0xb0c8ff, 2.0f, 90.0f, 0.25f);
     }
-    damageRadius(pos, 6.0f, damage * 0.5f, DamageType::Electric, team, 40.0f, false, "electricity");
+    // The splash is blamed on `cause` (the caster's doing, so a spell's kill), unlike the shocks the charged matter carries.
+    damageRadius(pos, 6.0f, damage * 0.5f, DamageType::Electric, team, 40.0f, false, cause ? cause : "electricity");
 }
 
 void Level::freezeArea(Vec2 pos, float radius) {
@@ -397,11 +402,11 @@ void Level::bleed(Vec2 pos, MatId blood, int amount, Vec2 dir) {
     }
 }
 
-const Actor* Level::nearestHostile(Vec2 pos, Team team, float range, uint32_t excludeId) const {
+const Actor* Level::nearestHostile(Vec2 pos, Team team, float range, uint32_t excludeId, const Projectile* struckBy) const {
     const Actor* best = nullptr;
     float bestD2 = range * range;
     auto consider = [&](const Actor& a) {
-        if (!a.alive() || a.team == team || a.id == excludeId) return;
+        if (!a.alive() || a.team == team || a.id == excludeId || (struckBy && struckBy->alreadyHit(a.id))) return;
         float d2 = (a.body.pos - pos).lengthSq();
         if (d2 < bestD2) {
             bestD2 = d2;

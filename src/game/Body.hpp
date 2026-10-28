@@ -17,10 +17,10 @@ struct Environment {
     float contactDps = 0.0f;    ///< strongest damaging material touched (damage per second)
     MatId contactMat = 0;
     bool fire = false;          ///< touching fire, lava or burning cells
-    bool extinguishing = false; ///< touching water or similar
-    bool water = false;         ///< touching water or brine (the same cells as `extinguishing`)
+    bool extinguishing = false; ///< touching water or similar, other than the actor's own blood
+    bool water = false;         ///< touching water or brine (the Doused feat), even when it is the actor's own blood
     bool healing = false;
-    bool sticky = false;
+    bool sticky = false;        ///< touching sticky matter (slime): creatures wade through it at kStickySpeed
     bool acid = false;
 };
 
@@ -46,6 +46,8 @@ struct Body {
 };
 
 constexpr float kGravity = 540.0f; // cells / s^2
+/// Speed multiplier for a creature wading through sticky matter (Environment::sticky).
+constexpr float kStickySpeed = 0.45f;
 
 /// True if any collision-solid cell overlaps the box centred at `c`.
 bool boxBlocked(const World& world, Vec2 c, float halfW, float halfH);
@@ -53,8 +55,9 @@ bool boxBlocked(const World& world, Vec2 c, float halfW, float halfH);
 /// Integrates gravity and velocity for one tick and resolves terrain collisions.
 void moveBody(Body& body, const World& world, float dt);
 
-/// Samples materials overlapping the body.
-Environment sampleEnvironment(const Body& body, const World& world);
+/// Samples materials overlapping the body. Touching `ownBlood`, the matter the creature bleeds,
+/// does not put out its flames (or the blood each hit spills would); wading deep in it still does.
+Environment sampleEnvironment(const Body& body, const World& world, MatId ownBlood = mat::Empty);
 
 /// Pushes a body out of terrain it is stuck in. Loose powder that buries the body is
 /// shoved aside into free space above it. Returns true if the body is now free.

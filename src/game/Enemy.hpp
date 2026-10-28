@@ -118,8 +118,8 @@ public:
     /// Movement speed (cells / s) and attack cooldown (s), after a Swift elite's haste or an
     /// enraged guardian's fury.
     float moveSpeed() const { return def_->speed * (affix_ == Affix::Swift ? 1.5f : 1.0f) * (enraged_ ? 1.3f : 1.0f); }
-    /// moveSpeed(), halved while chilled.
-    float chilledSpeed() const { return moveSpeed() * (status.chilled > 0.0f ? 0.5f : 1.0f); }
+    /// moveSpeed(), halved while chilled and scaled by kStickySpeed while wading through slime.
+    float chilledSpeed() const { return moveSpeed() * (status.chilled > 0.0f ? 0.5f : 1.0f) * (mired_ ? kStickySpeed : 1.0f); }
     float attackCooldown() const {
         return def_->attackCooldown * (affix_ == Affix::Swift ? 0.67f : 1.0f) * (enraged_ ? 0.7f : 1.0f);
     }
@@ -204,6 +204,7 @@ private:
     bool elite_ = false;
     Affix affix_ = Affix::None;
     float strikeMul_ = 1.0f;
+    bool mired_ = false; ///< wading through sticky matter this tick (never flyers, worms or slime-kin)
     // Guardian state.
     bool enraged_ = false;
     bool airborne_ = false;

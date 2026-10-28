@@ -193,18 +193,18 @@ void LevelRenderer::drawProps(const Level& level, float alpha, float time, bool 
         else if (emissive) DrawCircleV(lc, 2.0f, Color{255, 240, 200, 255});
     }
 
-    for (const Pickup& pk : level.pickups()) drawPickup(level, pk, alpha, time, emissive);
+    for (const Pickup& pk : level.pickups()) drawPickup(pk, alpha, time, emissive);
 }
 
-void LevelRenderer::drawPickup(const Level& level, const Pickup& pk, float alpha, float time, bool emissive) {
+void LevelRenderer::drawPickup(const Pickup& pk, float alpha, float time, bool emissive) {
     const Vec2 pos = pk.body.interpolated(alpha);
     const float bob = std::sin(time * 3.0f + pos.x * 0.1f) * 1.5f;
-    if (pk.price > 0 || level.isSanctum()) {
-        if (pk.type != PickupType::PerkAltar) {
-            const SpriteInfo& pi = sprites_.info(SpriteId::Pedestal);
-            Vector2 pp = scene_.layerPos({pos.x - pi.w * 0.5f, pos.y + 6.0f});
-            if (!emissive) sprites_.draw(SpriteId::Pedestal, 0, pp, false);
-        }
+    // Only a shop's wares stand on pedestals (a perk altar is its own stand): a wand swapped or a spell
+    // set down in a sanctum lies on the floor as anywhere else.
+    if (pk.price > 0 && pk.type != PickupType::PerkAltar) {
+        const SpriteInfo& pi = sprites_.info(SpriteId::Pedestal);
+        Vector2 pp = scene_.layerPos({pos.x - pi.w * 0.5f, pos.y + 6.0f});
+        if (!emissive) sprites_.draw(SpriteId::Pedestal, 0, pp, false);
     }
     switch (pk.type) {
     case PickupType::Gold: {

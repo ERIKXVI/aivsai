@@ -35,6 +35,12 @@ Color windupColor(const EnemyDef& def) { return def.glow ? hexColor(def.glow) : 
 
 float sign(float v) { return v < 0.0f ? -1.0f : 1.0f; }
 
+/// Slimes, the slug and the toad move through slime as through their own element.
+bool slimeKin(EnemyType type) {
+    return type == EnemyType::Slime || type == EnemyType::FrostSlime || type == EnemyType::BileSlug ||
+           type == EnemyType::BlackToad;
+}
+
 } // namespace
 
 Enemy::Enemy(EnemyType type, Vec2 pos, uint32_t actorId, float hpScale) : type_(type), def_(&enemyDef(type)) {
@@ -85,7 +91,11 @@ void Enemy::tick(Level& level) {
 
     World& world = level.world();
     if (body.collides) unbury(body, world);
-    Environment env = sampleEnvironment(body, world);
+    Environment env = sampleEnvironment(body, world, def_->blood);
+    // The flames Phoenix Step leaves behind the alchemist spare their companions too.
+    if (team == Team::Player && level.run().hasPerk(PerkId::PhoenixStep)) applyPhoenixStep(env);
+    // Slime clings to walkers and hoppers as it does to the alchemist.
+    mired_ = env.sticky && !flying && def_->behaviour != Behaviour::Burrower && !slimeKin(type_);
     updateStatus(level, env);
     if (dead) return;
     if (def_->behaviour == Behaviour::Companion) {
@@ -467,8 +477,7 @@ void Enemy::tickTurret(Level& level, Vec2 /*toPlayer*/, bool sees) {
 void Enemy::tickKamikaze(Level& level, Vec2 toPlayer, bool /*sees*/) {
     float dist = toPlayer.length();
     float dir = aggro_ ? sign(toPlayer.x) : wanderDir_;
-    float speed = aggro_ ? moveSpeed() : moveSpeed() * 0.3f;
-    if (status.chilled > 0.0f) speed *= 0.5f;
+    float speed = aggro_ ? chilledSpeed() : chilledSpeed() * 0.3f;
     body.vel.x = approach(body.vel.x, dir * speed, 400.0f * kTickDt);
     if (body.hitWall && body.onGround) {
         if (aggro_) body.vel.y = -130.0f;

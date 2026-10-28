@@ -35,6 +35,11 @@ float Actor::applyDamage(Level& level, const DamageInfo& info) {
 
 void Actor::updateStatus(Level& level, const Environment& env) {
     const float dt = kTickDt;
+    // Nothing leaves an immune actor burning or poisoned: it sheds no flames, lights no ground and
+    // shows no status.
+    const bool fireImmune = immuneTo(DamageType::Fire);
+    if (fireImmune) status.burning = 0.0f;
+    if (immuneTo(DamageType::Toxic)) status.poisoned = 0.0f;
     hurtFlash = std::max(0.0f, hurtFlash - dt);
     invulnerable = std::max(0.0f, invulnerable - dt);
     untouchable = std::max(0.0f, untouchable - dt);
@@ -46,7 +51,6 @@ void Actor::updateStatus(Level& level, const Environment& env) {
     status.hasted = std::max(0.0f, status.hasted - dt);
     status.fury = std::max(0.0f, status.fury - dt);
 
-    const bool fireImmune = resist[static_cast<size_t>(DamageType::Fire)] <= 0.0f;
     if (env.submerged > 0.25f && env.liquid != mat::Empty) {
         const MaterialDef& liquid = matDef(env.liquid);
         if (liquid.flags & matflag::kExtinguisher) {
@@ -58,9 +62,9 @@ void Actor::updateStatus(Level& level, const Environment& env) {
     if (env.extinguishing) status.burning = 0.0f;
     if (env.fire && status.wet <= 0.0f && !fireImmune) status.burning = std::max(status.burning, status.oiled > 0.0f ? 7.0f : 3.0f);
 
-    if (status.burning > 0.0f) {
+    if (status.burning > 0.0f) { // never for the fire-immune (see above)
         status.burning -= dt;
-        if (!fireImmune) applyDamage(level, {burnDps() * dt, DamageType::Fire, {}, Team::Monster, false, true, "flames"});
+        applyDamage(level, {burnDps() * dt, DamageType::Fire, {}, Team::Monster, false, true, "flames"});
         // Burning creatures shed flames and set flammable surroundings alight.
         Rng& rng = level.rng();
         if (rng.chance(0.5f)) {
@@ -91,6 +95,12 @@ void Actor::updateStatus(Level& level, const Environment& env) {
         status.poisoned -= dt;
         applyDamage(level, {4.0f * dt, DamageType::Toxic, {}, Team::Monster, false, true, "poison"});
     }
+}
+
+void Actor::applyPhoenixStep(Environment& env) {
+    if (env.contactMat == mat::Fire) env.contactDps = 0.0f;
+    if (env.contactMat != mat::Lava) env.fire = false;
+    status.burning = 0.0f;
 }
 
 /// "Slain by a Fire Imp", "Undone by lava", "Undone by your own Bomb"...

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 #include "game/Level.hpp"
 #include "render/SceneRenderer.hpp"
@@ -37,6 +38,26 @@ Rgba scaled(Rgba c, float k) {
             static_cast<uint8_t>(std::min(255.0f, c.b * k)), c.a};
 }
 
+/// What a shot carries for its caster, a Teleport Bolt's blink and a trigger's payload, let go at `at` however the shot
+/// ends (on impact, doused, or past the world's edge), since its mana is spent. `sparkle` draws the blink's particles.
+void releaseCargo(Level& level, const Projectile& p, Vec2 at, Rng& sparkle) {
+    if ((p.def.flags & kTeleport) && p.team == Team::Player && level.player().alive()) {
+        Player& pl = level.player();
+        Vec2 back = p.vel.lengthSq() > 1.0f ? p.vel.normalized() * -4.0f : Vec2{0.0f, -4.0f};
+        Vec2 from = pl.body.pos;
+        pl.body.pos = pl.body.prevPos = at + back;
+        unbury(pl.body, level.world());
+        pl.body.vel = {};
+        level.particles().burst(from, 20, 120.0f, {120, 255, 220, 255}, {60, 200, 160, 255}, 0.5f, sparkle, 0.0f);
+        level.particles().burst(pl.body.pos, 20, 120.0f, {120, 255, 220, 255}, {60, 200, 160, 255}, 0.5f, sparkle, 0.0f);
+        level.audio().play(Sfx::Portal, 0.35f, 2.0f);
+    }
+    if (p.payload) {
+        Vec2 dir = p.vel.lengthSq() > 1.0f ? p.vel.normalized() : Vec2{1.0f, 0.0f};
+        level.castShot(*p.payload, at - dir * 1.5f, angleOf(dir), p.team, p.ownerId, p.damageMul);
+    }
+}
+
 void impact(Level& level, Projectile& p, Vec2 at) {
     const ProjectileDef& d = p.def;
     Rng& rng = level.rng();
@@ -63,23 +84,10 @@ void impact(Level& level, Projectile& p, Vec2 at) {
             for (int dx = -2; dx <= 2; ++dx) level.world().ignite(floorToInt(at.x) + dx, floorToInt(at.y) + dy);
     }
     if (d.flags & kFreezing) level.freezeArea(at, 7.0f);
-    if (d.flags & kElectric) level.electrify(at, d.damage * p.damageMul * 0.8f, p.team);
+    // Its own splash is the caster's doing (the shocks carried through charged matter are the world's).
+    if (d.flags & kElectric) level.electrify(at, d.damage * p.damageMul * 0.8f, p.team, projectileCause(level, p));
     if (d.flags & kTransmute) level.transmuteArea(at, 6.0f);
-    if ((d.flags & kTeleport) && p.team == Team::Player && level.player().alive()) {
-        Player& pl = level.player();
-        Vec2 back = p.vel.lengthSq() > 1.0f ? p.vel.normalized() * -4.0f : Vec2{0.0f, -4.0f};
-        Vec2 from = pl.body.pos;
-        pl.body.pos = pl.body.prevPos = at + back;
-        unbury(pl.body, level.world());
-        pl.body.vel = {};
-        level.particles().burst(from, 20, 120.0f, {120, 255, 220, 255}, {60, 200, 160, 255}, 0.5f, rng, 0.0f);
-        level.particles().burst(pl.body.pos, 20, 120.0f, {120, 255, 220, 255}, {60, 200, 160, 255}, 0.5f, rng, 0.0f);
-        level.audio().play(Sfx::Portal, 0.35f, 2.0f);
-    }
-    if (p.payload) {
-        Vec2 dir = p.vel.lengthSq() > 1.0f ? p.vel.normalized() : Vec2{1.0f, 0.0f};
-        level.castShot(*p.payload, at - dir * 1.5f, angleOf(dir), p.team, p.ownerId, p.damageMul);
-    }
+    releaseCargo(level, p, at, rng);
     if (d.explosionRadius <= 0.0f) {
         // Impact sparks streak off the hit (cosmetic randomness: gameplay streams are untouched).
         Rgba c = hexRgba(d.color);
@@ -106,14 +114,17 @@ void hitActor(Level& level, Projectile& p, Actor& a) {
     if (dmg > 0.0f) a.applyDamage(level, {dmg, d.damageType, kb, p.team, crit, false, projectileCause(level, p)});
     if (crit && p.team == Team::Player) level.critPunch(a.body.pos);
     else if (p.team == Team::Player && dmg > 0.0f) level.audio().playAt(Sfx::Hit, a.body.pos, 0.25f, level.fxRng().range(0.9f, 1.1f));
-    if (((d.flags & kIncendiary) || d.damageType == DamageType::Fire) && a.status.wet <= 0.0f) a.status.burning = std::max(a.status.burning, 3.0f);
+    // A fiery hit sets the victim alight, unless it is soaked or fireproof (unharmed by the flames, it would only carry them).
+    const bool fireproof = a.resist[static_cast<size_t>(DamageType::Fire)] <= 0.0f;
+    if (((d.flags & kIncendiary) || d.damageType == DamageType::Fire) && a.status.wet <= 0.0f && !fireproof)
+        a.status.burning = std::max(a.status.burning, 3.0f);
     if (d.flags & kFreezing) a.status.chilled = 2.5f;
     if (d.flags & kElectric) a.status.shocked = 0.4f;
     p.rememberHit(a.id);
 
-    // Arc sparks leap to the next foe.
+    // Arc sparks leap to the next foe, never back to one already struck (this one is remembered above).
     if (p.chainsLeft > 0) {
-        if (Actor* next = level.nearestHostile(a.body.pos, p.team, 90.0f, a.id)) {
+        if (Actor* next = level.nearestHostile(a.body.pos, p.team, 90.0f, a.id, &p)) {
             Projectile arc = p;
             arc.chainsLeft = p.chainsLeft - 1;
             arc.age = 0.0f;
@@ -153,7 +164,10 @@ Actor* findVictim(Level& level, const Projectile& p, Vec2 pos) {
 void steer(Level& level, Projectile& p, float dt) {
     const ProjectileDef& d = p.def;
     if (d.flags & kHoming) {
-        if (Actor* t = level.nearestHostile(p.pos, p.team, 170.0f)) {
+        // A seeking shot passes over the foes it has struck (a piercing one would circle back to them), flying straight
+        // on when no other is in reach; a gravity well keeps to the one it grinds.
+        const Projectile* struckBy = (d.flags & kGravityWell) ? nullptr : &p;
+        if (Actor* t = level.nearestHostile(p.pos, p.team, 170.0f, 0, struckBy)) {
             float speed = p.vel.length();
             float cur = angleOf(p.vel), want = angleOf(t->body.pos - p.pos);
             float turn = clamp(wrapAngle(want - cur), -7.0f * dt, 7.0f * dt);
@@ -317,22 +331,35 @@ void updateProjectile(Level& level, Projectile& p, float dt) {
         Vec2 next = p.pos + step;
         const int nx = floorToInt(next.x), ny = floorToInt(next.y);
         if (!world.inBounds(nx, ny)) {
+            // Gone past the world's edge: what it carries is let go at the last point inside (cosmetic sparkle, so
+            // the payload's own cast is the only gameplay randomness drawn).
+            releaseCargo(level, p, p.pos, level.fxRng());
             p.dead = true;
             return;
         }
 
-        if ((d.flags & kDigs) && !(d.flags & kGravityWell)) level.dig(next, d.digRadius, d.digPower, true);
+        if ((d.flags & kDigs) && !(d.flags & kGravityWell)) {
+            // A rolling saw cuts at and above its own row, never the floor it rides on (it would sink into soft ground).
+            const int lowestRow = (d.flags & kRolls) ? floorToInt(p.pos.y) : std::numeric_limits<int>::max();
+            level.dig(next, d.digRadius, d.digPower, true, lowestRow);
+        }
 
         if (blocks(nx, ny) && !(d.flags & kNoCollideWorld)) {
             if (d.flags & kRolls) {
-                // Saw blades turn around at walls and ride along floors (and ceilings), keeping only the
-                // slide along the surface; they go on below to cut whatever they roll into.
-                if (blocks(nx, floorToInt(p.pos.y))) {
-                    p.vel.x = -p.vel.x;
-                    break;
+                // Saw blades climb a one-cell lip, turn around at taller walls and ride along floors (and ceilings),
+                // keeping only the slide along the surface; they go on below to cut whatever they roll into.
+                const int row = floorToInt(p.pos.y);
+                if (blocks(nx, row)) {
+                    if (blocks(nx, row - 1) || blocks(floorToInt(p.pos.x), row - 1)) {
+                        p.vel.x = -p.vel.x;
+                        break;
+                    }
+                    next.y = p.pos.y - 1.0f;
+                    p.vel.y = std::min(p.vel.y, 0.0f);
+                } else {
+                    p.vel.y = std::min(p.vel.y, 0.0f) * 0.2f;
+                    next.y = p.pos.y;
                 }
-                p.vel.y = std::min(p.vel.y, 0.0f) * 0.2f;
-                next.y = p.pos.y;
             } else if (d.flags & kFused) {
                 // A fused charge never bursts on terrain: it bounces off what it strikes hard while it has
                 // bounces left, else settles against the surface and rolls to a stop along it, until its
@@ -384,7 +411,7 @@ void updateProjectile(Level& level, Projectile& p, float dt) {
                 return;
             }
         }
-        // The matter moved into: a rolling saw's slide keeps it on the open row it rolls along.
+        // The matter moved into: a rolling saw's slide or climb keeps it on an open row.
         const MaterialDef& md = matDef(world.at(floorToInt(next.x), floorToInt(next.y)).mat);
         if (md.phase == Phase::Liquid) {
             if ((d.damageType == DamageType::Fire || (d.flags & kIncendiary)) && (md.flags & matflag::kExtinguisher) &&
@@ -392,6 +419,8 @@ void updateProjectile(Level& level, Projectile& p, float dt) {
                 world.placeIfEmpty(floorToInt(p.pos.x), floorToInt(p.pos.y) - 1, mat::Steam);
                 level.particles().burst(p.pos, 8, 50.0f, {220, 230, 240, 200}, {0, 0, 0, 0}, 0.4f, rng, -0.3f);
                 level.audio().playAt(Sfx::Sizzle, p.pos, 0.4f);
+                // Doused, its fire and blast are out, but what it carries is still let go (cosmetic sparkle, as above).
+                releaseCargo(level, p, p.pos, level.fxRng());
                 p.dead = true;
                 return;
             }

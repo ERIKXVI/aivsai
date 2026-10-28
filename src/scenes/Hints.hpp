@@ -26,7 +26,7 @@ struct WandGuide {
 };
 /// The first guideCandidate in the satchel, onto the wand whose first cast hits hardest (direct damage;
 /// ties keep wand order) that has room. A booster needs an attack spell with an empty slot after it,
-/// and never goes on a shuffle wand.
+/// and never goes on a shuffle wand, nor on a wand whose only attack spells dig.
 WandGuide pickWandGuide(const RunState& run);
 
 // Values are bit positions in the seen-mask. WandGuide is not a banner: it marks the wand

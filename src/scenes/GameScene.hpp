@@ -121,6 +121,9 @@ private:
     void syncStickFlick();
     /// Drops the dragged spell onto a wand slot (wand >= 0) or satchel slot (wand -1), swapping.
     void dropDragOnto(int wand, int slot);
+    /// Right-click (Y with a pad) on a spell: a wand's spell goes back to the satchel; a satchel spell, or a
+    /// wand's when the satchel is full, is set down at the alchemist's feet as a pickup.
+    void takeSpellOut(int wand, int slot);
     SpellId& editorSlot(int wand, int slot);
     void drawInventory();
 
