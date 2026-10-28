@@ -224,99 +224,116 @@ Color spellTypeColor(SpellId spell) {
     return WHITE;
 }
 
-void spellIcon(SpellId spell, Rectangle r, bool highlight) {
-    const SpellDef& d = spellDef(spell);
+namespace {
+
+/// Draws the icon's dark background and its frame: white when highlighted, otherwise the type colour `frame`.
+void drawIconFrame(Rectangle r, Color frame, bool highlight) {
     const float s = static_cast<float>(g_scale);
-    Color frame = spell == SpellId::None ? Color{70, 64, 80, 255} : spellTypeColor(spell);
     DrawRectangleRec(r, Color{14, 12, 20, 240});
     DrawRectangleLinesEx(r, s, highlight ? WHITE : frame);
+}
+
+/// Draws a projectile's in-flight look in its colour, centred on `c` and laid out in icon grid units `u`.
+void drawProjectileGlyph(const ProjectileDef& proj, Vector2 c, float u) {
+    const Color pc = hexColor(proj.color);
+    switch (proj.visual) {
+    case ProjVisual::Spark:
+        DrawLineEx({c.x - 3 * u, c.y + 3 * u}, {c.x + 2 * u, c.y - 2 * u}, u * 1.2f, Color{pc.r, pc.g, pc.b, 160});
+        DrawCircleV({c.x + 2 * u, c.y - 2 * u}, u * 1.3f, WHITE);
+        break;
+    case ProjVisual::Bolt:
+        DrawLineEx({c.x - 3.5f * u, c.y + 3.5f * u}, {c.x + 3 * u, c.y - 3 * u}, u * 1.5f, pc);
+        DrawCircleV({c.x + 3 * u, c.y - 3 * u}, u, WHITE);
+        break;
+    case ProjVisual::Orb:
+        DrawCircleV(c, 2.5f * u, pc);
+        DrawCircleV({c.x - u * 0.7f, c.y - u * 0.7f}, u * 0.8f, WHITE);
+        break;
+    case ProjVisual::BigOrb:
+        DrawCircleV(c, 3.4f * u, pc);
+        DrawRing(c, 3.4f * u, 3.9f * u, 0, 360, 24, Color{255, 255, 255, 120});
+        DrawCircleV({c.x - u, c.y - u}, u, WHITE);
+        break;
+    case ProjVisual::Bomb:
+        DrawCircleV({c.x, c.y + u}, 2.8f * u, Color{50, 46, 52, 255});
+        DrawLineEx({c.x + u, c.y - u}, {c.x + 2.5f * u, c.y - 3 * u}, u * 0.8f, Color{160, 120, 80, 255});
+        DrawCircleV({c.x + 2.7f * u, c.y - 3.2f * u}, u, pc);
+        break;
+    case ProjVisual::Shard:
+        DrawTriangle({c.x, c.y - 3.5f * u}, {c.x - 1.6f * u, c.y + 2 * u}, {c.x + 1.6f * u, c.y + 2 * u}, pc);
+        DrawLineEx({c.x, c.y - 3 * u}, {c.x, c.y + 1.5f * u}, u * 0.6f, WHITE);
+        break;
+    case ProjVisual::Saw:
+        DrawPoly(c, 8, 3.4f * u, 0, pc);
+        DrawCircleV(c, 1.4f * u, Color{30, 30, 36, 255});
+        break;
+    case ProjVisual::Beam: {
+        const Vector2 pts[4] = {{c.x - 1 * u, c.y - 4 * u}, {c.x + 1.5f * u, c.y - u},
+                                {c.x - 1.5f * u, c.y + 0.5f * u}, {c.x + 1.0f * u, c.y + 4 * u}};
+        for (int i = 0; i < 3; ++i) DrawLineEx(pts[i], pts[i + 1], u * 1.1f, pc);
+        break;
+    }
+    case ProjVisual::Glob:
+        DrawCircleV({c.x, c.y + u}, 2.6f * u, pc);
+        DrawTriangle({c.x, c.y - 3.5f * u}, {c.x - 2.2f * u, c.y}, {c.x + 2.2f * u, c.y}, pc);
+        DrawCircleV({c.x - u, c.y + 0.3f * u}, u * 0.7f, Color{255, 255, 255, 180});
+        break;
+    case ProjVisual::Star:
+        DrawPoly(c, 4, 3.6f * u, 45, pc);
+        DrawPoly(c, 4, 3.6f * u, 0, pc);
+        DrawCircleV(c, u, WHITE);
+        break;
+    }
+}
+
+/// The short label a modifier or multicast icon shows in place of a picture ("?" for a spell without one).
+const char* spellGlyph(SpellId spell) {
+    switch (spell) {
+    case SpellId::DamageUp: return "+D";
+    case SpellId::SpeedUp: return ">>";
+    case SpellId::Homing: return "@";
+    case SpellId::Piercing: return "->";
+    case SpellId::Bouncy: return "~";
+    case SpellId::Explosive: return "*";
+    case SpellId::FireTrail: return "F";
+    case SpellId::WaterTrail: return "W";
+    case SpellId::OilTrail: return "O";
+    case SpellId::AcidTrail: return "A";
+    case SpellId::RimeTrail: return "=";
+    case SpellId::Heavy: return "v";
+    case SpellId::Weightless: return "^";
+    case SpellId::Accuracy: return "|";
+    case SpellId::Critical: return "!";
+    case SpellId::Incendiary: return "i";
+    case SpellId::Frost: return "#";
+    case SpellId::Larger: return "O+";
+    case SpellId::ManaRefund: return "+M";
+    case SpellId::DoubleCast: return "x2";
+    case SpellId::TripleCast: return "x3";
+    case SpellId::QuadScatter: return "x4";
+    case SpellId::Formation: return "<|>";
+    default: break;
+    }
+    return "?";
+}
+
+} // namespace
+
+void spellIcon(SpellId spell, Rectangle r, bool highlight) {
+    const SpellDef& d = spellDef(spell);
+    const Color frame = spell == SpellId::None ? Color{70, 64, 80, 255} : spellTypeColor(spell);
+    drawIconFrame(r, frame, highlight);
     if (spell == SpellId::None) return;
 
     const Vector2 c{r.x + r.width * 0.5f, r.y + r.height * 0.5f};
     const float u = r.width / 10.0f; // icon grid unit
-    const Color pc = hexColor(d.proj.color);
-
     if (d.type == SpellType::Projectile) {
-        switch (d.proj.visual) {
-        case ProjVisual::Spark:
-            DrawLineEx({c.x - 3 * u, c.y + 3 * u}, {c.x + 2 * u, c.y - 2 * u}, u * 1.2f, Color{pc.r, pc.g, pc.b, 160});
-            DrawCircleV({c.x + 2 * u, c.y - 2 * u}, u * 1.3f, WHITE);
-            break;
-        case ProjVisual::Bolt:
-            DrawLineEx({c.x - 3.5f * u, c.y + 3.5f * u}, {c.x + 3 * u, c.y - 3 * u}, u * 1.5f, pc);
-            DrawCircleV({c.x + 3 * u, c.y - 3 * u}, u, WHITE);
-            break;
-        case ProjVisual::Orb:
-            DrawCircleV(c, 2.5f * u, pc);
-            DrawCircleV({c.x - u * 0.7f, c.y - u * 0.7f}, u * 0.8f, WHITE);
-            break;
-        case ProjVisual::BigOrb:
-            DrawCircleV(c, 3.4f * u, pc);
-            DrawRing(c, 3.4f * u, 3.9f * u, 0, 360, 24, Color{255, 255, 255, 120});
-            DrawCircleV({c.x - u, c.y - u}, u, WHITE);
-            break;
-        case ProjVisual::Bomb:
-            DrawCircleV({c.x, c.y + u}, 2.8f * u, Color{50, 46, 52, 255});
-            DrawLineEx({c.x + u, c.y - u}, {c.x + 2.5f * u, c.y - 3 * u}, u * 0.8f, Color{160, 120, 80, 255});
-            DrawCircleV({c.x + 2.7f * u, c.y - 3.2f * u}, u, pc);
-            break;
-        case ProjVisual::Shard:
-            DrawTriangle({c.x, c.y - 3.5f * u}, {c.x - 1.6f * u, c.y + 2 * u}, {c.x + 1.6f * u, c.y + 2 * u}, pc);
-            DrawLineEx({c.x, c.y - 3 * u}, {c.x, c.y + 1.5f * u}, u * 0.6f, WHITE);
-            break;
-        case ProjVisual::Saw:
-            DrawPoly(c, 8, 3.4f * u, 0, pc);
-            DrawCircleV(c, 1.4f * u, Color{30, 30, 36, 255});
-            break;
-        case ProjVisual::Beam: {
-            const Vector2 pts[4] = {{c.x - 1 * u, c.y - 4 * u}, {c.x + 1.5f * u, c.y - u},
-                                    {c.x - 1.5f * u, c.y + 0.5f * u}, {c.x + 1.0f * u, c.y + 4 * u}};
-            for (int i = 0; i < 3; ++i) DrawLineEx(pts[i], pts[i + 1], u * 1.1f, pc);
-            break;
-        }
-        case ProjVisual::Glob:
-            DrawCircleV({c.x, c.y + u}, 2.6f * u, pc);
-            DrawTriangle({c.x, c.y - 3.5f * u}, {c.x - 2.2f * u, c.y}, {c.x + 2.2f * u, c.y}, pc);
-            DrawCircleV({c.x - u, c.y + 0.3f * u}, u * 0.7f, Color{255, 255, 255, 180});
-            break;
-        case ProjVisual::Star:
-            DrawPoly(c, 4, 3.6f * u, 45, pc);
-            DrawPoly(c, 4, 3.6f * u, 0, pc);
-            DrawCircleV(c, u, WHITE);
-            break;
-        }
+        drawProjectileGlyph(d.proj, c, u);
         if (d.trigger) DrawCircleV({r.x + r.width - 2.2f * u, r.y + r.height - 2.2f * u}, u * 1.2f, Color{255, 120, 200, 255});
     } else {
         // Modifiers and multicasts use short glyph labels.
-        const char* glyph = "?";
-        switch (spell) {
-        case SpellId::DamageUp: glyph = "+D"; break;
-        case SpellId::SpeedUp: glyph = ">>"; break;
-        case SpellId::Homing: glyph = "@"; break;
-        case SpellId::Piercing: glyph = "->"; break;
-        case SpellId::Bouncy: glyph = "~"; break;
-        case SpellId::Explosive: glyph = "*"; break;
-        case SpellId::FireTrail: glyph = "F"; break;
-        case SpellId::WaterTrail: glyph = "W"; break;
-        case SpellId::OilTrail: glyph = "O"; break;
-        case SpellId::AcidTrail: glyph = "A"; break;
-        case SpellId::RimeTrail: glyph = "="; break;
-        case SpellId::Heavy: glyph = "v"; break;
-        case SpellId::Weightless: glyph = "^"; break;
-        case SpellId::Accuracy: glyph = "|"; break;
-        case SpellId::Critical: glyph = "!"; break;
-        case SpellId::Incendiary: glyph = "i"; break;
-        case SpellId::Frost: glyph = "#"; break;
-        case SpellId::Larger: glyph = "O+"; break;
-        case SpellId::ManaRefund: glyph = "+M"; break;
-        case SpellId::DoubleCast: glyph = "x2"; break;
-        case SpellId::TripleCast: glyph = "x3"; break;
-        case SpellId::QuadScatter: glyph = "x4"; break;
-        case SpellId::Formation: glyph = "<|>"; break;
-        default: break;
-        }
-        int size = std::max(10, static_cast<int>(r.height * 0.5f) / 10 * 10);
-        text(glyph, c.x, c.y - static_cast<float>(size) * 0.5f, size, frame, Align::Center, true);
+        const int size = std::max(10, static_cast<int>(r.height * 0.5f) / 10 * 10);
+        text(spellGlyph(spell), c.x, c.y - static_cast<float>(size) * 0.5f, size, frame, Align::Center, true);
     }
 }
 

@@ -12,7 +12,9 @@
 
 namespace pm {
 
+class NavGrid;
 class ThreadPool;
+struct VaultPlan;
 
 namespace gen_detail {
 
@@ -91,8 +93,26 @@ private:
     bool solidRect(const World& world, int x0, int y0, int w, int h) const;
     /// Like solidRect, but up to `maxOpen` of the area may be cave (a lair's shell overwrites it).
     bool mostlySolidRect(const World& world, int x0, int y0, int w, int h, float maxOpen) const;
+    /// Sizes `plan` for its kind and picks a random corner for it at or below row `top`; false if the level is too small.
+    bool pickVaultSite(VaultPlan& plan, int top);
+    /// True if a vault centred on `c` keeps clear of the entrance, exit, route, arena and the vaults `placed`, in sound rock.
+    bool vaultSiteSuitable(const World& world, const VaultPlan& plan, Vec2 c, const std::vector<Rectf>& placed) const;
+    /// Tries both walls, in random order, for a tunnel to a reachable cave; sets plan.doorSide, returns its end column or -1.
+    int findDoorTunnel(const World& world, const NavGrid& nav, VaultPlan& plan, int door, const std::vector<Rectf>& keepOut);
+    /// Builds the vault and its passage to `tunnelEnd`; if the room is then out of reach, undoes it all and returns false.
+    bool stampVault(World& world, std::vector<SpawnPoint>& spawns, const VaultPlan& plan, int door, int tunnelEnd);
     void placeVaults(World& world, LevelLayout& out);
     bool spaceAbove(const World& w, int x, int y, int height, int halfWidth) const;
+    /// A spawn's difficulty at row `y`: 0 at the entrance's depth, rising to 1 at the exit's.
+    float difficultyAt(float y) const;
+    /// Scatters ground and air enemies through the caves (more on a teeming stage), away from the entrance and exit.
+    void scatterEnemies(const World& world, std::vector<SpawnPoint>& spawns);
+    /// Places a `kind` spawn on open floor with headroom near `around` (within `spread`), if 80 tries find one.
+    void placeOnFloor(const World& world, std::vector<SpawnPoint>& spawns, SpawnKind kind, Vec2 around, float spread);
+    /// Scatters chests and potions through the chambers, spells and potions through the pockets, and chests on the route.
+    void scatterTreasure(const World& world, std::vector<SpawnPoint>& spawns);
+    /// Hangs lanterns from the ceiling at intervals along the main path.
+    void hangLanterns(const World& world, std::vector<SpawnPoint>& spawns) const;
     void collectSpawns(const World& world, LevelLayout& out);
 
     int w_, h_;

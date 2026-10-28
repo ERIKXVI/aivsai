@@ -14,6 +14,7 @@ struct Pickup;
 class SceneRenderer;
 class SpriteBank;
 class ThreadPool;
+struct Wand;
 
 class LevelRenderer {
 public:
@@ -28,6 +29,22 @@ public:
 private:
     void drawProps(const Level& level, float alpha, float time, bool emissive);
     void drawPickup(const Pickup& pk, float alpha, float time, bool emissive);
+    /// The pedestal a shop's ware stands on, in the albedo layer only.
+    void drawPedestal(Vec2 pos, bool emissive) const;
+    /// A gold nugget, whose glow glints now and then.
+    void drawGold(Vec2 pos, float time, bool emissive) const;
+    /// A spell card in its spell's colour, with a twinkling gold star when it is a rare find.
+    void drawSpellCard(const Pickup& pk, Vec2 pos, float bob, float time, bool emissive) const;
+    /// A loose wand drawn as a rod of pixels; only its gem glows.
+    void drawWand(const Wand& wand, Vec2 pos, float bob, float time, bool emissive) const;
+    /// A potion tinted by its contents; the flask glows faintly when they do.
+    void drawPotion(const Pickup& pk, Vec2 pos, bool emissive) const;
+    /// A healing heart, drawn pixel by pixel.
+    void drawHeart(Vec2 pos, float bob, bool emissive) const;
+    /// A chest, shut or opened.
+    void drawChest(const Pickup& pk, Vec2 pos, bool emissive) const;
+    /// A perk altar with an orb of the perk's colour floating above it.
+    void drawPerkAltar(const Pickup& pk, Vec2 pos, float bob, bool emissive) const;
     void addLights(const Level& level, float alpha, float time);
     /// Biome light and tint, the death fade, open-air haze, moonlight near the surface and the hurt pulse.
     LightingParams lightingParams(const Level& level, Vec2 camera, float time, int originY) const;

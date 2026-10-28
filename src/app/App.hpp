@@ -86,6 +86,30 @@ private:
     /// On focus changes: keeps the display awake while focused and throttles the background.
     void noteFocus();
 
+    /// What run()'s main loop carries from one frame to the next.
+    struct FrameLoop {
+        double accumulator = 0.0;  ///< real time the fixed-rate ticks have yet to simulate, in seconds
+        double last = 0.0;         ///< GetTime() when the previous frame began, or when the last minimised wait ended
+        bool wasMinimized = false; ///< frames were skipped while minimised, and the scene has yet to hear of it
+    };
+    // The steps of run(), in the order it takes them.
+    /// Starts the scene the launch options ask for: the sandbox, a run or the main menu.
+    void startFirstScene();
+    /// Adds the real time since the previous frame (at most a quarter second) to time() and returns it.
+    double advanceClock(FrameLoop& loop);
+    /// While minimised, idles briefly and returns true to skip the frame; once restored, tells the scene it was away.
+    bool skipMinimizedFrame(FrameLoop& loop);
+    /// Toggles fullscreen on F11 or Alt+Enter.
+    void handleFullscreenShortcuts();
+    /// On a resize, re-caps the frame rate and resizes the scene; on a move onto another monitor, re-caps the rate.
+    void noteWindowChanges();
+    /// Runs the ticks `frameDt` brings due (at most 3), then the scene's frame update; turbo runs 8 of each.
+    void advanceSimulation(double& accumulator, double frameDt);
+    /// Draws the scene `accumulator` seconds past its last tick, and the UI (in turbo, only every fourth frame).
+    void drawFrame(double accumulator);
+    /// Saves the test screenshots due at this frame, and quits once the test's last frame is reached.
+    void handleTestCaptures();
+
     LaunchOptions options_;
     ThreadPool pool_;
     Settings settings_;

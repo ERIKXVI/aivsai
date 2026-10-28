@@ -50,6 +50,18 @@ void applyTestWand(RunState& run, const std::string& list) {
     w.resetDeck();
 }
 
+/// The run --play starts: the launch options' seed (else a random one), path, ordeal, stage, test wand and sanctum.
+RunState newRunFromOptions(const LaunchOptions& options, int difficulty) {
+    uint32_t seed = options.seed ? options.seed : randomRunSeed();
+    RunState run = newRun(seed, difficultyFromIndex(difficulty), false,
+                          static_cast<LoadoutId>(clamp(options.startLoadout, 0, kLoadoutCount - 1)), options.ordeal);
+    run.levelIndex = clamp(options.startLevel, 0, kFinalStage);
+    if (!options.testWand.empty()) applyTestWand(run, options.testWand);
+    run.inSanctum = options.startInSanctum;
+    if (run.inSanctum) run.gold = 900;
+    return run;
+}
+
 } // namespace
 
 App::App(const LaunchOptions& options) : options_(options) {
@@ -167,124 +179,148 @@ void App::applySettings() {
 uint32_t randomRunSeed() { return static_cast<uint32_t>(GetRandomValue(1, 0x7FFFFFFF)); }
 
 int App::run() {
-    if (options_.sandbox) {
-        setScene(std::make_unique<SandboxScene>(*this));
-    } else if (options_.startRun) {
-        uint32_t seed = options_.seed ? options_.seed : randomRunSeed();
-        RunState run = newRun(seed, difficultyFromIndex(settings_.difficulty), false,
-                              static_cast<LoadoutId>(clamp(options_.startLoadout, 0, kLoadoutCount - 1)), options_.ordeal);
-        run.levelIndex = clamp(options_.startLevel, 0, kFinalStage);
-        if (!options_.testWand.empty()) applyTestWand(run, options_.testWand);
-        run.inSanctum = options_.startInSanctum;
-        if (run.inSanctum) run.gold = 900;
-        setScene(std::make_unique<GameScene>(*this, std::move(run)));
-    } else {
-        setScene(std::make_unique<MenuScene>(*this));
-    }
-    applyPendingScene();
+    startFirstScene();
 
-    double accumulator = 0.0;
-    double last = GetTime();
-    bool wasMinimized = false;
+    FrameLoop loop;
+    loop.last = GetTime();
     while (!quit_ && !WindowShouldClose()) {
         noteFocus();
-        double now = GetTime();
-        double frameDt = std::min(now - last, 0.25);
-        last = now;
-        time_ += frameDt;
-
-        // A minimised window reports a 0x0 size on Windows and cannot be drawn into: keep the
-        // event loop alive cheaply until it is restored (the run pauses on focus loss).
-        if (IsWindowMinimized() || GetScreenWidth() <= 0 || GetScreenHeight() <= 0) {
-            PollInputEvents();
-            // A plain sleep: raylib's WaitTime spins out the last milliseconds of every wait.
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            last = GetTime();
-            wasMinimized = true;
-            input::noteAway();
-            continue;
-        }
-        if (wasMinimized) {
-            wasMinimized = false;
-            if (scene_) scene_->onSuspend();
-        }
+        const double frameDt = advanceClock(loop);
+        if (skipMinimizedFrame(loop)) continue;
 
         input::beginFrame();
-        // Fullscreen shortcuts; their keys are then hidden from the scene (Alt+Enter must not
-        // also confirm a menu).
-        const bool altEnter = (IsKeyDown(KEY_LEFT_ALT) || IsKeyDown(KEY_RIGHT_ALT)) && input::keyPressed(KEY_ENTER);
-        if (input::keyPressed(KEY_F11) || altEnter) {
-            toggleFullscreen();
-            input::consumeKey(KEY_F11);
-            input::consumeKey(KEY_ENTER);
-        }
-        if (GetScreenWidth() != screenW_ || GetScreenHeight() != screenH_) {
-            screenW_ = GetScreenWidth();
-            screenH_ = GetScreenHeight();
-            applyFrameCap();
-            if (scene_) scene_->onResize(screenW_, screenH_);
-        }
-        // A window dragged onto a monitor with another refresh rate keeps its size: re-cap it.
-        const Vector2 windowPos = GetWindowPosition();
-        if (windowPos.x != windowX_ || windowPos.y != windowY_) {
-            windowX_ = windowPos.x;
-            windowY_ = windowPos.y;
-            if (GetCurrentMonitor() != capMonitor_) applyFrameCap();
-        }
+        handleFullscreenShortcuts();
+        noteWindowChanges();
         // The scene takes this frame's presses before the ticks, which read the held keys as they
         // are now: taken after them, a press would act a frame later than the keys held with it.
         if (scene_) scene_->onFrameInput();
 
-        // Fixed-rate simulation. If the machine falls behind we drop time rather than
-        // spiralling: at most 3 ticks per rendered frame.
-        if (options_.turbo) {
-            // Headless testing: simulate many ticks per frame and only draw occasionally.
-            for (int i = 0; i < 8; ++i) {
-                scene_->tick();
-                scene_->frame(kTickDt);
-            }
-            accumulator = 0.0;
-        } else {
-            accumulator += frameDt;
-            int ticks = 0;
-            while (accumulator >= kTickDt && ticks < 3) {
-                scene_->tick();
-                accumulator -= kTickDt;
-                ++ticks;
-            }
-            if (ticks == 3) accumulator = std::min(accumulator, static_cast<double>(kTickDt));
-            scene_->frame(static_cast<float>(frameDt));
-        }
-
-        BeginDrawing();
-        if (!options_.turbo || frameCount_ % 4 == 0) {
-            scene_->render(static_cast<float>(accumulator / kTickDt));
-            ui::endFrame();
-        }
-        EndDrawing();
+        advanceSimulation(loop.accumulator, frameDt);
+        drawFrame(loop.accumulator);
 
         ++frameCount_;
-        if (options_.captureEvery > 0 && frameCount_ % static_cast<uint64_t>(options_.captureEvery) == 0) {
-            Image shot = LoadImageFromScreen();
-            std::string path = options_.capturePath;
-            auto dot = path.rfind('.');
-            path.insert(dot == std::string::npos ? path.size() : dot,
-                        TextFormat("_%04d", static_cast<int>(frameCount_ / static_cast<uint64_t>(options_.captureEvery))));
-            ExportImage(shot, path.c_str());
-            UnloadImage(shot);
-        }
-        if (options_.quitAfter >= 0 && frameCount_ >= static_cast<uint64_t>(options_.quitAfter)) quit_ = true;
-        if (options_.captureFrame >= 0 && frameCount_ == static_cast<uint64_t>(options_.captureFrame)) {
-            Image shot = LoadImageFromScreen();
-            ExportImage(shot, options_.capturePath.c_str());
-            UnloadImage(shot);
-            quit_ = true;
-        }
+        handleTestCaptures();
         applyPendingScene();
     }
     // The settings panel only saves on Back: keep changes made before closing the window with it open.
     if (!options_.automated()) saveSettings(settings_);
     return 0;
+}
+
+void App::startFirstScene() {
+    if (options_.sandbox) {
+        setScene(std::make_unique<SandboxScene>(*this));
+    } else if (options_.startRun) {
+        setScene(std::make_unique<GameScene>(*this, newRunFromOptions(options_, settings_.difficulty)));
+    } else {
+        setScene(std::make_unique<MenuScene>(*this));
+    }
+    applyPendingScene();
+}
+
+double App::advanceClock(FrameLoop& loop) {
+    double now = GetTime();
+    double frameDt = std::min(now - loop.last, 0.25);
+    loop.last = now;
+    time_ += frameDt;
+    return frameDt;
+}
+
+bool App::skipMinimizedFrame(FrameLoop& loop) {
+    // A minimised window reports a 0x0 size on Windows and cannot be drawn into: keep the
+    // event loop alive cheaply until it is restored (the run pauses on focus loss).
+    if (IsWindowMinimized() || GetScreenWidth() <= 0 || GetScreenHeight() <= 0) {
+        PollInputEvents();
+        // A plain sleep: raylib's WaitTime spins out the last milliseconds of every wait.
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        loop.last = GetTime();
+        loop.wasMinimized = true;
+        input::noteAway();
+        return true;
+    }
+    if (loop.wasMinimized) {
+        loop.wasMinimized = false;
+        if (scene_) scene_->onSuspend();
+    }
+    return false;
+}
+
+void App::handleFullscreenShortcuts() {
+    // Fullscreen shortcuts; their keys are then hidden from the scene (Alt+Enter must not
+    // also confirm a menu).
+    const bool altEnter = (IsKeyDown(KEY_LEFT_ALT) || IsKeyDown(KEY_RIGHT_ALT)) && input::keyPressed(KEY_ENTER);
+    if (input::keyPressed(KEY_F11) || altEnter) {
+        toggleFullscreen();
+        input::consumeKey(KEY_F11);
+        input::consumeKey(KEY_ENTER);
+    }
+}
+
+void App::noteWindowChanges() {
+    if (GetScreenWidth() != screenW_ || GetScreenHeight() != screenH_) {
+        screenW_ = GetScreenWidth();
+        screenH_ = GetScreenHeight();
+        applyFrameCap();
+        if (scene_) scene_->onResize(screenW_, screenH_);
+    }
+    // A window dragged onto a monitor with another refresh rate keeps its size: re-cap it.
+    const Vector2 windowPos = GetWindowPosition();
+    if (windowPos.x != windowX_ || windowPos.y != windowY_) {
+        windowX_ = windowPos.x;
+        windowY_ = windowPos.y;
+        if (GetCurrentMonitor() != capMonitor_) applyFrameCap();
+    }
+}
+
+void App::advanceSimulation(double& accumulator, double frameDt) {
+    // Fixed-rate simulation. If the machine falls behind we drop time rather than
+    // spiralling: at most 3 ticks per rendered frame.
+    if (options_.turbo) {
+        // Headless testing: simulate many ticks per frame and only draw occasionally.
+        for (int i = 0; i < 8; ++i) {
+            scene_->tick();
+            scene_->frame(kTickDt);
+        }
+        accumulator = 0.0;
+    } else {
+        accumulator += frameDt;
+        int ticks = 0;
+        while (accumulator >= kTickDt && ticks < 3) {
+            scene_->tick();
+            accumulator -= kTickDt;
+            ++ticks;
+        }
+        if (ticks == 3) accumulator = std::min(accumulator, static_cast<double>(kTickDt));
+        scene_->frame(static_cast<float>(frameDt));
+    }
+}
+
+void App::drawFrame(double accumulator) {
+    BeginDrawing();
+    if (!options_.turbo || frameCount_ % 4 == 0) {
+        scene_->render(static_cast<float>(accumulator / kTickDt));
+        ui::endFrame();
+    }
+    EndDrawing();
+}
+
+void App::handleTestCaptures() {
+    if (options_.captureEvery > 0 && frameCount_ % static_cast<uint64_t>(options_.captureEvery) == 0) {
+        Image shot = LoadImageFromScreen();
+        std::string path = options_.capturePath;
+        auto dot = path.rfind('.');
+        path.insert(dot == std::string::npos ? path.size() : dot,
+                    TextFormat("_%04d", static_cast<int>(frameCount_ / static_cast<uint64_t>(options_.captureEvery))));
+        ExportImage(shot, path.c_str());
+        UnloadImage(shot);
+    }
+    if (options_.quitAfter >= 0 && frameCount_ >= static_cast<uint64_t>(options_.quitAfter)) quit_ = true;
+    if (options_.captureFrame >= 0 && frameCount_ == static_cast<uint64_t>(options_.captureFrame)) {
+        Image shot = LoadImageFromScreen();
+        ExportImage(shot, options_.capturePath.c_str());
+        UnloadImage(shot);
+        quit_ = true;
+    }
 }
 
 } // namespace pm

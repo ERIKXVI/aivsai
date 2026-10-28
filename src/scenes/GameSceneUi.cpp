@@ -362,7 +362,7 @@ void GameScene::drawVitals() const {
     float x = 10.0f * s, y = 10.0f * s;
     const float barW = 110.0f * s;
     ui::bar({x, y, barW, 7.0f * s}, pl.hp / pl.maxHp, ui::color::kHealth, ui::color::kBarBack, hpTrail_.shown);
-    ui::text(TextFormat("%d / %d", static_cast<int>(std::ceil(pl.hp)), static_cast<int>(pl.maxHp)), x + 3.0f * s,
+    ui::text(TextFormat("%d / %d", static_cast<int>(std::ceil(pl.hp)), static_cast<int>(std::ceil(pl.maxHp))), x + 3.0f * s,
              y + 3.5f * s - static_cast<float>(small) * 0.5f, small, WHITE);
     y += 9.0f * s;
     if (const Wand* wand = run_.currentWand()) {

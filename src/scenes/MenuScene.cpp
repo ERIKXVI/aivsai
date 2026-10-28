@@ -45,6 +45,99 @@ void cycleDifficulty(Settings& st) {
     saveSettings(st);
 }
 
+/// The foot of the title screen: lifetime records, how the last descent ended and the game's version.
+void drawMenuFooter(const Profile& p, float sw, float sh) {
+    const float s = static_cast<float>(ui::scale());
+    const int small = ui::smallFontSize();
+    std::string stats = TextFormat("Runs %d   Great Works completed %d   Deepest stage %d", p.runs, p.victories, p.deepest);
+    if (p.bestTime > 0.0f) stats += "   Best time " + ui::formatClock(p.bestTime);
+    ui::text(stats, sw * 0.5f, sh - static_cast<float>(small) - 8.0f * s, small, Color{180, 170, 190, 220}, ui::Align::Center);
+    if (!p.history.empty()) {
+        const RunHistoryEntry& lastRun = p.history.front();
+        const std::string line = lastRun.victory ? "Last descent: the Great Work completed"
+                                                 : "Last descent: " + lastRun.fate + " - " + depthLabel(lastRun);
+        ui::text(line, sw * 0.5f, sh - static_cast<float>(small) * 2.3f - 8.0f * s, small, Color{150, 135, 160, 200},
+                 ui::Align::Center);
+    }
+    ui::text("v" PM_VERSION_STRING, sw - 6.0f * s, sh - static_cast<float>(small) - 8.0f * s, small, Color{120, 110, 130, 200},
+             ui::Align::Right);
+}
+
+/// One path's row on Choose Your Path, as its text and its starting kit are laid out in it.
+struct PathRow {
+    LoadoutId id;
+    Rectangle rect;
+    float textX;             ///< left edge of the name and of the line under it
+    const std::string& info; ///< the line under the name: what the path offers, or what unseals it
+    bool unlocked;
+    bool isSelected;
+};
+
+/// Draws a path's name and the line under it; a sealed path is tagged so and shows its progress towards opening.
+void drawPathText(const PathRow& row, const Milestones& m) {
+    const float s = static_cast<float>(ui::scale());
+    const int size = ui::fontSize(ui::scale());
+    const int small = ui::smallFontSize();
+    const LoadoutDef& def = loadoutDef(row.id);
+    const float tx = row.textX, infoY = row.rect.y + 7.0f * s + static_cast<float>(size);
+    if (row.unlocked) {
+        ui::text(def.name, tx, row.rect.y + 5.0f * s, size, row.isSelected ? ui::color::kGold : ui::color::kText);
+        ui::text(row.info, tx, infoY, small, ui::color::kTextDim);
+    } else {
+        // A sealed path still shows what it offers and how far along the way to it you are.
+        ui::text(def.name, tx, row.rect.y + 5.0f * s, size, Color{110, 100, 120, 255});
+        ui::text("SEALED", tx + static_cast<float>(ui::measure(def.name, size)) + 6.0f * s,
+                 row.rect.y + 5.0f * s + static_cast<float>(size - small) * 0.5f, small, ui::color::kTextDim);
+        ui::text(row.info, tx, infoY, small, ui::color::kTextDim);
+        if (const UnlockProgress p = loadoutProgress(row.id, m); p.target > 1)
+            ui::bar({tx, infoY + static_cast<float>(small) + 3.0f * s, 120.0f * s, 3.0f * s},
+                    static_cast<float>(p.value) / static_cast<float>(p.target), Color{150, 120, 70, 255});
+    }
+}
+
+/// Draws the kit's spell icons right-aligned in a path's row ("?" for a kit rolled per run); a hovered icon sets the tooltip.
+void drawKitPreview(const PathRow& row, const std::vector<SpellId>& slots, std::string& tipTitle, std::string& tipBody) {
+    const float s = static_cast<float>(ui::scale());
+    const int size = ui::fontSize(ui::scale());
+    const int small = ui::smallFontSize();
+    const LoadoutDef& def = loadoutDef(row.id);
+    const float icon = 14.0f * s;
+    float ix = row.rect.x + row.rect.width - 8.0f * s - icon;
+    const auto kitSpells = std::count_if(slots.begin(), slots.end(), [](SpellId spell) { return spell != SpellId::None; });
+    const float kitIcons = def.randomKit ? 1.0f : static_cast<float>(kitSpells);
+    const float kitLeft = ix + icon - kitIcons * icon - std::max(0.0f, kitIcons - 1.0f) * 3.0f * s;
+    // Centred in the row, unless the line under the name would run beneath it (at UI scale 1 the
+    // small font is as large as the body text): then it moves up beside the name.
+    const bool kitBesideName = row.textX + static_cast<float>(ui::measure(row.info, small)) + 4.0f * s > kitLeft;
+    const float iconY = kitBesideName ? row.rect.y + 2.0f * s : row.rect.y + (row.rect.height - icon) * 0.5f;
+    if (def.randomKit) {
+        ui::text("?", ix + icon * 0.5f, iconY + (icon - static_cast<float>(size)) * 0.5f, size,
+                 row.unlocked ? ui::color::kAccent : ui::color::kTextDim, ui::Align::Center);
+    } else {
+        for (auto it = slots.rbegin(); it != slots.rend(); ++it) {
+            if (*it == SpellId::None) continue;
+            Rectangle ir{ix, iconY, icon, icon};
+            ui::spellIcon(*it, ir);
+            if (!row.unlocked) DrawRectangleRec(ir, Color{14, 12, 20, 170});
+            if (ui::hovered(ir)) {
+                tipTitle = spellDef(*it).name;
+                tipBody = spellDetails(*it);
+            }
+            ix -= icon + 3.0f * s;
+        }
+    }
+}
+
+/// The difficulty button on Choose Your Path, which a click cycles; hovering it sets the tooltip.
+void drawDifficultyButton(Rectangle r, Settings& st, std::string& tipTitle, std::string& tipBody) {
+    const Difficulty diff = difficultyFromIndex(st.difficulty);
+    if (ui::button(r, difficultyLabel(diff))) cycleDifficulty(st);
+    if (ui::hovered(r)) {
+        tipTitle = difficultyName(diff);
+        tipBody = difficultyDetail(diff);
+    }
+}
+
 } // namespace
 
 MenuScene::MenuScene(App& app)
@@ -274,91 +367,94 @@ void MenuScene::render(float alpha) {
     }
 }
 
+struct MenuScene::MenuColumn {
+    const ui::NavList& nav;
+    float x, y, width, height, gap; ///< `y` is where the next entry goes; `gap` is the space under each entry
+    int index = 0;                  ///< the next entry's place in the keyboard and gamepad navigation
+    Rectangle last{};               ///< the entry drawn last, which its tooltip sits beside
+
+    /// One menu entry: a button that the mouse, keyboard or gamepad can press.
+    bool item(const std::string& label) {
+        last = {x, y, width, height};
+        const bool pressed = ui::button(last, label, true, nav.focused(index)) || nav.activated(index);
+        ++index;
+        y += height + gap;
+        return pressed;
+    }
+};
+
 void MenuScene::drawMain() {
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
     const float s = static_cast<float>(ui::scale());
-    const int small = ui::smallFontSize();
     Vector2 sub = scene_.worldToScreen({kMenuW * 0.5f, static_cast<float>(titleBottom_) + 12.0f});
     ui::text("a falling-sand alchemy roguelite", sw * 0.5f, sub.y, ui::fontSize(ui::scale()), Color{210, 190, 240, 230},
              ui::Align::Center);
 
-    float bw = 150.0f * s, bh = 18.0f * s, gap = 4.0f * s;
+    const float bw = 150.0f * s, bh = 18.0f * s, gap = 4.0f * s;
     const int buttons = suspended_ ? 9 : 8;
-    float x = sw * 0.5f - bw * 0.5f, y = std::min(sh * 0.44f, sh - 26.0f * s - static_cast<float>(buttons) * (bh + gap));
+    const float x = sw * 0.5f - bw * 0.5f, y = std::min(sh * 0.44f, sh - 26.0f * s - static_cast<float>(buttons) * (bh + gap));
     nav_.update(buttons);
-    int index = 0;
-    Rectangle last{};
-    // One menu entry: a button that the mouse, keyboard or gamepad can press.
-    auto item = [&](const std::string& label) {
-        last = {x, y, bw, bh};
-        const bool pressed = ui::button(last, label, true, nav_.focused(index)) || nav_.activated(index);
-        ++index;
-        y += bh + gap;
-        return pressed;
-    };
+    MenuColumn col{nav_, x, y, bw, bh, gap};
 
-    if (suspended_) {
-        if (item("Continue the Work")) {
-            app_.setScene(std::make_unique<GameScene>(app_, *suspended_));
-            return;
-        }
-        if (ui::hovered(last)) {
-            const RunState& r = *suspended_;
-            std::string where = r.inSanctum ? std::string("Sanctum after ") + biomeDef(biomeForDepth(r.levelIndex)).name
-                                            : std::string(stageNumeral(r.levelIndex)) + ". " + biomeDef(biomeForDepth(r.levelIndex)).name;
-            ui::tooltipBeside(last, "Continue the Work", where + TextFormat("  -  %s, %d gold", loadoutDef(r.loadout).name, r.gold), ui::color::kGold);
-        }
-    }
-    const int beginIndex = index;
-    if (item("Begin the Great Work")) panel_ = Panel::Loadout;
-    if (suspended_ && (ui::hovered(last) || nav_.focused(beginIndex)))
-        ui::tooltipBeside(last, "Begin the Great Work", "Starting anew abandons your suspended run.", ui::color::kDanger);
+    if (suspended_ && drawContinueItem(col)) return;
+    const int beginIndex = col.index;
+    if (col.item("Begin the Great Work")) panel_ = Panel::Loadout;
+    if (suspended_ && (ui::hovered(col.last) || nav_.focused(beginIndex)))
+        ui::tooltipBeside(col.last, "Begin the Great Work", "Starting anew abandons your suspended run.", ui::color::kDanger);
     // Everyone attempts the daily rite with the same seed and the same kit. With a run
     // suspended, the first press only asks for confirmation.
-    const int dailyIndex = index;
-    if (item(confirmDaily_ ? "Abandon run for the Rite?" : "Daily Rite")) {
+    drawDailyRiteItem(col);
+    Settings& st = app_.settings();
+    const Difficulty diff = difficultyFromIndex(st.difficulty);
+    if (col.item(difficultyLabel(diff))) cycleDifficulty(st);
+    if (ui::hovered(col.last)) ui::tooltipBeside(col.last, difficultyName(diff), difficultyDetail(diff), ui::color::kGold);
+    if (col.item("Alchemy Sandbox")) app_.setScene(std::make_unique<SandboxScene>(app_));
+    if (col.item("Grimoire")) panel_ = Panel::Grimoire;
+    if (col.item("How to Play")) panel_ = Panel::Help;
+    if (col.item("Settings")) panel_ = Panel::Settings;
+    if (col.item("Quit")) app_.requestQuit();
+
+    drawMenuFooter(app_.profile(), sw, sh);
+}
+
+bool MenuScene::drawContinueItem(MenuColumn& col) {
+    if (col.item("Continue the Work")) {
+        app_.setScene(std::make_unique<GameScene>(app_, *suspended_));
+        return true;
+    }
+    if (ui::hovered(col.last)) {
+        const RunState& r = *suspended_;
+        std::string where = r.inSanctum
+                                ? std::string("Sanctum after ") + biomeDef(biomeForDepth(r.levelIndex)).name
+                                : std::string(stageNumeral(r.levelIndex)) + ". " + biomeDef(biomeForDepth(r.levelIndex)).name;
+        ui::tooltipBeside(col.last, "Continue the Work",
+                          where + TextFormat("  -  %s, %d gold", loadoutDef(r.loadout).name, r.gold), ui::color::kGold);
+    }
+    return false;
+}
+
+void MenuScene::drawDailyRiteItem(MenuColumn& col) {
+    const int dailyIndex = col.index;
+    if (col.item(confirmDaily_ ? "Abandon run for the Rite?" : "Daily Rite")) {
         if (suspended_ && !confirmDaily_) confirmDaily_ = true;
         else startRun(true, LoadoutId::Apprentice);
     }
-    const bool dailyHot = ui::hovered(last) || nav_.focused(dailyIndex);
+    const bool dailyHot = ui::hovered(col.last) || nav_.focused(dailyIndex);
     if (!dailyHot) confirmDaily_ = false;
-    if (ui::hovered(last)) {
+    if (ui::hovered(col.last)) {
         if (suspended_)
-            ui::tooltipBeside(last, "Daily Rite", "Today's seed with the Apprentice's kit. Starting it abandons your suspended run.",
-                        ui::color::kDanger);
+            ui::tooltipBeside(col.last, "Daily Rite",
+                              "Today's seed with the Apprentice's kit. Starting it abandons your suspended run.",
+                              ui::color::kDanger);
         else
-            ui::tooltipBeside(last, "Daily Rite", "Today's seed, the same for every alchemist, with the Apprentice's kit.", ui::color::kGold);
+            ui::tooltipBeside(col.last, "Daily Rite", "Today's seed, the same for every alchemist, with the Apprentice's kit.",
+                              ui::color::kGold);
     }
-    Settings& st = app_.settings();
-    const Difficulty diff = difficultyFromIndex(st.difficulty);
-    if (item(difficultyLabel(diff))) cycleDifficulty(st);
-    if (ui::hovered(last)) ui::tooltipBeside(last, difficultyName(diff), difficultyDetail(diff), ui::color::kGold);
-    if (item("Alchemy Sandbox")) app_.setScene(std::make_unique<SandboxScene>(app_));
-    if (item("Grimoire")) panel_ = Panel::Grimoire;
-    if (item("How to Play")) panel_ = Panel::Help;
-    if (item("Settings")) panel_ = Panel::Settings;
-    if (item("Quit")) app_.requestQuit();
-
-    const Profile& p = app_.profile();
-    std::string stats = TextFormat("Runs %d   Great Works completed %d   Deepest stage %d", p.runs, p.victories, p.deepest);
-    if (p.bestTime > 0.0f) stats += "   Best time " + ui::formatClock(p.bestTime);
-    ui::text(stats, sw * 0.5f, sh - static_cast<float>(small) - 8.0f * s, small, Color{180, 170, 190, 220}, ui::Align::Center);
-    if (!p.history.empty()) {
-        const RunHistoryEntry& lastRun = p.history.front();
-        const std::string line = lastRun.victory ? "Last descent: the Great Work completed"
-                                                 : "Last descent: " + lastRun.fate + " - " + depthLabel(lastRun);
-        ui::text(line, sw * 0.5f, sh - static_cast<float>(small) * 2.3f - 8.0f * s, small, Color{150, 135, 160, 200},
-                 ui::Align::Center);
-    }
-    ui::text("v" PM_VERSION_STRING, sw - 6.0f * s, sh - static_cast<float>(small) - 8.0f * s, small, Color{120, 110, 130, 200},
-             ui::Align::Right);
 }
 
 void MenuScene::drawLoadouts() {
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
     const float s = static_cast<float>(ui::scale());
-    const int size = ui::fontSize(ui::scale());
-    const int small = ui::smallFontSize();
     const Milestones m = milestones();
     Settings& st = app_.settings();
     auto selected = static_cast<LoadoutId>(clamp(st.loadout, 0, kLoadoutCount - 1));
@@ -373,102 +469,79 @@ void MenuScene::drawLoadouts() {
     float y = r.y + 28.0f * s;
     std::string tipTitle, tipBody;
     for (int i = 0; i < kLoadoutCount; ++i) {
-        const auto id = static_cast<LoadoutId>(i);
-        const LoadoutDef& def = loadoutDef(id);
-        const bool unlocked = loadoutUnlocked(id, m);
-        const bool isSelected = id == selected;
-        Rectangle row{r.x + 10.0f * s, y, r.width - 20.0f * s, rowH};
-        const bool hover = unlocked && ui::hovered(row);
-        ui::panel(row, isSelected ? Color{58, 42, 86, 240} : Color{24, 19, 32, 230},
-                  isSelected ? ui::color::kGold : (hover ? ui::color::kAccent : ui::color::kPanelBorder));
-        const float tx = row.x + 8.0f * s, infoY = row.y + 7.0f * s + static_cast<float>(size);
-        const std::string info = unlocked ? std::string(def.description) : loadoutRequirement(id, m);
-        if (unlocked) {
-            ui::text(def.name, tx, row.y + 5.0f * s, size, isSelected ? ui::color::kGold : ui::color::kText);
-            ui::text(info, tx, infoY, small, ui::color::kTextDim);
-        } else {
-            // A sealed path still shows what it offers and how far along the way to it you are.
-            ui::text(def.name, tx, row.y + 5.0f * s, size, Color{110, 100, 120, 255});
-            ui::text("SEALED", tx + static_cast<float>(ui::measure(def.name, size)) + 6.0f * s,
-                     row.y + 5.0f * s + static_cast<float>(size - small) * 0.5f, small, ui::color::kTextDim);
-            ui::text(info, tx, infoY, small, ui::color::kTextDim);
-            if (const UnlockProgress p = loadoutProgress(id, m); p.target > 1)
-                ui::bar({tx, infoY + static_cast<float>(small) + 3.0f * s, 120.0f * s, 3.0f * s},
-                        static_cast<float>(p.value) / static_cast<float>(p.target), Color{150, 120, 70, 255});
-        }
-        // Starting kit preview: the first wand's spells, shaded while the path is sealed.
-        const float icon = 14.0f * s;
-        float ix = row.x + row.width - 8.0f * s - icon;
-        const std::vector<SpellId>& slots = kitPreview_[static_cast<size_t>(i)];
-        const auto kitSpells = std::count_if(slots.begin(), slots.end(), [](SpellId spell) { return spell != SpellId::None; });
-        const float kitIcons = def.randomKit ? 1.0f : static_cast<float>(kitSpells);
-        const float kitLeft = ix + icon - kitIcons * icon - std::max(0.0f, kitIcons - 1.0f) * 3.0f * s;
-        // Centred in the row, unless the line under the name would run beneath it (at UI scale 1 the
-        // small font is as large as the body text): then it moves up beside the name.
-        const bool kitBesideName = tx + static_cast<float>(ui::measure(info, small)) + 4.0f * s > kitLeft;
-        const float iconY = kitBesideName ? row.y + 2.0f * s : row.y + (rowH - icon) * 0.5f;
-        if (def.randomKit) {
-            ui::text("?", ix + icon * 0.5f, iconY + (icon - static_cast<float>(size)) * 0.5f, size,
-                     unlocked ? ui::color::kAccent : ui::color::kTextDim, ui::Align::Center);
-        } else {
-            for (auto it = slots.rbegin(); it != slots.rend(); ++it) {
-                if (*it == SpellId::None) continue;
-                Rectangle ir{ix, iconY, icon, icon};
-                ui::spellIcon(*it, ir);
-                if (!unlocked) DrawRectangleRec(ir, Color{14, 12, 20, 170});
-                if (ui::hovered(ir)) {
-                    tipTitle = spellDef(*it).name;
-                    tipBody = spellDetails(*it);
-                }
-                ix -= icon + 3.0f * s;
-            }
-        }
-        if (unlocked && hover && input::mousePressed(MOUSE_BUTTON_LEFT)) {
-            if (isSelected) {
-                // Like the Begin button, abandoning a suspended run takes a second press.
-                if (suspended_ && !confirmBegin_) {
-                    confirmBegin_ = true;
-                } else {
-                    startRun(false, id);
-                    return;
-                }
-            } else {
-                st.loadout = i;
-                saveSettings(st);
-                confirmBegin_ = false;
-            }
-        }
+        const Rectangle row{r.x + 10.0f * s, y, r.width - 20.0f * s, rowH};
+        if (drawPathRow(i, row, selected, m, tipTitle, tipBody)) return;
         y += rowH + rowGap;
     }
     // Arrow keys move the selection between unlocked paths.
-    const bool down = ui::navDownPressed();
-    const bool up = ui::navUpPressed();
-    const int dir = (down ? 1 : 0) - (up ? 1 : 0);
-    if (dir != 0) {
-        for (int step = 1; step < kLoadoutCount; ++step) {
-            const int next = (static_cast<int>(selected) + dir * step + kLoadoutCount) % kLoadoutCount;
-            if (loadoutUnlocked(static_cast<LoadoutId>(next), m)) {
-                st.loadout = next;
-                saveSettings(st);
-                confirmBegin_ = false;
-                break;
-            }
-        }
-    }
+    movePathSelection(selected, m);
 
     // The difficulty, where the run is committed to (a click cycles it).
-    const Difficulty diff = difficultyFromIndex(st.difficulty);
     const Rectangle diffR{sw * 0.5f - 90.0f * s, y, 180.0f * s, 16.0f * s};
-    if (ui::button(diffR, difficultyLabel(diff))) cycleDifficulty(st);
-    if (ui::hovered(diffR)) {
-        tipTitle = difficultyName(diff);
-        tipBody = difficultyDetail(diff);
-    }
+    drawDifficultyButton(diffR, st, tipTitle, tipBody);
     y += diffR.height + 6.0f * s;
     const Rectangle ordealR{r.x + 10.0f * s, y, r.width - 20.0f * s, 20.0f * s};
     drawOrdealRow(ordealR, tipTitle, tipBody);
 
-    const float bw = 100.0f * s, bh = 16.0f * s, by = r.y + r.height - 24.0f * s;
+    if (drawPathButtons(r, ordealR, selected)) return;
+    if (!tipTitle.empty()) ui::tooltip(tipTitle, tipBody, ui::color::kAccent);
+}
+
+bool MenuScene::drawPathRow(int index, Rectangle rect, LoadoutId selected, const Milestones& m, std::string& tipTitle,
+                            std::string& tipBody) {
+    const float s = static_cast<float>(ui::scale());
+    const auto id = static_cast<LoadoutId>(index);
+    const bool unlocked = loadoutUnlocked(id, m);
+    const bool isSelected = id == selected;
+    const bool hover = unlocked && ui::hovered(rect);
+    ui::panel(rect, isSelected ? Color{58, 42, 86, 240} : Color{24, 19, 32, 230},
+              isSelected ? ui::color::kGold : (hover ? ui::color::kAccent : ui::color::kPanelBorder));
+    const std::string info = unlocked ? std::string(loadoutDef(id).description) : loadoutRequirement(id, m);
+    const PathRow row{id, rect, rect.x + 8.0f * s, info, unlocked, isSelected};
+    drawPathText(row, m);
+    // Starting kit preview: the first wand's spells, shaded while the path is sealed.
+    drawKitPreview(row, kitPreview_[static_cast<size_t>(index)], tipTitle, tipBody);
+    if (unlocked && hover && input::mousePressed(MOUSE_BUTTON_LEFT)) {
+        if (isSelected) {
+            // Like the Begin button, abandoning a suspended run takes a second press.
+            if (suspended_ && !confirmBegin_) {
+                confirmBegin_ = true;
+            } else {
+                startRun(false, id);
+                return true;
+            }
+        } else {
+            Settings& st = app_.settings();
+            st.loadout = index;
+            saveSettings(st);
+            confirmBegin_ = false;
+        }
+    }
+    return false;
+}
+
+void MenuScene::movePathSelection(LoadoutId selected, const Milestones& m) {
+    const bool down = ui::navDownPressed();
+    const bool up = ui::navUpPressed();
+    const int dir = (down ? 1 : 0) - (up ? 1 : 0);
+    if (dir == 0) return;
+    Settings& st = app_.settings();
+    for (int step = 1; step < kLoadoutCount; ++step) {
+        const int next = (static_cast<int>(selected) + dir * step + kLoadoutCount) % kLoadoutCount;
+        if (loadoutUnlocked(static_cast<LoadoutId>(next), m)) {
+            st.loadout = next;
+            saveSettings(st);
+            confirmBegin_ = false;
+            break;
+        }
+    }
+}
+
+bool MenuScene::drawPathButtons(Rectangle panelR, Rectangle ordealR, LoadoutId selected) {
+    const float sw = static_cast<float>(app_.screenWidth());
+    const float s = static_cast<float>(ui::scale());
+    const int small = ui::smallFontSize();
+    const float bw = 100.0f * s, bh = 16.0f * s, by = panelR.y + panelR.height - 24.0f * s;
     // Enter or A start the run from anywhere on this panel, so the warning cannot sit in a tooltip.
     // It fits the 16-unit gap above the buttons: the small font is never taller than 10 units.
     if (suspended_) {
@@ -481,14 +554,14 @@ void MenuScene::drawLoadouts() {
             confirmBegin_ = true;
         } else {
             startRun(false, selected);
-            return;
+            return true;
         }
     }
     if (ui::button({sw * 0.5f + 4.0f * s, by, bw, bh}, "Back") || ui::backPressed()) {
         panel_ = Panel::Main;
         confirmBegin_ = false;
     }
-    if (!tipTitle.empty()) ui::tooltip(tipTitle, tipBody, ui::color::kAccent);
+    return false;
 }
 
 void MenuScene::drawOrdealRow(Rectangle row, std::string& tipTitle, std::string& tipBody) {

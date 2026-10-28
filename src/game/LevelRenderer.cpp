@@ -201,110 +201,120 @@ void LevelRenderer::drawPickup(const Pickup& pk, float alpha, float time, bool e
     const float bob = std::sin(time * 3.0f + pos.x * 0.1f) * 1.5f;
     // Only a shop's wares stand on pedestals (a perk altar is its own stand): a wand swapped or a spell
     // set down in a sanctum lies on the floor as anywhere else.
-    if (pk.price > 0 && pk.type != PickupType::PerkAltar) {
-        const SpriteInfo& pi = sprites_.info(SpriteId::Pedestal);
-        Vector2 pp = scene_.layerPos({pos.x - pi.w * 0.5f, pos.y + 6.0f});
-        if (!emissive) sprites_.draw(SpriteId::Pedestal, 0, pp, false);
-    }
+    if (pk.price > 0 && pk.type != PickupType::PerkAltar) drawPedestal(pos, emissive);
     switch (pk.type) {
-    case PickupType::Gold: {
-        Vector2 p = scene_.layerPos({pos.x - 1.0f, pos.y - 1.0f});
-        int x = static_cast<int>(std::floor(p.x)), y = static_cast<int>(std::floor(p.y));
-        bool glint = static_cast<int>(time * 4.0f + pos.x) % 6 == 0;
+    case PickupType::Gold: drawGold(pos, time, emissive); break;
+    case PickupType::Spell: drawSpellCard(pk, pos, bob, time, emissive); break;
+    case PickupType::Wand:
+        if (pk.wand) drawWand(*pk.wand, pos, bob, time, emissive);
+        break;
+    case PickupType::Potion: drawPotion(pk, pos, emissive); break;
+    case PickupType::Heart: drawHeart(pos, bob, emissive); break;
+    case PickupType::Chest: drawChest(pk, pos, emissive); break;
+    case PickupType::PerkAltar: drawPerkAltar(pk, pos, bob, emissive); break;
+    }
+}
+
+void LevelRenderer::drawPedestal(Vec2 pos, bool emissive) const {
+    const SpriteInfo& pi = sprites_.info(SpriteId::Pedestal);
+    Vector2 pp = scene_.layerPos({pos.x - pi.w * 0.5f, pos.y + 6.0f});
+    if (!emissive) sprites_.draw(SpriteId::Pedestal, 0, pp, false);
+}
+
+void LevelRenderer::drawGold(Vec2 pos, float time, bool emissive) const {
+    Vector2 p = scene_.layerPos({pos.x - 1.0f, pos.y - 1.0f});
+    int x = static_cast<int>(std::floor(p.x)), y = static_cast<int>(std::floor(p.y));
+    bool glint = static_cast<int>(time * 4.0f + pos.x) % 6 == 0;
+    if (emissive) {
+        DrawPixel(x, y, glint ? Color{255, 240, 180, 255} : Color{120, 90, 20, 255});
+    } else {
+        DrawRectangle(x, y, 2, 2, Color{230, 180, 50, 255});
+        DrawPixel(x, y, Color{255, 240, 160, 255});
+    }
+}
+
+void LevelRenderer::drawSpellCard(const Pickup& pk, Vec2 pos, float bob, float time, bool emissive) const {
+    const SpriteInfo& info = sprites_.info(SpriteId::SpellCard);
+    Vector2 p = scene_.layerPos({pos.x - info.w * 0.5f, pos.y - info.h * 0.5f + bob});
+    Color c = spellColor(pk.spell);
+    if (emissive) sprites_.drawEmissive(SpriteId::SpellCard, 0, p, false, Color{c.r, c.g, c.b, 160});
+    else sprites_.draw(SpriteId::SpellCard, 0, p, false, c);
+    if (pk.rare) {
+        // A rare find twinkles: a gold star at the card's corner, flaring now and then.
+        const int sx = static_cast<int>(std::floor(p.x)) + info.w, sy = static_cast<int>(std::floor(p.y));
+        constexpr Color kStar{255, 215, 110, 255};
+        DrawPixel(sx, sy, kStar);
+        if (std::sin(time * 6.0f + pos.x) > 0.6f) {
+            DrawPixel(sx - 1, sy, kStar);
+            DrawPixel(sx + 1, sy, kStar);
+            DrawPixel(sx, sy - 1, kStar);
+            DrawPixel(sx, sy + 1, kStar);
+        }
+    }
+}
+
+void LevelRenderer::drawWand(const Wand& wand, Vec2 pos, float bob, float time, bool emissive) const {
+    // A slanted two-pixel-thick rod with a glowing gem, spinning slowly.
+    const float angle = -0.6f + std::sin(time * 1.5f + pos.x) * 0.25f;
+    const Vec2 dir = fromAngle(angle);
+    const Vec2 base = pos + Vec2{0.0f, bob} - dir * (static_cast<float>(wand.length) * 0.5f);
+    for (int i = 0; i <= wand.length; ++i) {
+        Vector2 p = scene_.layerPos(base + dir * static_cast<float>(i));
+        const int px = static_cast<int>(std::floor(p.x)), py = static_cast<int>(std::floor(p.y));
+        const bool gem = i >= wand.length - 1;
         if (emissive) {
-            DrawPixel(x, y, glint ? Color{255, 240, 180, 255} : Color{120, 90, 20, 255});
-        } else {
-            DrawRectangle(x, y, 2, 2, Color{230, 180, 50, 255});
-            DrawPixel(x, y, Color{255, 240, 160, 255});
+            if (gem) DrawRectangle(px, py, 2, 2, hexColor(wand.gemColor));
+            continue;
         }
-        break;
+        DrawRectangle(px, py, gem ? 2 : 1, 2, hexColor(gem ? wand.gemColor : wand.handleColor));
     }
-    case PickupType::Spell: {
-        const SpriteInfo& info = sprites_.info(SpriteId::SpellCard);
-        Vector2 p = scene_.layerPos({pos.x - info.w * 0.5f, pos.y - info.h * 0.5f + bob});
-        Color c = spellColor(pk.spell);
-        if (emissive) sprites_.drawEmissive(SpriteId::SpellCard, 0, p, false, Color{c.r, c.g, c.b, 160});
-        else sprites_.draw(SpriteId::SpellCard, 0, p, false, c);
-        if (pk.rare) {
-            // A rare find twinkles: a gold star at the card's corner, flaring now and then.
-            const int sx = static_cast<int>(std::floor(p.x)) + info.w, sy = static_cast<int>(std::floor(p.y));
-            constexpr Color kStar{255, 215, 110, 255};
-            DrawPixel(sx, sy, kStar);
-            if (std::sin(time * 6.0f + pos.x) > 0.6f) {
-                DrawPixel(sx - 1, sy, kStar);
-                DrawPixel(sx + 1, sy, kStar);
-                DrawPixel(sx, sy - 1, kStar);
-                DrawPixel(sx, sy + 1, kStar);
-            }
-        }
-        break;
+}
+
+void LevelRenderer::drawPotion(const Pickup& pk, Vec2 pos, bool emissive) const {
+    const SpriteInfo& info = sprites_.info(SpriteId::Potion);
+    Vector2 p = scene_.layerPos({pos.x - info.w * 0.5f, pos.y + pk.body.halfH - static_cast<float>(info.h)});
+    Rgba lc = cellColor(makeCell(pk.mat, 128), 0, 0, 0);
+    Color tint{lc.r, lc.g, lc.b, 255};
+    if (emissive) {
+        const MaterialDef& md = matDef(pk.mat);
+        if (md.glow.a > 0) sprites_.drawSilhouette(SpriteId::Potion, 0, p, false, Color{md.glow.r, md.glow.g, md.glow.b, 70});
+    } else {
+        sprites_.draw(SpriteId::Potion, 0, p, false, tint);
     }
-    case PickupType::Wand: {
-        if (!pk.wand) break;
-        // A slanted two-pixel-thick rod with a glowing gem, spinning slowly.
-        const float angle = -0.6f + std::sin(time * 1.5f + pos.x) * 0.25f;
-        const Vec2 dir = fromAngle(angle);
-        const Vec2 base = pos + Vec2{0.0f, bob} - dir * (static_cast<float>(pk.wand->length) * 0.5f);
-        for (int i = 0; i <= pk.wand->length; ++i) {
-            Vector2 p = scene_.layerPos(base + dir * static_cast<float>(i));
-            const int px = static_cast<int>(std::floor(p.x)), py = static_cast<int>(std::floor(p.y));
-            const bool gem = i >= pk.wand->length - 1;
-            if (emissive) {
-                if (gem) DrawRectangle(px, py, 2, 2, hexColor(pk.wand->gemColor));
-                continue;
-            }
-            DrawRectangle(px, py, gem ? 2 : 1, 2, hexColor(gem ? pk.wand->gemColor : pk.wand->handleColor));
-        }
-        break;
-    }
-    case PickupType::Potion: {
-        const SpriteInfo& info = sprites_.info(SpriteId::Potion);
-        Vector2 p = scene_.layerPos({pos.x - info.w * 0.5f, pos.y + pk.body.halfH - static_cast<float>(info.h)});
-        Rgba lc = cellColor(makeCell(pk.mat, 128), 0, 0, 0);
-        Color tint{lc.r, lc.g, lc.b, 255};
-        if (emissive) {
-            const MaterialDef& md = matDef(pk.mat);
-            if (md.glow.a > 0) sprites_.drawSilhouette(SpriteId::Potion, 0, p, false, Color{md.glow.r, md.glow.g, md.glow.b, 70});
-        } else {
-            sprites_.draw(SpriteId::Potion, 0, p, false, tint);
-        }
-        break;
-    }
-    case PickupType::Heart: {
-        Vector2 p = scene_.layerPos({pos.x - 2.0f, pos.y - 2.0f + bob});
-        int x = static_cast<int>(std::floor(p.x)), y = static_cast<int>(std::floor(p.y));
-        Color c = emissive ? Color{160, 30, 50, 255} : Color{230, 50, 70, 255};
-        DrawRectangle(x, y, 2, 2, c);
-        DrawRectangle(x + 3, y, 2, 2, c);
-        DrawRectangle(x, y + 1, 5, 2, c);
-        DrawRectangle(x + 1, y + 3, 3, 1, c);
-        DrawPixel(x + 2, y + 4, c);
-        break;
-    }
-    case PickupType::Chest: {
-        SpriteId s = pk.opened ? SpriteId::ChestOpen : SpriteId::Chest;
-        const SpriteInfo& info = sprites_.info(s);
-        Vector2 p = scene_.layerPos({pos.x - info.w * 0.5f, pos.y + pk.body.halfH - static_cast<float>(info.h)});
-        if (emissive) sprites_.drawEmissive(s, 0, p, false);
-        else sprites_.draw(s, 0, p, false);
-        break;
-    }
-    case PickupType::PerkAltar: {
-        const SpriteInfo& info = sprites_.info(SpriteId::Altar);
-        Vector2 p = scene_.layerPos({pos.x - info.w * 0.5f, pos.y + pk.body.halfH - static_cast<float>(info.h)});
-        Color c = hexColor(perkDef(pk.perk).color);
-        if (emissive) {
-            sprites_.drawEmissive(SpriteId::Altar, 0, p, false, c);
-            Vector2 orb = scene_.layerPos({pos.x, pos.y - 12.0f + bob});
-            DrawCircleV(orb, 2.5f, c);
-        } else {
-            sprites_.draw(SpriteId::Altar, 0, p, false);
-            Vector2 orb = scene_.layerPos({pos.x, pos.y - 12.0f + bob});
-            DrawCircleV(orb, 2.5f, c);
-            DrawPixel(static_cast<int>(orb.x), static_cast<int>(orb.y) - 1, WHITE);
-        }
-        break;
-    }
+}
+
+void LevelRenderer::drawHeart(Vec2 pos, float bob, bool emissive) const {
+    Vector2 p = scene_.layerPos({pos.x - 2.0f, pos.y - 2.0f + bob});
+    int x = static_cast<int>(std::floor(p.x)), y = static_cast<int>(std::floor(p.y));
+    Color c = emissive ? Color{160, 30, 50, 255} : Color{230, 50, 70, 255};
+    DrawRectangle(x, y, 2, 2, c);
+    DrawRectangle(x + 3, y, 2, 2, c);
+    DrawRectangle(x, y + 1, 5, 2, c);
+    DrawRectangle(x + 1, y + 3, 3, 1, c);
+    DrawPixel(x + 2, y + 4, c);
+}
+
+void LevelRenderer::drawChest(const Pickup& pk, Vec2 pos, bool emissive) const {
+    SpriteId s = pk.opened ? SpriteId::ChestOpen : SpriteId::Chest;
+    const SpriteInfo& info = sprites_.info(s);
+    Vector2 p = scene_.layerPos({pos.x - info.w * 0.5f, pos.y + pk.body.halfH - static_cast<float>(info.h)});
+    if (emissive) sprites_.drawEmissive(s, 0, p, false);
+    else sprites_.draw(s, 0, p, false);
+}
+
+void LevelRenderer::drawPerkAltar(const Pickup& pk, Vec2 pos, float bob, bool emissive) const {
+    const SpriteInfo& info = sprites_.info(SpriteId::Altar);
+    Vector2 p = scene_.layerPos({pos.x - info.w * 0.5f, pos.y + pk.body.halfH - static_cast<float>(info.h)});
+    Color c = hexColor(perkDef(pk.perk).color);
+    if (emissive) {
+        sprites_.drawEmissive(SpriteId::Altar, 0, p, false, c);
+        Vector2 orb = scene_.layerPos({pos.x, pos.y - 12.0f + bob});
+        DrawCircleV(orb, 2.5f, c);
+    } else {
+        sprites_.draw(SpriteId::Altar, 0, p, false);
+        Vector2 orb = scene_.layerPos({pos.x, pos.y - 12.0f + bob});
+        DrawCircleV(orb, 2.5f, c);
+        DrawPixel(static_cast<int>(orb.x), static_cast<int>(orb.y) - 1, WHITE);
     }
 }
 

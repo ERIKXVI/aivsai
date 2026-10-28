@@ -268,6 +268,199 @@ void emitTrail(Level& level, Projectile& p) {
     }
 }
 
+/// How one sub-cell step of a shot's march turns out.
+enum class StepOutcome {
+    Advance, ///< it moves on to the step's point
+    Stop,    ///< it stops short for this tick (bounced, turned back or came to rest) and still lays its trail
+    Gone,    ///< it is gone (burst, doused or past the world's edge): its tick ends there, without a trail
+};
+
+/// One sub-cell step of a shot's march along its path.
+struct MarchStep {
+    Vec2 next;      ///< the point it steps to (a saw blade's climb or ride and a fused charge's slide move it)
+    int nx, ny;     ///< the cell `next` first fell in, which the terrain tests read
+    float friction; ///< the speed a fused charge sliding along a surface loses over the step
+};
+
+/// A saw blade meeting terrain climbs a lip or rides along the surface; turned back by a taller wall, it stops for the tick.
+StepOutcome rollAlongTerrain(const World& world, Projectile& p, MarchStep& step) {
+    // Saw blades climb a one-cell lip, turn around at taller walls and ride along floors (and ceilings),
+    // keeping only the slide along the surface; they go on to cut whatever they roll into.
+    const int row = floorToInt(p.pos.y);
+    if (shotBlocked(world, step.nx, row, p.team)) {
+        if (shotBlocked(world, step.nx, row - 1, p.team) || shotBlocked(world, floorToInt(p.pos.x), row - 1, p.team)) {
+            p.vel.x = -p.vel.x;
+            return StepOutcome::Stop;
+        }
+        step.next.y = p.pos.y - 1.0f;
+        p.vel.y = std::min(p.vel.y, 0.0f);
+    } else {
+        p.vel.y = std::min(p.vel.y, 0.0f) * 0.2f;
+        step.next.y = p.pos.y;
+    }
+    return StepOutcome::Advance;
+}
+
+/// A fused charge meeting terrain bounces off it when it strikes hard, else settles against it and slides along it.
+StepOutcome settleAgainstTerrain(Level& level, Projectile& p, MarchStep& step) {
+    // A fused charge never bursts on terrain: it bounces off what it strikes hard while it has
+    // bounces left, else settles against the surface and rolls to a stop along it, until its
+    // fuse runs out (its lifetime) or a foe touches it.
+    const World& world = level.world();
+    const bool blockX = shotBlocked(world, step.nx, floorToInt(p.pos.y), p.team);
+    const bool blockY = shotBlocked(world, floorToInt(p.pos.x), step.ny, p.team);
+    // Its speed into the surface (its whole speed into a corner).
+    const float into = blockX != blockY ? std::fabs(blockX ? p.vel.x : p.vel.y) : p.vel.length();
+    if (p.bouncesLeft > 0 && into > kFuseBounceSpeed) {
+        if (blockX) p.vel.x = -p.vel.x;
+        if (blockY) p.vel.y = -p.vel.y;
+        if (!blockX && !blockY) p.vel = -p.vel;
+        p.vel *= 0.45f;
+        --p.bouncesLeft;
+        if (p.vel.length() > 60.0f) level.audio().playAt(Sfx::Land, p.pos, 0.3f, 1.5f);
+        return StepOutcome::Stop;
+    }
+    // At rest nothing carries into the surface (so gravity's pull each tick neither bounces nor
+    // shakes it), and friction slows the slide along it.
+    if (blockY && !blockX) {
+        p.vel.y = 0.0f;
+        p.vel.x = approach(p.vel.x, 0.0f, step.friction);
+        step.next.y = p.pos.y;
+    } else if (blockX && !blockY) {
+        p.vel.x = 0.0f;
+        p.vel.y = approach(p.vel.y, 0.0f, step.friction);
+        step.next.x = p.pos.x;
+    } else {
+        p.vel = {}; // wedged into a corner
+        return StepOutcome::Stop;
+    }
+    return StepOutcome::Advance;
+}
+
+/// A shot with bounces left rebounds off the terrain it meets and stops for the tick; a bomb rebounds dully, with a thud.
+StepOutcome bounceOffTerrain(Level& level, Projectile& p, const MarchStep& step) {
+    const ProjectileDef& d = p.def;
+    const World& world = level.world();
+    bool blockX = shotBlocked(world, step.nx, floorToInt(p.pos.y), p.team);
+    bool blockY = shotBlocked(world, floorToInt(p.pos.x), step.ny, p.team);
+    if (blockX) p.vel.x = -p.vel.x;
+    if (blockY) p.vel.y = -p.vel.y;
+    if (!blockX && !blockY) p.vel = -p.vel;
+    float damp = d.visual == ProjVisual::Bomb ? 0.45f : 0.9f;
+    p.vel *= damp;
+    --p.bouncesLeft;
+    if (d.visual == ProjVisual::Bomb && p.vel.length() > 60.0f) level.audio().playAt(Sfx::Land, p.pos, 0.3f, 1.5f);
+    return StepOutcome::Stop;
+}
+
+/// Solid matter met on the step: a saw blade rides it, a fused charge rests on it, a bouncing shot rebounds, others burst.
+StepOutcome strikeTerrain(Level& level, Projectile& p, MarchStep& step) {
+    const ProjectileDef& d = p.def;
+    if (d.flags & kRolls) return rollAlongTerrain(level.world(), p, step);
+    if (d.flags & kFused) return settleAgainstTerrain(level, p, step);
+    if (p.bouncesLeft > 0) return bounceOffTerrain(level, p, step);
+    // A thud as it strikes matter (blasts and diggers have their own sounds).
+    if (d.explosionRadius <= 0.0f && !(d.flags & kDigs))
+        level.audio().playAt(Sfx::Impact, p.pos, 0.22f, level.fxRng().range(0.85f, 1.15f));
+    impact(level, p, p.pos);
+    return StepOutcome::Gone;
+}
+
+/// Liquid at `next` slows the shot; it douses a fiery one (letting go what it carries) and a freezing one bursts on it.
+StepOutcome wadeThroughLiquid(Level& level, Projectile& p, Vec2 next) {
+    const ProjectileDef& d = p.def;
+    World& world = level.world();
+    // The matter moved into: a rolling saw's slide or climb keeps it on an open row.
+    const MaterialDef& md = matDef(world.at(floorToInt(next.x), floorToInt(next.y)).mat);
+    if (md.phase != Phase::Liquid) return StepOutcome::Advance;
+    if ((d.damageType == DamageType::Fire || (d.flags & kIncendiary)) && (md.flags & matflag::kExtinguisher) &&
+        d.explosionRadius < 12.0f) {
+        world.placeIfEmpty(floorToInt(p.pos.x), floorToInt(p.pos.y) - 1, mat::Steam);
+        level.particles().burst(p.pos, 8, 50.0f, {220, 230, 240, 200}, {0, 0, 0, 0}, 0.4f, level.rng(), -0.3f);
+        level.audio().playAt(Sfx::Sizzle, p.pos, 0.4f);
+        // Doused, its fire and blast are out, but what it carries is still let go (cosmetic sparkle, as at the world's edge).
+        releaseCargo(level, p, p.pos, level.fxRng());
+        p.dead = true;
+        return StepOutcome::Gone;
+    }
+    if (d.flags & kFreezing) {
+        impact(level, p, next);
+        return StepOutcome::Gone;
+    }
+    p.vel *= 0.985f;
+    return StepOutcome::Advance;
+}
+
+/// A creature at `next` takes the shot's hit: a saw cuts it once per cooldown, a piercing shot passes on, others burst.
+StepOutcome strikeCreature(Level& level, Projectile& p, Vec2 next) {
+    const ProjectileDef& d = p.def;
+    if (Actor* victim = findVictim(level, p, next)) {
+        if (d.flags & kRolls) {
+            if (p.hitCooldown <= 0.0f) {
+                hitActor(level, p, *victim);
+                p.hitCount = 0; // saws may hit the same foe again after the cooldown
+                p.hitCooldown = 0.15f;
+            }
+        } else {
+            hitActor(level, p, *victim);
+            if (!(d.flags & kPiercing)) {
+                impact(level, p, next);
+                return StepOutcome::Gone;
+            }
+        }
+    }
+    return StepOutcome::Advance;
+}
+
+/// Takes one sub-cell step: the world's edge first, then what the shot digs, and the terrain, liquid and creatures it meets.
+StepOutcome takeStep(Level& level, Projectile& p, MarchStep& step) {
+    const ProjectileDef& d = p.def;
+    const World& world = level.world();
+    if (!world.inBounds(step.nx, step.ny)) {
+        // Gone past the world's edge: what it carries is let go at the last point inside (cosmetic sparkle, so
+        // the payload's own cast is the only gameplay randomness drawn).
+        releaseCargo(level, p, p.pos, level.fxRng());
+        p.dead = true;
+        return StepOutcome::Gone;
+    }
+
+    if ((d.flags & kDigs) && !(d.flags & kGravityWell)) {
+        // A rolling saw cuts at and above its own row, never the floor it rides on (it would sink into soft ground).
+        const int lowestRow = (d.flags & kRolls) ? floorToInt(p.pos.y) : std::numeric_limits<int>::max();
+        level.dig(step.next, d.digRadius, d.digPower, true, lowestRow);
+    }
+
+    // The alchemist's spells pass through rime laid by their own trails: the shot laying it, its
+    // siblings, and a trigger's payload released on the line. Other matter, natural ice included,
+    // still stops them, and rime stops the creatures' shots. Out of bounds reads as bedrock.
+    if (shotBlocked(world, step.nx, step.ny, p.team) && !(d.flags & kNoCollideWorld)) {
+        const StepOutcome struck = strikeTerrain(level, p, step);
+        if (struck != StepOutcome::Advance) return struck;
+    }
+    const StepOutcome waded = wadeThroughLiquid(level, p, step.next);
+    if (waded != StepOutcome::Advance) return waded;
+    return strikeCreature(level, p, step.next);
+}
+
+/// Moves the shot along this tick's path in sub-cell steps; false when it is gone on the way, so it lays no trail.
+bool marchAlongPath(Level& level, Projectile& p, float dt) {
+    // March along the path in sub-cell steps.
+    Vec2 delta = p.vel * dt;
+    const float dist = delta.length();
+    const int steps = std::max(1, static_cast<int>(std::ceil(dist)));
+    const Vec2 stride = delta / static_cast<float>(steps);
+    const float friction = kFuseFriction * dt / static_cast<float>(steps);
+    for (int s = 0; s < steps && !p.dead; ++s) {
+        const Vec2 next = p.pos + stride;
+        MarchStep step{next, floorToInt(next.x), floorToInt(next.y), friction};
+        const StepOutcome outcome = takeStep(level, p, step);
+        if (outcome == StepOutcome::Stop) break;
+        if (outcome == StepOutcome::Gone) return false;
+        p.pos = step.next;
+    }
+    return true;
+}
+
 } // namespace
 
 void fireHitscan(Level& level, Projectile& p, float range) {
@@ -292,8 +485,6 @@ void fireHitscan(Level& level, Projectile& p, float range) {
 
 void updateProjectile(Level& level, Projectile& p, float dt) {
     const ProjectileDef& d = p.def;
-    World& world = level.world();
-    Rng& rng = level.rng();
     p.prevPos = p.pos;
     p.age += dt;
     p.hitCooldown = std::max(0.0f, p.hitCooldown - dt);
@@ -311,149 +502,85 @@ void updateProjectile(Level& level, Projectile& p, float dt) {
     if (d.flags & kGravityWell) pullIntoWell(level, p, dt);
 
     // The alchemist's spells knock down lanterns they pass, however the march below ends.
-    struct LanternSweep {
-        Level& level;
-        const Projectile& p;
-        Vec2 from;
-        ~LanternSweep() {
-            if (p.team == Team::Player) level.knockLanterns(from, p.pos, 2.5f + p.def.radius);
-        }
-    } lanternSweep{level, p, p.pos};
-
-    // The alchemist's spells pass through rime laid by their own trails: the shot laying it, its
-    // siblings, and a trigger's payload released on the line. Other matter, natural ice included,
-    // still stops them, and rime stops the creatures' shots. Out of bounds reads as bedrock.
-    auto blocks = [&](int x, int y) { return shotBlocked(world, x, y, p.team); };
-
-    // March along the path in sub-cell steps.
-    Vec2 delta = p.vel * dt;
-    const float dist = delta.length();
-    const int steps = std::max(1, static_cast<int>(std::ceil(dist)));
-    const Vec2 step = delta / static_cast<float>(steps);
-    for (int s = 0; s < steps && !p.dead; ++s) {
-        Vec2 next = p.pos + step;
-        const int nx = floorToInt(next.x), ny = floorToInt(next.y);
-        if (!world.inBounds(nx, ny)) {
-            // Gone past the world's edge: what it carries is let go at the last point inside (cosmetic sparkle, so
-            // the payload's own cast is the only gameplay randomness drawn).
-            releaseCargo(level, p, p.pos, level.fxRng());
-            p.dead = true;
-            return;
-        }
-
-        if ((d.flags & kDigs) && !(d.flags & kGravityWell)) {
-            // A rolling saw cuts at and above its own row, never the floor it rides on (it would sink into soft ground).
-            const int lowestRow = (d.flags & kRolls) ? floorToInt(p.pos.y) : std::numeric_limits<int>::max();
-            level.dig(next, d.digRadius, d.digPower, true, lowestRow);
-        }
-
-        if (blocks(nx, ny) && !(d.flags & kNoCollideWorld)) {
-            if (d.flags & kRolls) {
-                // Saw blades climb a one-cell lip, turn around at taller walls and ride along floors (and ceilings),
-                // keeping only the slide along the surface; they go on below to cut whatever they roll into.
-                const int row = floorToInt(p.pos.y);
-                if (blocks(nx, row)) {
-                    if (blocks(nx, row - 1) || blocks(floorToInt(p.pos.x), row - 1)) {
-                        p.vel.x = -p.vel.x;
-                        break;
-                    }
-                    next.y = p.pos.y - 1.0f;
-                    p.vel.y = std::min(p.vel.y, 0.0f);
-                } else {
-                    p.vel.y = std::min(p.vel.y, 0.0f) * 0.2f;
-                    next.y = p.pos.y;
-                }
-            } else if (d.flags & kFused) {
-                // A fused charge never bursts on terrain: it bounces off what it strikes hard while it has
-                // bounces left, else settles against the surface and rolls to a stop along it, until its
-                // fuse runs out (the lifetime, above) or a foe touches it (below).
-                const bool blockX = blocks(nx, floorToInt(p.pos.y));
-                const bool blockY = blocks(floorToInt(p.pos.x), ny);
-                // Its speed into the surface (its whole speed into a corner).
-                const float into = blockX != blockY ? std::fabs(blockX ? p.vel.x : p.vel.y) : p.vel.length();
-                if (p.bouncesLeft > 0 && into > kFuseBounceSpeed) {
-                    if (blockX) p.vel.x = -p.vel.x;
-                    if (blockY) p.vel.y = -p.vel.y;
-                    if (!blockX && !blockY) p.vel = -p.vel;
-                    p.vel *= 0.45f;
-                    --p.bouncesLeft;
-                    if (p.vel.length() > 60.0f) level.audio().playAt(Sfx::Land, p.pos, 0.3f, 1.5f);
-                    break;
-                }
-                // At rest nothing carries into the surface (so gravity's pull each tick neither bounces nor
-                // shakes it), and friction slows the slide along it.
-                const float friction = kFuseFriction * dt / static_cast<float>(steps);
-                if (blockY && !blockX) {
-                    p.vel.y = 0.0f;
-                    p.vel.x = approach(p.vel.x, 0.0f, friction);
-                    next.y = p.pos.y;
-                } else if (blockX && !blockY) {
-                    p.vel.x = 0.0f;
-                    p.vel.y = approach(p.vel.y, 0.0f, friction);
-                    next.x = p.pos.x;
-                } else {
-                    p.vel = {}; // wedged into a corner
-                    break;
-                }
-            } else if (p.bouncesLeft > 0) {
-                bool blockX = blocks(nx, floorToInt(p.pos.y));
-                bool blockY = blocks(floorToInt(p.pos.x), ny);
-                if (blockX) p.vel.x = -p.vel.x;
-                if (blockY) p.vel.y = -p.vel.y;
-                if (!blockX && !blockY) p.vel = -p.vel;
-                float damp = d.visual == ProjVisual::Bomb ? 0.45f : 0.9f;
-                p.vel *= damp;
-                --p.bouncesLeft;
-                if (d.visual == ProjVisual::Bomb && p.vel.length() > 60.0f) level.audio().playAt(Sfx::Land, p.pos, 0.3f, 1.5f);
-                break;
-            } else {
-                // A thud as it strikes matter (blasts and diggers have their own sounds).
-                if (d.explosionRadius <= 0.0f && !(d.flags & kDigs))
-                    level.audio().playAt(Sfx::Impact, p.pos, 0.22f, level.fxRng().range(0.85f, 1.15f));
-                impact(level, p, p.pos);
-                return;
-            }
-        }
-        // The matter moved into: a rolling saw's slide or climb keeps it on an open row.
-        const MaterialDef& md = matDef(world.at(floorToInt(next.x), floorToInt(next.y)).mat);
-        if (md.phase == Phase::Liquid) {
-            if ((d.damageType == DamageType::Fire || (d.flags & kIncendiary)) && (md.flags & matflag::kExtinguisher) &&
-                d.explosionRadius < 12.0f) {
-                world.placeIfEmpty(floorToInt(p.pos.x), floorToInt(p.pos.y) - 1, mat::Steam);
-                level.particles().burst(p.pos, 8, 50.0f, {220, 230, 240, 200}, {0, 0, 0, 0}, 0.4f, rng, -0.3f);
-                level.audio().playAt(Sfx::Sizzle, p.pos, 0.4f);
-                // Doused, its fire and blast are out, but what it carries is still let go (cosmetic sparkle, as above).
-                releaseCargo(level, p, p.pos, level.fxRng());
-                p.dead = true;
-                return;
-            }
-            if (d.flags & kFreezing) {
-                impact(level, p, next);
-                return;
-            }
-            p.vel *= 0.985f;
-        }
-
-        if (Actor* victim = findVictim(level, p, next)) {
-            if (d.flags & kRolls) {
-                if (p.hitCooldown <= 0.0f) {
-                    hitActor(level, p, *victim);
-                    p.hitCount = 0; // saws may hit the same foe again after the cooldown
-                    p.hitCooldown = 0.15f;
-                }
-            } else {
-                hitActor(level, p, *victim);
-                if (!(d.flags & kPiercing)) {
-                    impact(level, p, next);
-                    return;
-                }
-            }
-        }
-        p.pos = next;
-    }
-
-    emitTrail(level, p);
+    const Vec2 from = p.pos;
+    if (marchAlongPath(level, p, dt)) emitTrail(level, p);
+    if (p.team == Team::Player) level.knockLanterns(from, p.pos, 2.5f + d.radius);
 }
+
+namespace {
+
+constexpr Rgba kWhite{255, 255, 255, 255}; ///< the white-hot core most shots are drawn with
+
+/// Where a shot's head is drawn this frame and in what colours, for the visuals stamped around it.
+struct ShotLook {
+    WorldRenderer& layer;
+    Vec2 pos;   ///< the head, between its last two ticks' positions
+    int x, y;   ///< the cell the head lies in
+    Rgba color; ///< the shot's colour
+    Rgba glow;  ///< the light it sheds
+    /// Stamps one cell of the shot onto the world layer.
+    void put(int px, int py, Rgba col, Rgba g) const { layer.stamp(px, py, col, g); }
+};
+
+/// A big orb: a disc of the shot's colour (radius 4 for a broad shot, else 2) around a white-hot core.
+void drawBigOrb(const ShotLook& s, float radius) {
+    const int r = radius > 4.0f ? 4 : 2;
+    for (int dy = -r; dy <= r; ++dy)
+        for (int dx = -r; dx <= r; ++dx)
+            if (dx * dx + dy * dy <= r * r) s.put(s.x + dx, s.y + dy, (dx * dx + dy * dy <= 1) ? kWhite : s.color, s.glow);
+}
+
+/// A bomb: a dark casing with a lighter corner, the spark on its fuse blinking above it.
+void drawBomb(const ShotLook& s, uint32_t tick) {
+    const Rgba body{40, 36, 40, 255}, rim{90, 80, 80, 255};
+    for (int dy = -1; dy <= 1; ++dy)
+        for (int dx = -1; dx <= 1; ++dx) s.put(s.x + dx, s.y + dy, (dx == -1 && dy == -1) ? rim : body, {0, 0, 0, 0});
+    bool blink = ((tick / 6) % 2) == 0;
+    s.put(s.x, s.y - 2, blink ? kWhite : s.color, blink ? Rgba{255, 200, 80, 255} : Rgba{120, 60, 20, 255});
+}
+
+/// A saw blade: six teeth of the shot's colour spinning around a white hub.
+void drawSaw(const ShotLook& s, uint32_t tick) {
+    float a = static_cast<float>(tick) * 0.6f;
+    for (int k = 0; k < 6; ++k) {
+        Vec2 o = fromAngle(a + k * kTau / 6.0f, 2.2f);
+        s.put(floorToInt(s.pos.x + o.x), floorToInt(s.pos.y + o.y), s.color, scaled(s.glow, 0.4f));
+    }
+    s.put(s.x, s.y, kWhite, scaled(s.glow, 0.4f));
+}
+
+/// A star: a white point twinkling between a plus and a cross of the shot's colour.
+void drawStar(const ShotLook& s, uint32_t tick) {
+    bool phase = (tick / 3) % 2 == 0;
+    s.put(s.x, s.y, kWhite, s.glow);
+    if (phase) {
+        s.put(s.x + 1, s.y, s.color, s.glow);
+        s.put(s.x - 1, s.y, s.color, s.glow);
+        s.put(s.x, s.y + 1, s.color, s.glow);
+        s.put(s.x, s.y - 1, s.color, s.glow);
+    } else {
+        s.put(s.x + 1, s.y + 1, s.color, s.glow);
+        s.put(s.x - 1, s.y - 1, s.color, s.glow);
+        s.put(s.x - 1, s.y + 1, s.color, s.glow);
+        s.put(s.x + 1, s.y - 1, s.color, s.glow);
+    }
+}
+
+/// A hitscan beam from `a` to `b`, its kinks reshaped every other tick.
+void drawBeam(WorldRenderer& layer, Vec2 a, Vec2 b, uint32_t tick) {
+    // Jagged lightning between start and end.
+    float len = (b - a).length();
+    Vec2 n = (b - a).normalized();
+    Vec2 perp{-n.y, n.x};
+    uint32_t seed = static_cast<uint32_t>(tick / 2) * 7919u;
+    for (float t = 0.0f; t < len; t += 1.0f) {
+        float jitter = (hashToUnit(hash2(static_cast<int>(t / 6.0f), 0, seed)) - 0.5f) * 6.0f;
+        Vec2 q = a + n * t + perp * jitter * std::sin(t / len * kPi);
+        layer.stamp(floorToInt(q.x), floorToInt(q.y), kWhite, {200, 220, 255, 255});
+    }
+}
+
+} // namespace
 
 void drawProjectile(const Projectile& p, DrawContext& ctx, uint32_t tick) {
     const ProjectileDef& d = p.def;
@@ -464,86 +591,37 @@ void drawProjectile(const Projectile& p, DrawContext& ctx, uint32_t tick) {
     const int x = floorToInt(pos.x), y = floorToInt(pos.y);
     const Vec2 dir = p.vel.lengthSq() > 1.0f ? p.vel.normalized() : Vec2{1.0f, 0.0f};
     auto put = [&](int px, int py, Rgba col, Rgba g) { layer.stamp(px, py, col, g); };
-    const Rgba white{255, 255, 255, 255};
+    const ShotLook look{layer, pos, x, y, c, glow};
 
     switch (d.visual) {
     case ProjVisual::Spark:
-        put(x, y, white, glow);
+        put(x, y, kWhite, glow);
         put(floorToInt(pos.x - dir.x), floorToInt(pos.y - dir.y), c, glow);
         break;
     case ProjVisual::Bolt:
         for (int i = 0; i < 4; ++i)
-            put(floorToInt(pos.x - dir.x * i), floorToInt(pos.y - dir.y * i), i == 0 ? white : c, scaled(glow, 1.0f - i * 0.2f));
+            put(floorToInt(pos.x - dir.x * i), floorToInt(pos.y - dir.y * i), i == 0 ? kWhite : c, scaled(glow, 1.0f - i * 0.2f));
         break;
     case ProjVisual::Orb:
         for (int dy = -1; dy <= 1; ++dy)
-            for (int dx = -1; dx <= 1; ++dx) put(x + dx, y + dy, (dx == 0 && dy == 0) ? white : c, glow);
+            for (int dx = -1; dx <= 1; ++dx) put(x + dx, y + dy, (dx == 0 && dy == 0) ? kWhite : c, glow);
         break;
-    case ProjVisual::BigOrb: {
-        const int r = d.radius > 4.0f ? 4 : 2;
-        for (int dy = -r; dy <= r; ++dy)
-            for (int dx = -r; dx <= r; ++dx)
-                if (dx * dx + dy * dy <= r * r) put(x + dx, y + dy, (dx * dx + dy * dy <= 1) ? white : c, glow);
-        break;
-    }
-    case ProjVisual::Bomb: {
-        const Rgba body{40, 36, 40, 255}, rim{90, 80, 80, 255};
-        for (int dy = -1; dy <= 1; ++dy)
-            for (int dx = -1; dx <= 1; ++dx) put(x + dx, y + dy, (dx == -1 && dy == -1) ? rim : body, {0, 0, 0, 0});
-        bool blink = ((tick / 6) % 2) == 0;
-        put(x, y - 2, blink ? white : c, blink ? Rgba{255, 200, 80, 255} : Rgba{120, 60, 20, 255});
-        break;
-    }
+    case ProjVisual::BigOrb: drawBigOrb(look, d.radius); break;
+    case ProjVisual::Bomb: drawBomb(look, tick); break;
     case ProjVisual::Shard:
-        put(x, y, white, glow);
+        put(x, y, kWhite, glow);
         put(floorToInt(pos.x - dir.x), floorToInt(pos.y - dir.y), c, glow);
         put(floorToInt(pos.x - dir.x * 2), floorToInt(pos.y - dir.y * 2), c, scaled(glow, 0.5f));
         put(floorToInt(pos.x - dir.y), floorToInt(pos.y + dir.x), c, scaled(glow, 0.5f));
         break;
-    case ProjVisual::Saw: {
-        float a = static_cast<float>(tick) * 0.6f;
-        for (int k = 0; k < 6; ++k) {
-            Vec2 o = fromAngle(a + k * kTau / 6.0f, 2.2f);
-            put(floorToInt(pos.x + o.x), floorToInt(pos.y + o.y), c, scaled(glow, 0.4f));
-        }
-        put(x, y, white, scaled(glow, 0.4f));
-        break;
-    }
+    case ProjVisual::Saw: drawSaw(look, tick); break;
     case ProjVisual::Glob:
         for (int dy = -1; dy <= 1; ++dy)
             for (int dx = -1; dx <= 1; ++dx)
                 if (std::abs(dx) + std::abs(dy) <= 1) put(x + dx, y + dy, c, scaled(glow, 0.5f));
         break;
-    case ProjVisual::Star: {
-        bool phase = (tick / 3) % 2 == 0;
-        put(x, y, white, glow);
-        if (phase) {
-            put(x + 1, y, c, glow);
-            put(x - 1, y, c, glow);
-            put(x, y + 1, c, glow);
-            put(x, y - 1, c, glow);
-        } else {
-            put(x + 1, y + 1, c, glow);
-            put(x - 1, y - 1, c, glow);
-            put(x - 1, y + 1, c, glow);
-            put(x + 1, y - 1, c, glow);
-        }
-        break;
-    }
-    case ProjVisual::Beam: {
-        // Jagged lightning between start and end.
-        Vec2 a = p.pos, b = p.beamEnd;
-        float len = (b - a).length();
-        Vec2 n = (b - a).normalized();
-        Vec2 perp{-n.y, n.x};
-        uint32_t seed = static_cast<uint32_t>(tick / 2) * 7919u;
-        for (float t = 0.0f; t < len; t += 1.0f) {
-            float jitter = (hashToUnit(hash2(static_cast<int>(t / 6.0f), 0, seed)) - 0.5f) * 6.0f;
-            Vec2 q = a + n * t + perp * jitter * std::sin(t / len * kPi);
-            put(floorToInt(q.x), floorToInt(q.y), white, {200, 220, 255, 255});
-        }
-        break;
-    }
+    case ProjVisual::Star: drawStar(look, tick); break;
+    case ProjVisual::Beam: drawBeam(layer, p.pos, p.beamEnd, tick); break;
     }
 }
 

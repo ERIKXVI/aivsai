@@ -242,7 +242,7 @@ void GameScene::updateLens(float dt) {
                 break;
             }
             title = e->elite() ? std::string(affixName(e->affix())) + " " + e->def().name : std::string(e->def().name);
-            body = TextFormat("%d / %d health", static_cast<int>(std::ceil(e->hp)), static_cast<int>(e->maxHp));
+            body = TextFormat("%d / %d health", static_cast<int>(std::ceil(e->hp)), static_cast<int>(std::ceil(e->maxHp)));
             color = e->team == Team::Player ? ui::color::kAccent : ui::color::kDanger;
             break;
         }

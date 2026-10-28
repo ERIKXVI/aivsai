@@ -111,6 +111,23 @@ bool roomForSatchelSpell(const RunState& run) {
     });
 }
 
+/// True when a transmutation circle that has not yet granted its perk is close to the alchemist.
+bool unfinishedTransmuterNearby(const Level& level) {
+    const Player& player = level.player();
+    for (const Transmuter& tm : level.transmuters())
+        if (!tm.complete && (tm.pos - player.center()).lengthSq() < 70.0f * 70.0f) return true;
+    return false;
+}
+
+/// True when the keeper of a lair near the alchemist has noticed them or they are close to it.
+bool lairKeeperEncountered(const Level& level) {
+    // Introduce the lair as its keeper notices the alchemist (it sees far down the
+    // passage), or when they come close to it unseen.
+    const Player& player = level.player();
+    const Enemy* g = level.nearestGuardian(player.center(), 240.0f);
+    return g && (g->aggro() || (g->body.pos - player.center()).lengthSq() < 110.0f * 110.0f);
+}
+
 /// True when a hanging lantern near the alchemist has a creature close beneath it.
 bool lanternOverFoe(const Level& level) {
     const Vec2 me = level.player().center();
@@ -175,61 +192,41 @@ void HintTracker::update(const Level& level, const RunState& run, float dt) {
     // The opening controls card covers the first half minute of the first stage.
     if (run.levelIndex == 0 && t < 30.0f) return;
 
-    if (!seen(Hint::Satchel) && level.spellsToSatchel() > 0) {
-        show(Hint::Satchel);
-        return;
-    }
-    if (!seen(Hint::EditWands) && run.levelIndex == 0 && t > 32.0f && roomForSatchelSpell(run)) {
-        show(Hint::EditWands);
-        return;
-    }
-    if (!seen(Hint::Heal) && player.hp < player.maxHp * 0.4f) {
-        show(Hint::Heal);
-        return;
-    }
-    if (!seen(Hint::Transmuter)) {
-        for (const Transmuter& tm : level.transmuters()) {
-            if (!tm.complete && (tm.pos - player.center()).lengthSq() < 70.0f * 70.0f) {
-                show(Hint::Transmuter);
-                return;
-            }
-        }
-    }
-    if (!seen(Hint::Elixir) && (run.flask.mat == mat::Quicksilver || run.flask.mat == mat::Ichor) && !run.flask.empty()) {
-        show(Hint::Elixir);
-        return;
-    }
-    if (!seen(Hint::Compass) && run.levelIndex == 0 && t > 35.0f) {
-        show(Hint::Compass);
+    if (const Hint h = pickStateHint(level, run); h != Hint::Count) {
+        show(h);
         return;
     }
     // World scans are throttled.
     scanTimer_ -= dt;
     if (scanTimer_ > 0.0f) return;
     scanTimer_ = 0.5f;
+    if (const Hint h = pickScannedHint(level, run); h != Hint::Count) show(h);
+}
+
+Hint HintTracker::pickStateHint(const Level& level, const RunState& run) const {
+    const Player& player = level.player();
+    const float t = level.time();
+    if (!seen(Hint::Satchel) && level.spellsToSatchel() > 0) return Hint::Satchel;
+    if (!seen(Hint::EditWands) && run.levelIndex == 0 && t > 32.0f && roomForSatchelSpell(run)) return Hint::EditWands;
+    if (!seen(Hint::Heal) && player.hp < player.maxHp * 0.4f) return Hint::Heal;
+    if (!seen(Hint::Transmuter) && unfinishedTransmuterNearby(level)) return Hint::Transmuter;
+    if (!seen(Hint::Elixir) && (run.flask.mat == mat::Quicksilver || run.flask.mat == mat::Ichor) && !run.flask.empty())
+        return Hint::Elixir;
+    if (!seen(Hint::Compass) && run.levelIndex == 0 && t > 35.0f) return Hint::Compass;
+    return Hint::Count;
+}
+
+Hint HintTracker::pickScannedHint(const Level& level, const RunState& run) const {
+    const Player& player = level.player();
     const World& world = level.world();
     if (!seen(Hint::Absorb) && run.flask.amount < Flask::kCapacity &&
-        nearby(world, player.center(), 14, [](MatId m) { return matDef(m).phase == Phase::Liquid; })) {
-        show(Hint::Absorb);
-        return;
-    }
-    if (!seen(Hint::Gold) && nearby(world, player.center(), 20, [](MatId m) { return m == mat::GoldOre; })) {
-        show(Hint::Gold);
-        return;
-    }
-    if (!seen(Hint::Lair)) {
-        // Introduce the lair as its keeper notices the alchemist (it sees far down the
-        // passage), or when they come close to it unseen.
-        const Enemy* g = level.nearestGuardian(player.center(), 240.0f);
-        if (g && (g->aggro() || (g->body.pos - player.center()).lengthSq() < 110.0f * 110.0f)) {
-            show(Hint::Lair);
-            return;
-        }
-    }
-    if (!seen(Hint::Lantern) && lanternOverFoe(level)) {
-        show(Hint::Lantern);
-        return;
-    }
+        nearby(world, player.center(), 14, [](MatId m) { return matDef(m).phase == Phase::Liquid; }))
+        return Hint::Absorb;
+    if (!seen(Hint::Gold) && nearby(world, player.center(), 20, [](MatId m) { return m == mat::GoldOre; }))
+        return Hint::Gold;
+    if (!seen(Hint::Lair) && lairKeeperEncountered(level)) return Hint::Lair;
+    if (!seen(Hint::Lantern) && lanternOverFoe(level)) return Hint::Lantern;
+    return Hint::Count;
 }
 
 void HintTracker::draw(float screenW, float screenH, bool gamepad) const {

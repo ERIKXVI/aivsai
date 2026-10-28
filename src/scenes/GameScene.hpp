@@ -116,6 +116,8 @@ private:
     void drawDebugOverlay() const;
 
     // Wand editor (GameSceneEditor.cpp)
+    struct InventoryLayout; ///< where the editor's panel and its parts go this frame
+    struct InventoryHover;  ///< what the editor's slots and figures found under the mouse or the pad cursor
     void updateEditorPad();
     /// Records the left stick's current direction, so a stick already held does not count as a flick.
     void syncStickFlick();
@@ -126,6 +128,28 @@ private:
     void takeSpellOut(int wand, int slot);
     SpellId& editorSlot(int wand, int slot);
     void drawInventory();
+    /// Sizes the editor's panel to its wand rows, satchel, perks, guide caption and rules card, and picks the guide.
+    InventoryLayout layoutInventory() const;
+    /// A row per wand (figures, slots, first-cast line) down from the panel's top; returns the y under the last.
+    float drawWandRows(const InventoryLayout& lay, InventoryHover& hover) const;
+    /// A wand's name, timing, mana and deck quirks left of its slots; hovering them shows its other figures.
+    void drawWandFigures(const InventoryLayout& lay, size_t wi, float y, InventoryHover& hover) const;
+    /// One wand or satchel slot, empty while its spell is in hand; noted in `hover` when the cursor is on it.
+    void drawEditorSlot(int wand, int slotIndex, Rectangle r, SpellId sp, InventoryHover& hover) const;
+    /// The line under a wand's slots: what its first cast does, or the booster left with nothing to work on.
+    void drawFirstCastLine(const InventoryLayout& lay, size_t wi, float y) const;
+    /// The satchel's label and its two rows of slots from `y`; returns the y under them.
+    float drawSatchelGrid(const InventoryLayout& lay, float y, InventoryHover& hover) const;
+    /// The perks held, in a column beside the satchel from `y`, and the run's kills, gold and time at the panel's foot.
+    void drawPerksAndRunFigures(const InventoryLayout& lay, float y, InventoryHover& hover) const;
+    /// The guided first edit: its two slots glow, a ghost of its spell drifts between them and its caption explains.
+    void drawWandGuide(const InventoryLayout& lay, const InventoryHover& hover, float satchelBottom) const;
+    /// The pad's slot cursor, put on the guide's spell while it is on no slot and the guide is not done.
+    void drawPadCursor(InventoryHover& hover) const;
+    /// Mouse presses: the left picks a spell up or puts the one in hand down, the right takes a spell out.
+    void handleInventoryClicks(const InventoryHover& hover);
+    /// The spell in hand, at the mouse or above the pad cursor; a mouse release away from its own slot drops it.
+    void dragHeldSpell(const InventoryLayout& lay, const InventoryHover& hover);
 
     // Pause menu and end screens (GameSceneMenus.cpp)
     void drawPauseMenu();
@@ -134,6 +158,14 @@ private:
     float drawEndProgress(float y, unsigned char alpha) const;
     /// The end screen's buttons and pad/Enter shortcuts, armed once the face buttons are released.
     void drawEndActions(bool victory, float y);
+    /// Arms the end screen's pad and Enter shortcuts once it has settled and the face buttons are up; true while armed.
+    bool armEndShortcuts(bool victory);
+    /// New Work (or Try Again), Retry Seed and Main Menu in a row from `buttonR`; true once one of them is chosen.
+    bool drawEndButtonRow(bool victory, bool armed, int carriedOrdeal, Rectangle buttonR, float gap);
+    /// Under the row, the offer to begin a new run as the path this run unlocked.
+    void drawPathOffer(bool armed, int carriedOrdeal, Rectangle offer);
+    /// Under the row, after two early falls in a row without a victory, the offer to try again as an Apprentice.
+    void drawGentlerRoadOffer(bool victory, bool armed, Rectangle easier);
     /// The death screen's descent strip at `y`: the five stages, filled as far as the alchemist
     /// got, with a caption naming what lies below. Returns the y under it.
     float drawDescent(float y, unsigned char alpha) const;

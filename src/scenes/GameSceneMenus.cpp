@@ -18,6 +18,20 @@
 
 namespace pm {
 
+namespace {
+
+/// Starts a new run in place of the one that ended.
+void startRun(App& app, uint32_t seed, Difficulty difficulty, LoadoutId loadout, int ordeal) {
+    app.setScene(std::make_unique<GameScene>(app, newRun(seed, difficulty, false, loadout, ordeal)));
+}
+
+/// Saves the settings an offer on the end screen changed, unless the game runs automated.
+void rememberSettings(App& app) {
+    if (!app.options().automated()) saveSettings(app.settings());
+}
+
+} // namespace
+
 void GameScene::drawPauseMenu() {
     const float sw = static_cast<float>(app_.screenWidth()), sh = static_cast<float>(app_.screenHeight());
     const float s = static_cast<float>(ui::scale());
@@ -263,6 +277,23 @@ float GameScene::drawEndProgress(float y, unsigned char alpha) const {
 
 void GameScene::drawEndActions(bool victory, float y) {
     const float sw = static_cast<float>(app_.screenWidth()), s = static_cast<float>(ui::scale());
+    const bool armed = armEndShortcuts(victory);
+
+    const float bw = 100.0f * s, bh = 18.0f * s, gap = 6.0f * s;
+    y += 6.0f * s;
+    const int carriedOrdeal = run_.daily ? 0 : run_.ordeal;
+    if (drawEndButtonRow(victory, armed, carriedOrdeal, {sw * 0.5f - bw * 1.5f - gap, y, bw, bh}, gap)) return;
+    // A path this run unlocked is offered at once, so the reward is one press away. It takes the
+    // row (and the pad's X) the gentler road would use; that offer returns on the next fall.
+    const Rectangle offer{sw * 0.5f - bw, y + bh + gap, bw * 2.0f, bh};
+    if (!record_.unlockedPaths.empty()) {
+        drawPathOffer(armed, carriedOrdeal, offer);
+        return;
+    }
+    drawGentlerRoadOffer(victory, armed, offer);
+}
+
+bool GameScene::armEndShortcuts(bool victory) {
     // The pad's face buttons double as jump, interact, absorb and drink: a player still mashing
     // them from the fight must not skip this screen unread. Its pad and Enter shortcuts wake a
     // moment after the fade, once those buttons have been let go.
@@ -272,69 +303,64 @@ void GameScene::drawEndActions(bool victory, float y) {
                       input::padDown(GAMEPAD_BUTTON_RIGHT_FACE_UP) || input::padDown(GAMEPAD_BUTTON_RIGHT_FACE_LEFT) ||
                       IsKeyDown(KEY_ENTER);
     if (settled && !held) endInputArmed_ = true;
-    const bool armed = endInputArmed_;
+    return endInputArmed_;
+}
 
-    const float bw = 100.0f * s, bh = 18.0f * s, gap = 6.0f * s;
-    float bx = sw * 0.5f - bw * 1.5f - gap;
-    y += 6.0f * s;
-    const int carriedOrdeal = run_.daily ? 0 : run_.ordeal;
-    auto startRun = [&](uint32_t seed, Difficulty difficulty, LoadoutId loadout, int ordeal) {
-        app_.setScene(std::make_unique<GameScene>(app_, newRun(seed, difficulty, false, loadout, ordeal)));
-    };
-    auto rememberSettings = [&] {
-        if (!app_.options().automated()) saveSettings(app_.settings());
-    };
-    const char* again = victory ? (usingGamepad_ ? "New Work (A)" : "New Work (R)") : (usingGamepad_ ? "Try Again (A)" : "Try Again (R)");
-    if (ui::button({bx, y, bw, bh}, again) || (armed && ui::confirmPressed()) || input::keyPressed(KEY_R)) {
-        startRun(randomRunSeed(), run_.difficulty, run_.loadout, carriedOrdeal);
-        return;
+bool GameScene::drawEndButtonRow(bool victory, bool armed, int carriedOrdeal, Rectangle buttonR, float gap) {
+    const char* again = victory ? (usingGamepad_ ? "New Work (A)" : "New Work (R)")
+                                : (usingGamepad_ ? "Try Again (A)" : "Try Again (R)");
+    if (ui::button(buttonR, again) || (armed && ui::confirmPressed()) || input::keyPressed(KEY_R)) {
+        startRun(app_, randomRunSeed(), run_.difficulty, run_.loadout, carriedOrdeal);
+        return true;
     }
-    bx += bw + gap;
+    buttonR.x += buttonR.width + gap;
     const bool retryKey = input::keyPressed(KEY_T) || (armed && input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_UP));
-    if (ui::button({bx, y, bw, bh}, usingGamepad_ ? "Retry Seed (Y)" : "Retry Seed (T)") || retryKey) {
-        startRun(run_.seed, run_.difficulty, run_.loadout, carriedOrdeal); // the same stages and treasures, outside the Daily Rite
-        return;
+    if (ui::button(buttonR, usingGamepad_ ? "Retry Seed (Y)" : "Retry Seed (T)") || retryKey) {
+        // The same stages and treasures, outside the Daily Rite.
+        startRun(app_, run_.seed, run_.difficulty, run_.loadout, carriedOrdeal);
+        return true;
     }
-    if (ui::hovered({bx, y, bw, bh}))
+    if (ui::hovered(buttonR))
         ui::tooltip("Retry Seed", "Walk the same stages again: the same layout, wands and treasures.", ui::color::kAccent);
-    bx += bw + gap;
-    if (ui::button({bx, y, bw, bh}, "Main Menu") || (armed && ui::backPressed())) {
+    buttonR.x += buttonR.width + gap;
+    if (ui::button(buttonR, "Main Menu") || (armed && ui::backPressed())) {
         app_.setScene(std::make_unique<MenuScene>(app_));
+        return true;
+    }
+    return false;
+}
+
+void GameScene::drawPathOffer(bool armed, int carriedOrdeal, Rectangle offer) {
+    const LoadoutId fresh = record_.unlockedPaths.back();
+    const LoadoutDef& def = loadoutDef(fresh);
+    const bool offerKey = input::keyPressed(KEY_N) || (armed && input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_LEFT));
+    const char* offerLabel = TextFormat(usingGamepad_ ? "Begin as the %s (X)" : "Begin as the %s (N)", def.name);
+    if (ui::button(offer, offerLabel, true, true) || offerKey) {
+        app_.settings().loadout = static_cast<int>(fresh); // Choose Your Path remembers it too
+        rememberSettings(app_);
+        startRun(app_, randomRunSeed(), run_.difficulty, fresh, carriedOrdeal);
         return;
     }
-    // A path this run unlocked is offered at once, so the reward is one press away. It takes the
-    // row (and the pad's X) the gentler road would use; that offer returns on the next fall.
-    if (!record_.unlockedPaths.empty()) {
-        const LoadoutId fresh = record_.unlockedPaths.back();
-        const LoadoutDef& def = loadoutDef(fresh);
-        const Rectangle offer{sw * 0.5f - bw, y + bh + gap, bw * 2.0f, bh};
-        const bool offerKey = input::keyPressed(KEY_N) || (armed && input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_LEFT));
-        const char* offerLabel = TextFormat(usingGamepad_ ? "Begin as the %s (X)" : "Begin as the %s (N)", def.name);
-        if (ui::button(offer, offerLabel, true, true) || offerKey) {
-            app_.settings().loadout = static_cast<int>(fresh); // Choose Your Path remembers it too
-            rememberSettings();
-            startRun(randomRunSeed(), run_.difficulty, fresh, carriedOrdeal);
-            return;
-        }
-        if (ui::hovered(offer)) ui::tooltip(def.name, def.description, ui::color::kGold);
-        return;
-    }
+    if (ui::hovered(offer)) ui::tooltip(def.name, def.description, ui::color::kGold);
+}
+
+void GameScene::drawGentlerRoadOffer(bool victory, bool armed, Rectangle easier) {
     // Two falls in a row before the third stage, never having won: offer the gentler road.
     const Profile& prof = app_.profile();
     const bool struggling = !victory && prof.victories == 0 && run_.difficulty != Difficulty::Apprentice && run_.ordeal == 0 &&
                             !run_.daily && prof.history.size() >= 2 && prof.history[0].depth <= 1 && prof.history[1].depth <= 1 &&
                             !prof.history[0].victory && !prof.history[1].victory;
     if (struggling) {
-        const Rectangle easier{sw * 0.5f - bw, y + bh + gap, bw * 2.0f, bh};
         const bool easierKey = input::keyPressed(KEY_P) || (armed && input::padPressed(GAMEPAD_BUTTON_RIGHT_FACE_LEFT));
         if (ui::button(easier, usingGamepad_ ? "Try as Apprentice (X)" : "Try as Apprentice (P)") || easierKey) {
             app_.settings().difficulty = static_cast<int>(Difficulty::Apprentice);
-            rememberSettings();
-            startRun(randomRunSeed(), Difficulty::Apprentice, run_.loadout, 0);
+            rememberSettings(app_);
+            startRun(app_, randomRunSeed(), Difficulty::Apprentice, run_.loadout, 0);
             return;
         }
         if (ui::hovered(easier))
-            ui::tooltip("Apprentice", std::string(difficultyDetail(Difficulty::Apprentice)) + " Change it any time under Choose Your Path.",
+            ui::tooltip("Apprentice",
+                        std::string(difficultyDetail(Difficulty::Apprentice)) + " Change it any time under Choose Your Path.",
                         ui::color::kGold);
     }
 }

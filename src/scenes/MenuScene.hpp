@@ -31,6 +31,8 @@ public:
 
 private:
     enum class Panel { Main, Loadout, Grimoire, Settings, Help };
+    /// The main menu's buttons, stacked down a column as they are drawn.
+    struct MenuColumn;
 
     void buildWorld();
     void startRun(bool daily, LoadoutId loadout);
@@ -41,7 +43,18 @@ private:
     /// Lifetime progress for the path unlocks, counting a suspended run: starting anew records it first.
     Milestones milestones() const;
     void drawMain();
+    /// "Continue the Work" for the suspended run, with where it stands in the tooltip; returns true when it resumed the run.
+    bool drawContinueItem(MenuColumn& col);
+    /// The Daily Rite entry: today's seed with the Apprentice's kit, armed by a first press while a run is suspended.
+    void drawDailyRiteItem(MenuColumn& col);
     void drawLoadouts();
+    /// One path's row with its starting kit; a click picks the path, or begins the run on the picked one (then returns true).
+    bool drawPathRow(int index, Rectangle rect, LoadoutId selected, const Milestones& m, std::string& tipTitle,
+                     std::string& tipBody);
+    /// Steps the chosen path up or down to the next unlocked one when a navigation key is pressed.
+    void movePathSelection(LoadoutId selected, const Milestones& m);
+    /// The suspended-run warning and the Begin and Back buttons under the paths; returns true when Begin started the run.
+    bool drawPathButtons(Rectangle panelR, Rectangle ordealR, LoadoutId selected);
     /// The ordeal chooser under the paths (or a note that it opens after the first victory).
     void drawOrdealRow(Rectangle row, std::string& tipTitle, std::string& tipBody);
     /// The gold rim glows faintly and a slanted glint sweeps across it; rim cells acid has eaten stay dark.

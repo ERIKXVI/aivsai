@@ -229,11 +229,7 @@ void Player::tick(Level& level) {
 void Player::move(Level& level, const Environment& env) {
     const float dt = kTickDt;
     const bool swimming = env.submerged > 0.35f;
-    float speedMul = run_.moveSpeedMul();
-    if (env.sticky) speedMul *= kStickySpeed;
-    if (status.chilled > 0.0f) speedMul *= 0.6f;
-    if (status.hasted > 0.0f) speedMul *= kHasteSpeed;
-    if (swimming) speedMul *= run_.hasPerk(PerkId::Gills) ? 1.0f : 0.7f;
+    const float speedMul = speedMultiplier(env, swimming);
 
     // Horizontal control.
     const float target = input_.moveX * kRunSpeed * speedMul;
@@ -247,50 +243,14 @@ void Player::move(Level& level, const Environment& env) {
     if (input_.jumpPressed) jumpBuffer_ = kJumpBufferTime;
     else jumpBuffer_ = std::max(0.0f, jumpBuffer_ - dt);
     if (!input_.jumpHeld) jumpedThisPress_ = false;
+    if (jumpBuffer_ > 0.0f && coyote_ > 0.0f && !swimming) jump(level);
 
-    if (jumpBuffer_ > 0.0f && coyote_ > 0.0f && !swimming) {
-        body.vel.y = -kJumpSpeed;
-        coyote_ = 0.0f;
-        jumpBuffer_ = 0.0f;
-        jumpedThisPress_ = true;
-        squash_ = -0.6f; // stretched by the push-off
-        level.audio().play(Sfx::Jump, 0.5f, level.rng().range(0.95f, 1.05f));
-        // A puff of the ground pushed off from.
-        const Vec2 feet{body.pos.x, body.pos.y + body.halfH};
-        const Rgba dust = groundDust(level.world(), feet);
-        Rng& fx = level.fxRng();
-        for (int i = 0; i < 3; ++i)
-            level.particles().addVisual(feet - Vec2{fx.range(-3.0f, 3.0f), 0.5f}, {fx.range(-20.0f, 20.0f), fx.range(-12.0f, -4.0f)}, dust,
-                                        {0, 0, 0, 0}, fx.range(0.3f, 0.45f), 0.3f, partflag::kFade);
-    }
-
-    const float levMax = std::max(0.1f, run_.levitationMax);
     if (grounded || swimming) {
         levitation_ = std::min(1.0f, levitation_ + dt * 1.6f);
     }
-    if (swimming) {
-        body.vel.y -= kGravity * 0.92f * dt; // buoyancy
-        body.vel *= 1.0f / (1.0f + 3.0f * dt);
-        if (input_.jumpHeld) body.vel.y = approach(body.vel.y, -70.0f * speedMul, 600.0f * dt);
-        if (input_.downHeld) body.vel.y = approach(body.vel.y, 60.0f, 600.0f * dt);
-    } else if (!grounded && input_.jumpHeld) {
-        // Variable jump: keep rising on the initial press, then levitate once falling. Once the lift
-        // has engaged, the upward speed is its own, not the jump's rise (or it would switch off).
-        const bool rising = body.vel.y < 0.0f && jumpedThisPress_ && !levitating_;
-        const bool lifting = !rising && levitation_ > 0.0f;
-        if (lifting) {
-            if (!levitating_) level.audio().play(Sfx::Levitate, 0.35f, level.fxRng().range(0.9f, 1.1f)); // once per hold
-            levitating_ = true;
-            body.vel.y = approach(body.vel.y, -kLevitateSpeed, kLevitateAccel * dt);
-            levitation_ = std::max(0.0f, levitation_ - dt / levMax);
-            Rng& fx = level.fxRng(); // cosmetic sparkle
-            if (fx.chance(0.7f)) {
-                level.particles().addVisual({body.pos.x + fx.range(-2.0f, 2.0f), body.pos.y + body.halfH},
-                                            {fx.range(-15.0f, 15.0f), fx.range(30.0f, 70.0f)}, {170, 150, 255, 220},
-                                            {90, 70, 200, 255}, fx.range(0.2f, 0.4f), 0.0f);
-            }
-        }
-    } else if (!grounded && !input_.jumpHeld && body.vel.y < 0.0f && jumpedThisPress_ == false) {
+    if (swimming) swim(speedMul, dt);
+    else if (!grounded && input_.jumpHeld) levitate(level, dt);
+    else if (!grounded && !input_.jumpHeld && body.vel.y < 0.0f && jumpedThisPress_ == false) {
         // Released early: cut the jump short for precise hops.
         body.vel.y *= 0.88f;
     }
@@ -301,9 +261,65 @@ void Player::move(Level& level, const Environment& env) {
     lastFallSpeed_ = body.vel.y;
     moveBody(body, level.world(), dt);
     footsteps(level, dt);
+    if (body.onGround && !grounded) land(level);
+}
+
+float Player::speedMultiplier(const Environment& env, bool swimming) const {
+    float speedMul = run_.moveSpeedMul();
+    if (env.sticky) speedMul *= kStickySpeed;
+    if (status.chilled > 0.0f) speedMul *= 0.6f;
+    if (status.hasted > 0.0f) speedMul *= kHasteSpeed;
+    if (swimming) speedMul *= run_.hasPerk(PerkId::Gills) ? 1.0f : 0.7f;
+    return speedMul;
+}
+
+void Player::jump(Level& level) {
+    body.vel.y = -kJumpSpeed;
+    coyote_ = 0.0f;
+    jumpBuffer_ = 0.0f;
+    jumpedThisPress_ = true;
+    squash_ = -0.6f; // stretched by the push-off
+    level.audio().play(Sfx::Jump, 0.5f, level.rng().range(0.95f, 1.05f));
+    // A puff of the ground pushed off from.
+    const Vec2 feet{body.pos.x, body.pos.y + body.halfH};
+    const Rgba dust = groundDust(level.world(), feet);
+    Rng& fx = level.fxRng();
+    for (int i = 0; i < 3; ++i)
+        level.particles().addVisual(feet - Vec2{fx.range(-3.0f, 3.0f), 0.5f}, {fx.range(-20.0f, 20.0f), fx.range(-12.0f, -4.0f)},
+                                    dust, {0, 0, 0, 0}, fx.range(0.3f, 0.45f), 0.3f, partflag::kFade);
+}
+
+void Player::swim(float speedMul, float dt) {
+    body.vel.y -= kGravity * 0.92f * dt; // buoyancy
+    body.vel *= 1.0f / (1.0f + 3.0f * dt);
+    if (input_.jumpHeld) body.vel.y = approach(body.vel.y, -70.0f * speedMul, 600.0f * dt);
+    if (input_.downHeld) body.vel.y = approach(body.vel.y, 60.0f, 600.0f * dt);
+}
+
+void Player::levitate(Level& level, float dt) {
+    const float levMax = std::max(0.1f, run_.levitationMax);
+    // Variable jump: keep rising on the initial press, then levitate once falling. Once the lift
+    // has engaged, the upward speed is its own, not the jump's rise (or it would switch off).
+    const bool rising = body.vel.y < 0.0f && jumpedThisPress_ && !levitating_;
+    const bool lifting = !rising && levitation_ > 0.0f;
+    if (lifting) {
+        if (!levitating_) level.audio().play(Sfx::Levitate, 0.35f, level.fxRng().range(0.9f, 1.1f)); // once per hold
+        levitating_ = true;
+        body.vel.y = approach(body.vel.y, -kLevitateSpeed, kLevitateAccel * dt);
+        levitation_ = std::max(0.0f, levitation_ - dt / levMax);
+        Rng& fx = level.fxRng(); // cosmetic sparkle
+        if (fx.chance(0.7f)) {
+            level.particles().addVisual({body.pos.x + fx.range(-2.0f, 2.0f), body.pos.y + body.halfH},
+                                        {fx.range(-15.0f, 15.0f), fx.range(30.0f, 70.0f)}, {170, 150, 255, 220},
+                                        {90, 70, 200, 255}, fx.range(0.2f, 0.4f), 0.0f);
+        }
+    }
+}
+
+void Player::land(Level& level) {
     // Squashed by a landing, harder the faster the fall (gentle slopes and steps stay below 60).
-    if (body.onGround && !grounded && lastFallSpeed_ > 60.0f) squash_ = clamp(lastFallSpeed_ / 300.0f, 0.3f, 1.0f);
-    if (body.onGround && !grounded && lastFallSpeed_ > 150.0f) {
+    if (lastFallSpeed_ > 60.0f) squash_ = clamp(lastFallSpeed_ / 300.0f, 0.3f, 1.0f);
+    if (lastFallSpeed_ > 150.0f) {
         level.audio().play(Sfx::Land, std::min(1.0f, lastFallSpeed_ / 400.0f));
         // Ground-coloured dust thrown to both sides, more the harder the fall, and a dip of the
         // view (cosmetic randomness).
@@ -314,7 +330,8 @@ void Player::move(Level& level, const Environment& env) {
         for (int i = 0; i < motes; ++i) {
             const float side = i % 2 == 0 ? 1.0f : -1.0f;
             const Vec2 at{feet.x + fx.range(-3.0f, 3.0f), feet.y - 0.5f};
-            level.particles().addVisual(at, {side * fx.range(20.0f, 50.0f), fx.range(-30.0f, -5.0f)}, dust, {0, 0, 0, 0}, 0.35f, 0.8f);
+            level.particles().addVisual(at, {side * fx.range(20.0f, 50.0f), fx.range(-30.0f, -5.0f)}, dust, {0, 0, 0, 0},
+                                        0.35f, 0.8f);
         }
         recoil_.y += std::min(1.2f, (lastFallSpeed_ - 150.0f) / 200.0f);
     }
@@ -433,127 +450,148 @@ void Player::castSparks(Level& level, Vec2 muzzle, float angle, uint32_t color, 
 }
 
 void Player::handleFlask(Level& level) {
+    if (input_.absorbHeld) absorbIntoFlask(level);
+    else if (input_.sprayHeld && !run_.flask.empty()) pourFromFlask(level);
+
+    if (input_.drinkPressed && !run_.flask.empty()) drinkFromFlask(level);
+}
+
+void Player::absorbIntoFlask(Level& level) {
     Flask& flask = run_.flask;
     World& world = level.world();
     Rng& rng = level.rng();
-
-    if (input_.absorbHeld) {
-        // Suck matter from around the cursor into the flask, one material at a time.
-        Vec2 c = input_.aim;
-        if ((c - body.pos).length() > 70.0f) c = body.pos + (c - body.pos).normalized() * 70.0f;
-        int taken = 0;
-        bool otherMatter = false; // something absorbable, but not what the flask holds
-        const int r = 6;
-        for (int dy = -r; dy <= r && taken < kAbsorbPerTick; ++dy) {
-            for (int dx = -r; dx <= r && taken < kAbsorbPerTick; ++dx) {
-                if (dx * dx + dy * dy > r * r || flask.amount >= Flask::kCapacity) continue;
-                int x = floorToInt(c.x) + dx, y = floorToInt(c.y) + dy;
-                if (!world.inBounds(x, y)) continue;
-                MatId m = world.at(x, y).mat;
-                Phase ph = phaseOf(m);
-                if (ph != Phase::Liquid && ph != Phase::Powder) continue;
-                if (!flask.empty() && flask.mat != m) {
-                    otherMatter = true;
-                    continue;
-                }
-                flask.mat = m;
-                ++flask.amount;
-                ++taken;
-                world.clear(x, y);
-                if (rng.chance(0.3f)) {
-                    Vec2 from{static_cast<float>(x), static_cast<float>(y)};
-                    Vec2 v = (wandTip() - from).normalized() * 160.0f;
-                    Rgba col = cellColor(makeCell(m, rng.next()), x, y, 0);
-                    level.particles().addVisual(from, v, col, {0, 0, 0, 0}, 0.25f, 0.0f, partflag::kFade);
-                }
+    // Suck matter from around the cursor into the flask, one material at a time.
+    Vec2 c = input_.aim;
+    if ((c - body.pos).length() > 70.0f) c = body.pos + (c - body.pos).normalized() * 70.0f;
+    int taken = 0;
+    bool otherMatter = false; // something absorbable, but not what the flask holds
+    const int r = 6;
+    for (int dy = -r; dy <= r && taken < kAbsorbPerTick; ++dy) {
+        for (int dx = -r; dx <= r && taken < kAbsorbPerTick; ++dx) {
+            if (dx * dx + dy * dy > r * r || flask.amount >= Flask::kCapacity) continue;
+            int x = floorToInt(c.x) + dx, y = floorToInt(c.y) + dy;
+            if (!world.inBounds(x, y)) continue;
+            MatId m = world.at(x, y).mat;
+            Phase ph = phaseOf(m);
+            if (ph != Phase::Liquid && ph != Phase::Powder) continue;
+            if (!flask.empty() && flask.mat != m) {
+                otherMatter = true;
+                continue;
+            }
+            flask.mat = m;
+            ++flask.amount;
+            ++taken;
+            world.clear(x, y);
+            if (rng.chance(0.3f)) {
+                Vec2 from{static_cast<float>(x), static_cast<float>(y)};
+                Vec2 v = (wandTip() - from).normalized() * 160.0f;
+                Rgba col = cellColor(makeCell(m, rng.next()), x, y, 0);
+                level.particles().addVisual(from, v, col, {0, 0, 0, 0}, 0.25f, 0.0f, partflag::kFade);
             }
         }
-        if (taken > 0 && level.ticks() % 6 == 0) level.audio().play(Sfx::Potion, 0.25f, 1.4f);
-        // The flask holds one kind of matter at a time: say so instead of silently refusing.
-        if (taken == 0 && otherMatter && level.ticks() >= nextFlaskNotice_) {
-            nextFlaskNotice_ = level.ticks() + 90;
-            level.addFloatText(c - Vec2{0.0f, 8.0f}, std::string("Flask holds ") + matDef(flask.mat).name + " - pour it out first", 0xd0c8ff);
-            level.audio().play(Sfx::UiDeny, 0.5f);
-        }
-    } else if (input_.sprayHeld && !flask.empty()) {
-        // Pour from the last open pixel along the wand: matter spawned at a tip buried in the
-        // floor or a wall would have nowhere to settle and be lost while still leaving the flask.
-        const Vec2 hand = handPos(body.pos, facingRight_);
-        const Wand* wand = run_.currentWand();
-        const int len = wand ? wand->length : 8; // as wandTip()
-        Vec2 origin = hand;
-        for (int i = 1; i <= len; ++i) {
-            const Vec2 q = hand + aimDir_ * static_cast<float>(i);
-            const MatId m = world.matAt(floorToInt(q.x), floorToInt(q.y));
-            if (isPassable(m)) origin = q;
-            else if (phaseOf(m) != Phase::Liquid) break; // terrain; a wading hand reaches through the liquid
-        }
-        for (int i = 0; i < kSprayPerTick && flask.amount > 0; ++i) {
-            float a = angleOf(aimDir_) + rng.range(-0.12f, 0.12f);
-            Cell cell = makeCell(flask.mat, rng.next());
-            cell.flags |= cellflag::kPlayerMade;
-            level.particles().addMatter(origin, fromAngle(a, rng.range(170.0f, 240.0f)), cell);
-            --flask.amount;
-        }
-        if (flask.amount <= 0) flask = Flask{};
-        if (level.ticks() % 8 == 0) level.audio().play(Sfx::Splash, 0.2f, 1.6f);
     }
+    if (taken > 0 && level.ticks() % 6 == 0) level.audio().play(Sfx::Potion, 0.25f, 1.4f);
+    // The flask holds one kind of matter at a time: say so instead of silently refusing.
+    if (taken == 0 && otherMatter && level.ticks() >= nextFlaskNotice_) {
+        nextFlaskNotice_ = level.ticks() + 90;
+        level.addFloatText(c - Vec2{0.0f, 8.0f}, std::string("Flask holds ") + matDef(flask.mat).name + " - pour it out first",
+                           0xd0c8ff);
+        level.audio().play(Sfx::UiDeny, 0.5f);
+    }
+}
 
-    if (input_.drinkPressed && !flask.empty()) {
-        int amount = std::min(flask.amount, kDrinkAmount);
-        flask.amount -= amount;
-        MatId m = flask.mat;
-        if (flask.amount <= 0) flask = Flask{};
-        level.audio().play(Sfx::Drink, 0.7f);
-        float fraction = static_cast<float>(amount) / kDrinkAmount;
-        if (m == mat::Vitae && hp < maxHp) level.earnFeat(FeatId::Vitae); // before Iron Stomach tops them up
-        if (run_.hasPerk(PerkId::IronStomach)) hp = std::min(maxHp, hp + 10.0f * fraction);
-        if ((m == mat::Water || m == mat::Brine) && status.burning > 0.0f) level.earnFeat(FeatId::Doused);
-        switch (m) {
-        case mat::Vitae:
-            hp = std::min(maxHp, hp + 40.0f * fraction);
-            level.addFloatText(body.pos, "+" + std::to_string(static_cast<int>(40.0f * fraction)), 0xff7ab8);
-            break;
-        case mat::Water:
-        case mat::Brine:
-            status.burning = 0.0f;
-            status.wet = 8.0f;
-            break;
-        case mat::Oil: status.oiled = 10.0f; break;
-        case mat::Lava:
-            if (!immuneTo(DamageType::Fire)) status.burning = 6.0f; // Salamander Skin: it only warms
-            applyDamage(level, {30.0f, DamageType::Fire, {}, Team::Monster, false, false, "a draught of lava"});
-            break;
-        case mat::Acid: applyDamage(level, {25.0f * fraction, DamageType::Acid, {}, Team::Monster, false, false, "a draught of acid"}); break;
-        case mat::Toxic:
-            if (!immuneTo(DamageType::Toxic)) status.poisoned = 8.0f; // Toxic Blood shrugs it off
-            break;
-        case mat::Blood:
-            hp = std::min(maxHp, hp + 4.0f * fraction);
-            status.burning = 0.0f; // as the matter lens promises
-            break;
-        case mat::Midas: {
-            // Paid by the amount drunk, so sipping a flask in tiny gulps earns nothing extra.
-            const int gold = static_cast<int>(std::lround(60.0f * fraction));
-            if (gold > 0) {
-                run_.gold += gold;
-                run_.stats.goldCollected += gold;
-                level.addFloatText(body.pos, "+" + std::to_string(gold) + " gold", 0xffd040);
-            }
-            break;
+void Player::pourFromFlask(Level& level) {
+    Flask& flask = run_.flask;
+    Rng& rng = level.rng();
+    const Vec2 origin = pourOrigin(level.world());
+    for (int i = 0; i < kSprayPerTick && flask.amount > 0; ++i) {
+        float a = angleOf(aimDir_) + rng.range(-0.12f, 0.12f);
+        Cell cell = makeCell(flask.mat, rng.next());
+        cell.flags |= cellflag::kPlayerMade;
+        level.particles().addMatter(origin, fromAngle(a, rng.range(170.0f, 240.0f)), cell);
+        --flask.amount;
+    }
+    if (flask.amount <= 0) flask = Flask{};
+    if (level.ticks() % 8 == 0) level.audio().play(Sfx::Splash, 0.2f, 1.6f);
+}
+
+Vec2 Player::pourOrigin(const World& world) const {
+    // Pour from the last open pixel along the wand: matter spawned at a tip buried in the
+    // floor or a wall would have nowhere to settle and be lost while still leaving the flask.
+    const Vec2 hand = handPos(body.pos, facingRight_);
+    const Wand* wand = run_.currentWand();
+    const int len = wand ? wand->length : 8; // as wandTip()
+    Vec2 origin = hand;
+    for (int i = 1; i <= len; ++i) {
+        const Vec2 q = hand + aimDir_ * static_cast<float>(i);
+        const MatId m = world.matAt(floorToInt(q.x), floorToInt(q.y));
+        if (isPassable(m)) origin = q;
+        else if (phaseOf(m) != Phase::Liquid) break; // terrain; a wading hand reaches through the liquid
+    }
+    return origin;
+}
+
+void Player::drinkFromFlask(Level& level) {
+    Flask& flask = run_.flask;
+    int amount = std::min(flask.amount, kDrinkAmount);
+    flask.amount -= amount;
+    MatId m = flask.mat;
+    if (flask.amount <= 0) flask = Flask{};
+    level.audio().play(Sfx::Drink, 0.7f);
+    float fraction = static_cast<float>(amount) / kDrinkAmount;
+    if (m == mat::Vitae && hp < maxHp) level.earnFeat(FeatId::Vitae); // before Iron Stomach tops them up
+    if (run_.hasPerk(PerkId::IronStomach)) hp = std::min(maxHp, hp + 10.0f * fraction);
+    if ((m == mat::Water || m == mat::Brine) && status.burning > 0.0f) level.earnFeat(FeatId::Doused);
+    applyDraught(level, m, fraction);
+}
+
+void Player::applyDraught(Level& level, MatId m, float fraction) {
+    switch (m) {
+    case mat::Vitae:
+        hp = std::min(maxHp, hp + 40.0f * fraction);
+        level.addFloatText(body.pos, "+" + std::to_string(static_cast<int>(40.0f * fraction)), 0xff7ab8);
+        break;
+    case mat::Water:
+    case mat::Brine:
+        status.burning = 0.0f;
+        status.wet = 8.0f;
+        break;
+    case mat::Oil: status.oiled = 10.0f; break;
+    case mat::Lava:
+        if (!immuneTo(DamageType::Fire)) status.burning = 6.0f; // Salamander Skin: it only warms
+        applyDamage(level, {30.0f, DamageType::Fire, {}, Team::Monster, false, false, "a draught of lava"});
+        break;
+    case mat::Acid:
+        applyDamage(level, {25.0f * fraction, DamageType::Acid, {}, Team::Monster, false, false, "a draught of acid"});
+        break;
+    case mat::Toxic:
+        if (!immuneTo(DamageType::Toxic)) status.poisoned = 8.0f; // Toxic Blood shrugs it off
+        break;
+    case mat::Blood:
+        hp = std::min(maxHp, hp + 4.0f * fraction);
+        status.burning = 0.0f; // as the matter lens promises
+        break;
+    case mat::Midas: {
+        // Paid by the amount drunk, so sipping a flask in tiny gulps earns nothing extra.
+        const int gold = static_cast<int>(std::lround(60.0f * fraction));
+        if (gold > 0) {
+            run_.gold += gold;
+            run_.stats.goldCollected += gold;
+            level.addFloatText(body.pos, "+" + std::to_string(gold) + " gold", 0xffd040);
         }
-        case mat::Quicksilver:
-            status.chilled = 0.0f;
-            status.hasted = std::max(status.hasted, kHasteTime * fraction);
-            level.addFloatText(body.pos, "Haste!", 0xdce4ec);
-            break;
-        case mat::Ichor:
-            status.burning = 0.0f;
-            status.fury = std::max(status.fury, kFuryTime * fraction);
-            level.addFloatText(body.pos, "Fury!", 0xffb040);
-            break;
-        default: break;
-        }
+        break;
+    }
+    case mat::Quicksilver:
+        status.chilled = 0.0f;
+        status.hasted = std::max(status.hasted, kHasteTime * fraction);
+        level.addFloatText(body.pos, "Haste!", 0xdce4ec);
+        break;
+    case mat::Ichor:
+        status.burning = 0.0f;
+        status.fury = std::max(status.fury, kFuryTime * fraction);
+        level.addFloatText(body.pos, "Fury!", 0xffb040);
+        break;
+    default: break;
     }
 }
 

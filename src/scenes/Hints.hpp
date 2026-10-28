@@ -56,6 +56,10 @@ public:
 
 private:
     void show(Hint h);
+    /// The first unseen hint the run's state calls for, tested every tick; Hint::Count when none does.
+    Hint pickStateHint(const Level& level, const RunState& run) const;
+    /// The first unseen hint a scan of the world around the alchemist calls for; Hint::Count when none does.
+    Hint pickScannedHint(const Level& level, const RunState& run) const;
 
     uint32_t& seen_;
     Hint active_ = Hint::Count;

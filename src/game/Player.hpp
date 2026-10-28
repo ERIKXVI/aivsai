@@ -49,6 +49,16 @@ protected:
 
 private:
     void move(Level& level, const Environment& env);
+    /// What the alchemist's speed is scaled by: the run's perks, sticky matter, a chill, haste, and swimming without gills.
+    float speedMultiplier(const Environment& env, bool swimming) const;
+    /// The push-off: the jump's launch (spending the buffered press and the coyote time), its sound and a puff of dust.
+    void jump(Level& level);
+    /// Afloat in a liquid: buoyancy and drag, and strokes up or down while jump or down is held.
+    void swim(float speedMul, float dt);
+    /// Jump held in mid-air: once the jump's own rise is over, levitation lifts the alchemist while it lasts.
+    void levitate(Level& level, float dt);
+    /// Touching down: a squash, harder the faster the fall; a hard landing also thuds, throws up dust and dips the view.
+    void land(Level& level);
     /// Footfall sounds while walking, pitched by the ground underfoot.
     void footsteps(Level& level, float dt);
     void handleWands(Level& level);
@@ -60,6 +70,16 @@ private:
     /// The plunge into a liquid: its sound, and droplets thrown up from the surface.
     void splash(Level& level, MatId liquid);
     void handleFlask(Level& level);
+    /// Sucks liquid and powder near the cursor into the flask, refusing (with a notice) matter other than what it holds.
+    void absorbIntoFlask(Level& level);
+    /// Pours a spray of the flask's matter along the aim, a few cells a tick.
+    void pourFromFlask(Level& level);
+    /// Where the flask pours from: the last open pixel along the wand (a wading hand reaches through liquid).
+    Vec2 pourOrigin(const World& world) const;
+    /// Drinks a draught from the flask: the gulp, its feats and Iron Stomach's healing, then the matter's own effect.
+    void drinkFromFlask(Level& level);
+    /// What a draught of matter `m` does to the alchemist, scaled by the `fraction` of a full draught drunk.
+    void applyDraught(Level& level, MatId m, float fraction);
     void collectGold(Level& level);
     void drawEssences(DrawContext& ctx, Vec2 p) const;
 
