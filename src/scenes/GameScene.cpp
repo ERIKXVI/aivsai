@@ -284,7 +284,7 @@ PlayerInput GameScene::gatherInput() {
     in.jumpPressed = latchJump_;
     in.jumpHeld = IsKeyDown(KEY_SPACE) || IsKeyDown(KEY_W) || IsKeyDown(KEY_UP) ||
                   (pad && input::padDown(GAMEPAD_BUTTON_RIGHT_FACE_DOWN));
-    in.downHeld = IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN);
+    in.downHeld = IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN) || (pad && input::padAxis(GAMEPAD_AXIS_LEFT_Y) > 0.5f);
     in.aim = scene_.screenToWorld(GetMousePosition());
     // A click that closed a menu (Resume, Tab mid-drag) must not keep casting once play resumes.
     if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) castBlocked_ = false;
@@ -352,9 +352,10 @@ void GameScene::stepLevel() {
     }
     level_->tick(in);
     // Feats count only from ticks the alchemist was alive for: nothing that burns out on the
-    // death screen (the run is already recorded) is credited.
+    // death screen (the run is already recorded) is credited. Nor is a transmutation witnessed then.
     for (FeatId f : level_->takeFeats())
         if (controllable) earnFeat(f);
+    if (controllable) witnessTransmutations();
     minimap_.update(*level_);
     guide_.update(level_->player().body.pos);
     if (mode_ == Mode::Playing && !autoplay && app_.settings().hints) hints_.update(*level_, run_, kTickDt);
@@ -639,7 +640,7 @@ void GameScene::render(float alpha) {
     case Mode::Victory: drawEndScreen(true); break;
     default: break;
     }
-    drawFeatToast();
+    drawToast();
 
     if (exiting_ && level_) drawPortalBloom();
     if (fade_ > 0.0f) ui::dimScreen(static_cast<unsigned char>(fade_ * 255.0f));
@@ -692,6 +693,25 @@ void GameScene::earnFeat(FeatId feat) {
     if (!preview) saveProfile(p);
     toasts_.push_back({feat});
     app_.audio().play(Sfx::Perk, 0.6f, 1.3f);
+}
+
+void GameScene::witnessTransmutations() {
+    // The camera's view as the last frame drew it (shake aside), at the window's aspect: the level's world
+    // has just stepped, and its chunks remember what fired during that step.
+    const ViewInfo& view = scene_.view();
+    const float viewH = view.viewH > 0.0f ? view.viewH : SceneRenderer::kViewHeightCells;
+    const float viewW = view.viewW > 0.0f ? view.viewW
+                                          : viewH * static_cast<float>(app_.screenWidth()) / static_cast<float>(std::max(1, app_.screenHeight()));
+    const Vec2 c = camera_.center();
+    const uint32_t seen = codexWitnessed(level_->world(), {c.x - viewW * 0.5f, c.y - viewH * 0.5f, viewW, viewH});
+    // Previews announce discoveries but leave the profile as loaded, as with feats.
+    const bool preview = app_.options().previewOnly();
+    const uint32_t fresh = discoverCodex(seen, app_.profile().codexSeen, app_.previewCodex(), preview);
+    if (fresh == 0) return;
+    if (!preview) saveProfile(app_.profile());
+    for (int i = 0; i < kCodexCount; ++i)
+        if (fresh & codexBit(static_cast<CodexEntry>(i))) toasts_.push_back({FeatId::Count, static_cast<CodexEntry>(i)});
+    app_.audio().play(Sfx::Perk, 0.4f, 1.8f); // a soft, high chime: softer than a feat's
 }
 
 void GameScene::updateFeats(float dt) {

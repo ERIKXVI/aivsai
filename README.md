@@ -69,6 +69,11 @@ Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-p
   a cave-in or another creature is named as it falls (*Immolated!*, *Melted!*,
   *Blasted!*...), pays a little extra gold, and kills close together run into a *chain
   reaction*.
+- **The Alchemical Codex:** 24 transmutations of the world's matter - water quenching lava
+  into obsidian, acid parting gold from its ore, Liquid Midas turning stone to gold ore,
+  steam condensing back into water... - are each announced the first time you see one
+  happen on screen, in a run or in the Alchemy Sandbox. The Grimoire's *Codex* lists them
+  all: the formulas you have witnessed, and a riddle for each one still waiting to be found.
 - **Elites** glow with an affix: *Burning* ones trail fire, *Swift* ones strike fast and
   *Gilded* ones bleed gold.
 - **Mimics:** not every chest along the route is a chest. A mimic looks and glows exactly
@@ -168,10 +173,11 @@ reacting to combat intensity, with fire/water/lava ambience mixed in.
 
 ### Testing tools
 
-- `pm_tests` - 103 unit tests for simulation invariants (conservation, reactions, blasts,
-  hanging vines), generation (route and vault reachability, determinism, omens, trees), the
-  spell table, deck casting, how spells fly (rime bridges, bombs, sawblades, homing, arcs,
-  crits), spell finds and the guided first wand edit, starting loadouts,
+- `pm_tests` - 108 unit tests for simulation invariants (conservation, reactions, blasts,
+  hanging vines, the Alchemical Codex's record of what fired where), generation (route and
+  vault reachability, determinism, omens, trees), the spell table, deck casting, how spells
+  fly (rime bridges, bombs, sawblades, homing, arcs, crits), spell finds and the guided first
+  wand edit, starting loadouts, the codex's entries and discoveries,
   run saves, the chronicle, end-screen records and path unlocks, death advice, guardians and
   their essence altars, lanterns, elite affixes, the route compass, sprite decoding and edge
   lighting, the matter lens, health-bar chips and mouse-wheel stepping.

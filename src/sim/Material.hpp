@@ -8,6 +8,7 @@
 #include <string>
 
 #include "sim/Cell.hpp"
+#include "sim/Codex.hpp"
 
 namespace pm {
 
@@ -89,6 +90,7 @@ struct Reaction {
     MatId selfInto = kKeep;
     MatId otherInto = kKeep;
     uint8_t chance = 0; ///< n/256 per tick when touching
+    CodexEntry codex = CodexEntry::WaterLava; ///< the transmutation it is in the Alchemical Codex
 };
 
 constexpr int kMaxReactions = 10;

@@ -105,6 +105,12 @@ public:
     const DirtyRect& chunkActiveRect(int cx, int cy) const { return chunks_[cy * cw_ + cx].current; }
     int activeChunkCount() const { return activeChunks_; }
 
+    /// Alchemical Codex entries (codexBit()s) that fired during the last step() in chunk (cx, cy).
+    /// Read it on the main thread between steps.
+    uint32_t chunkCodexSeen(int cx, int cy) const { return chunks_[cy * cw_ + cx].codexSeen; }
+    /// The same for every chunk touching the inclusive cell rectangle (clipped to the world).
+    uint32_t codexSeen(int x0, int y0, int x1, int y1) const;
+
     uint32_t randomBits() { return rng_.next(); }
     Rng& rng() { return rng_; }
 
@@ -114,6 +120,9 @@ private:
     struct Chunk {
         DirtyRect current; ///< region simulated this tick (main thread writes between ticks)
         std::atomic<int> nextMinX{1 << 30}, nextMinY{1 << 30}, nextMaxX{-1}, nextMaxY{-1};
+        /// Codex entries that fired here during the last step: cleared by step() on the main thread before the
+        /// phases run, then written only by this chunk's own updater (once per step, at the end of its run).
+        uint32_t codexSeen = 0;
     };
 
     Chunk& chunk(int cx, int cy) { return chunks_[cy * cw_ + cx]; }

@@ -263,6 +263,7 @@ Profile profileFromKeyValues(const KeyValues& kv) {
     p.ordealUnlocked = std::clamp(p.ordealUnlocked, 0, kMaxOrdeal);
     read(kv, "spells_seen", p.spellsSeen);
     read(kv, "perks_seen", p.perksSeen);
+    read(kv, "codex_seen", p.codexSeen); // missing from profiles older than the codex: nothing witnessed yet
     if (auto it = kv.find("creature_kills"); it != kv.end()) {
         std::istringstream ss(it->second);
         std::string item;
@@ -298,6 +299,7 @@ KeyValues profileToKeyValues(const Profile& p) {
                  {"ordeal_unlocked", str(p.ordealUnlocked)},
                  {"spells_seen", str(p.spellsSeen)},
                  {"perks_seen", str(p.perksSeen)},
+                 {"codex_seen", str(p.codexSeen)},
                  {"creature_kills", joinInts(p.creatureKills)}};
     for (size_t i = 0; i < p.history.size() && i < Profile::kHistorySize; ++i) kv[historyKey(i)] = encodeHistoryEntry(p.history[i]);
     return kv;

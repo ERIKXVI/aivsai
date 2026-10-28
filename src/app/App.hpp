@@ -68,6 +68,9 @@ public:
     /// Contextual hints already shown since the game was launched (bit = Hint). Kept per
     /// launch rather than per profile so everyone sharing a PC gets the introduction.
     uint32_t& hintsShown() { return hintsShown_; }
+    /// Codex entries announced in a session that leaves the profile alone (options().previewOnly()): kept
+    /// here instead, so each is still announced only once.
+    uint32_t& previewCodex() { return previewCodex_; }
     /// Pushes volume settings to the audio system.
     void applySettings();
     const LaunchOptions& options() const { return options_; }
@@ -115,6 +118,7 @@ private:
     Settings settings_;
     Profile profile_;
     uint32_t hintsShown_ = 0;
+    uint32_t previewCodex_ = 0;
     std::unique_ptr<Audio> audio_;
     std::unique_ptr<SpriteBank> sprites_;
     std::unique_ptr<Scene> scene_;

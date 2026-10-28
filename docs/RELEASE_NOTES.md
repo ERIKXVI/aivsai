@@ -29,6 +29,10 @@ switches to a window.
 - Lanterns you can shoot down onto foes, and elites with Burning, Swift or Gilded affixes.
 - The world is a weapon: creatures slain by fire, lava, acid, blasts or cave-ins are named
   as they fall and chain into reactions that pay extra gold.
+- The Alchemical Codex: 24 transmutations to discover, from quenching lava into obsidian to
+  parting gold from its ore with acid. Each is announced the first time you see it happen, in
+  a run or in the Alchemy Sandbox, and the Grimoire's new Codex tab lists them all: the
+  formulas you have witnessed, and a riddle for each of the rest.
 - Rare finds: vaults, guardians' hoards and the odd chest hold spells from deeper down
   (Lightning, Black Hole, Lava Orb...) that glint gold.
 - Hits land: knockback that carries, flinches that break a foe's wind-up, crits that

@@ -2,11 +2,13 @@
 
 #include <algorithm>
 #include <bit>
+#include <cmath>
 #include <string>
 
 #include "app/App.hpp"
 #include "app/InputLatch.hpp"
 #include "app/RunRecords.hpp"
+#include "game/Codex.hpp"
 #include "game/Enemy.hpp"
 #include "game/Feats.hpp"
 #include "game/Loadouts.hpp"
@@ -42,6 +44,53 @@ bool splitName(const std::string& name, int size, std::string& first, std::strin
     return best >= 0;
 }
 
+constexpr float kCodexRowH = 15.0f;  ///< a codex row's height, in design units
+constexpr float kCodexListH = 196.0f; ///< the codex list's height: down to just above the footer
+
+/// One row of the codex list in `row`: the formula, each term after a swatch of its matter's colour, and the
+/// operation's name at the right end while there is room; or, undiscovered, a dull swatch and the riddle. In the
+/// body size, which is the same in design units at every UI scale: a row that fits at one fits at all.
+void drawCodexRow(CodexEntry e, bool known, Rectangle row) {
+    const float s = static_cast<float>(ui::scale());
+    const int size = ui::fontSize(ui::scale());
+    const CodexDef& d = codexDef(e);
+    const float side = static_cast<float>(size) * 0.8f;
+    const float ty = row.y + (row.height - static_cast<float>(size)) * 0.5f;
+    float px = row.x + 4.0f * s;
+    auto swatch = [&](Color c) {
+        const Rectangle sr{px, ty + (static_cast<float>(size) - side) * 0.5f, side, side};
+        DrawRectangleRec(sr, c);
+        DrawRectangleLinesEx(sr, std::max(1.0f, std::floor(s * 0.5f)), Color{255, 255, 255, 80}); // dark matter still shows
+        px += side + 3.0f * s;
+    };
+    auto words = [&](const char* t, Color c) {
+        ui::text(t, px, ty, size, c);
+        px += static_cast<float>(ui::measure(t, size));
+    };
+    if (!known) {
+        swatch(Color{50, 44, 58, 255});
+        words(d.riddle, ui::color::kTextDim);
+        return;
+    }
+    auto terms = [&](const CodexTerm (&list)[2], const char* joint) {
+        bool first = true;
+        for (const CodexTerm& t : list) {
+            if (!t.present()) continue;
+            if (!first) words(joint, ui::color::kTextDim);
+            first = false;
+            const Rgba c = materialColor(t.mat);
+            swatch(Color{c.r, c.g, c.b, 255});
+            words(t.name(), ui::color::kText);
+        }
+    };
+    terms(d.reagents, " + ");
+    words(" -> ", ui::color::kTextDim);
+    terms(d.products, " & ");
+    const float right = row.x + row.width - 4.0f * s;
+    if (right - static_cast<float>(ui::measure(d.name, size)) > px + 10.0f * s)
+        ui::text(d.name, right, ty, size, Color{96, 170, 146, 255}, ui::Align::Right);
+}
+
 } // namespace
 
 bool GrimoirePanel::draw(App& app) {
@@ -53,32 +102,10 @@ bool GrimoirePanel::draw(App& app) {
     Rectangle r{sw * 0.5f - kPanelW * 0.5f * s, sh * 0.5f - kPanelH * 0.5f * s, kPanelW * s, kPanelH * s};
     ui::panel(r);
     ui::text("GRIMOIRE", sw * 0.5f, r.y + 8.0f * s, ui::fontSize(ui::scale() + 1), ui::color::kGold, ui::Align::Center);
-
-    int spells = 0;
-    for (int i = 1; i < kSpellCount; ++i) spells += spellKnown(p, i) ? 1 : 0;
-    int creatures = 0, creatureTotal = 0;
-    for (int i = 0; i < static_cast<int>(EnemyType::Count); ++i) {
-        if (!listedCreature(static_cast<EnemyType>(i))) continue;
-        ++creatureTotal;
-        creatures += p.creatureKills[static_cast<size_t>(i)] > 0 ? 1 : 0;
-    }
-    const int perks = std::popcount(p.perksSeen);
-    const int feats = std::popcount(p.featsEarned);
-
-    // Tabs double as the completion summary.
-    constexpr int kTabs = static_cast<int>(Tab::Count);
-    const std::string labels[kTabs] = {TextFormat("Spells %d/%d", spells, kSpellCount - 1),
-                                       TextFormat("Bestiary %d/%d", creatures, creatureTotal),
-                                       TextFormat("Perks %d/%d", perks, kPerkCount), TextFormat("Feats %d/%d", feats, kFeatCount),
-                                       "Chronicle"};
-    const float tabW = 86.0f * s, tabH = 16.0f * s, tabGap = 4.0f * s;
-    float tx = sw * 0.5f - (kTabs * tabW + (kTabs - 1) * tabGap) * 0.5f;
-    for (int i = 0; i < kTabs; ++i) {
-        Rectangle tr{tx + static_cast<float>(i) * (tabW + tabGap), r.y + 28.0f * s, tabW, tabH};
-        if (ui::button(tr, labels[i], true, static_cast<int>(tab_) == i)) tab_ = static_cast<Tab>(i);
-    }
+    drawTabs(app, r.x, r.width, r.y + 28.0f * s);
 
     // Left/right (A/D, D-pad) flip between the tabs.
+    constexpr int kTabs = static_cast<int>(Tab::Count);
     const bool left = ui::navLeftPressed();
     const bool right = ui::navRightPressed();
     if (left || right) tab_ = static_cast<Tab>((static_cast<int>(tab_) + (right ? 1 : kTabs - 1)) % kTabs);
@@ -89,6 +116,7 @@ bool GrimoirePanel::draw(App& app) {
     case Tab::Creatures: drawCreatures(app, cx, cy); break;
     case Tab::Perks: drawPerks(app, cx, cy); break;
     case Tab::Feats: drawFeats(app, cx, cy); break;
+    case Tab::Codex: drawCodex(app, cx, cy); break;
     case Tab::Chronicle: drawChronicle(app, cx, cy); break;
     case Tab::Count: break;
     }
@@ -98,6 +126,57 @@ bool GrimoirePanel::draw(App& app) {
     ui::text(footer, sw * 0.5f, r.y + r.height - 44.0f * s, small, ui::color::kTextDim, ui::Align::Center);
     return ui::button({sw * 0.5f - 50.0f * s, r.y + r.height - 24.0f * s, 100.0f * s, 16.0f * s}, "Back") ||
            ui::backPressed();
+}
+
+void GrimoirePanel::drawTabs(App& app, float panelX, float panelW, float top) {
+    const Profile& p = app.profile();
+    const float s = static_cast<float>(ui::scale());
+    int spells = 0;
+    for (int i = 1; i < kSpellCount; ++i) spells += spellKnown(p, i) ? 1 : 0;
+    int creatures = 0, creatureTotal = 0;
+    for (int i = 0; i < static_cast<int>(EnemyType::Count); ++i) {
+        if (!listedCreature(static_cast<EnemyType>(i))) continue;
+        ++creatureTotal;
+        creatures += p.creatureKills[static_cast<size_t>(i)] > 0 ? 1 : 0;
+    }
+
+    // Tabs double as the completion summary.
+    struct Label {
+        const char* name;
+        int have, total; ///< total 0: no count
+    };
+    constexpr int kTabs = static_cast<int>(Tab::Count);
+    const Label labels[kTabs] = {{"Spells", spells, kSpellCount - 1},
+                                 {"Bestiary", creatures, creatureTotal},
+                                 {"Perks", std::popcount(p.perksSeen), kPerkCount},
+                                 {"Feats", std::popcount(p.featsEarned), kFeatCount},
+                                 {"Codex", std::popcount(p.codexSeen & kCodexAll), kCodexCount},
+                                 {"Chronicle", 0, 0}};
+    // Each tab is as wide as its label, the row's spare width shared out evenly, so all six fit across the
+    // panel at every UI scale (the labels scale with it). Were they ever too wide, the counts would give way.
+    const int size = ui::fontSize(ui::scale());
+    const float tabH = 16.0f * s, gap = 3.0f * s, pad = 3.0f * s, rowW = panelW - 12.0f * s;
+    std::string captions[kTabs];
+    float widths[kTabs] = {};
+    float total = 0.0f;
+    for (const bool counted : {true, false}) {
+        total = gap * static_cast<float>(kTabs - 1);
+        for (int i = 0; i < kTabs; ++i) {
+            const Label& l = labels[i];
+            captions[i] = l.name;
+            if (counted && l.total > 0) captions[i] += " " + std::to_string(l.have) + "/" + std::to_string(l.total);
+            widths[i] = static_cast<float>(ui::measure(captions[i], size)) + 2.0f * pad;
+            total += widths[i];
+        }
+        if (total <= rowW) break;
+    }
+    const float spare = std::max(0.0f, rowW - total) / static_cast<float>(kTabs);
+    float tx = panelX + (panelW - total - spare * static_cast<float>(kTabs)) * 0.5f;
+    for (int i = 0; i < kTabs; ++i) {
+        const Rectangle tr{tx, top, widths[i] + spare, tabH};
+        if (ui::button(tr, captions[i], true, static_cast<int>(tab_) == i)) tab_ = static_cast<Tab>(i);
+        tx += tr.width + gap;
+    }
 }
 
 void GrimoirePanel::drawSpells(App& app, float x, float y) {
@@ -225,6 +304,77 @@ void GrimoirePanel::drawPerks(App& app, float x, float y) {
         if ((p.perksSeen >> hovered) & 1u) ui::tooltip(def.name, def.description, hexColor(def.color));
         else ui::tooltip("Unknown perk", "Take it at a sanctum altar or a transmutation circle to record it.", ui::color::kTextDim);
     }
+}
+
+void GrimoirePanel::drawCodex(App& app, float x, float y) {
+    const Profile& p = app.profile();
+    const float s = static_cast<float>(ui::scale());
+    // A row per entry, as many as fit above the footer (thirteen at every scale); the rest scroll into view.
+    const float rowH = kCodexRowH * s, listW = (kPanelW - 40.0f) * s;
+    const int visible = static_cast<int>(kCodexListH * s / rowH);
+    const Rectangle bar{x + listW - 3.0f * s, y, 3.0f * s, static_cast<float>(visible) * rowH};
+    const Rectangle grip{bar.x - 9.0f * s, bar.y, bar.width + 11.0f * s, bar.height}; // easier to hit than the bar
+    const int focus = scrollCodex(grip, visible);
+    const int last = std::min(kCodexCount, codexScroll_ + visible);
+    // Rows end short of the bar's grip.
+    auto rowRect = [&](int i) {
+        return Rectangle{x - 6.0f * s, y + static_cast<float>(i - codexScroll_) * rowH, listW - 8.0f * s, rowH};
+    };
+
+    // One highlighted row: the keys' or pad's focus while it is active (and in view), else the one under the mouse.
+    int hot = focus >= codexScroll_ && focus < last ? focus : -1;
+    bool mouseHot = false;
+    for (int i = codexScroll_; i < last && hot < 0 && !codexDragging_; ++i)
+        if (ui::hovered(rowRect(i))) {
+            hot = i;
+            mouseHot = true;
+        }
+    for (int i = codexScroll_; i < last; ++i) {
+        const auto e = static_cast<CodexEntry>(i);
+        if (i == hot) DrawRectangleRec(rowRect(i), Color{170, 130, 255, 40});
+        drawCodexRow(e, (p.codexSeen & codexBit(e)) != 0, rowRect(i));
+    }
+    if (kCodexCount > visible) {
+        DrawRectangleRec(bar, ui::color::kBarBack);
+        const float thumbH = bar.height * static_cast<float>(visible) / static_cast<float>(kCodexCount);
+        const float thumbY = bar.y + bar.height * static_cast<float>(codexScroll_) / static_cast<float>(kCodexCount);
+        const bool held = codexDragging_ || ui::hovered(grip);
+        DrawRectangleRec({bar.x, thumbY, bar.width, thumbH}, held ? ui::color::kAccent : ui::color::kPanelBorder);
+    }
+
+    // The highlighted row explains itself: beside the cursor, or hanging from the focused row's end.
+    if (hot < 0) return;
+    const auto e = static_cast<CodexEntry>(hot);
+    const bool known = (p.codexSeen & codexBit(e)) != 0;
+    const char* title = known ? codexDef(e).name : "Undiscovered";
+    const char* body = known ? codexDef(e).flavour : "Witness it on screen, in a run or in the Alchemy Sandbox, to record it.";
+    const Color color = known ? ui::color::kVerdigris : ui::color::kTextDim;
+    const Rectangle row = rowRect(hot);
+    if (mouseHot) ui::tooltip(title, body, color);
+    else ui::tooltipBeside({row.x + row.width - 1.0f, row.y + row.height, 1.0f, 1.0f}, title, body, color);
+}
+
+int GrimoirePanel::scrollCodex(Rectangle grip, int visible) {
+    const int maxScroll = std::max(0, kCodexCount - visible);
+    codexNav_.update(kCodexCount);
+    int focus = -1;
+    for (int i = 0; i < kCodexCount; ++i)
+        if (codexNav_.focused(i)) focus = i;
+    // A notch of the wheel scrolls a row (up, back towards the first).
+    codexScroll_ -= codexWheel_.step(GetMouseWheelMoveV().y, GetFrameTime());
+    // A press on the bar scrolls to that point, and dragging along it follows.
+    if (maxScroll > 0 && input::mousePressed(MOUSE_BUTTON_LEFT) && ui::hovered(grip)) codexDragging_ = true;
+    if (!input::mouseDown(MOUSE_BUTTON_LEFT)) codexDragging_ = false;
+    if (codexDragging_) {
+        // The row under the pointer's place along the bar comes to the middle of the list.
+        const float row = (GetMousePosition().y - grip.y) / grip.height * static_cast<float>(kCodexCount);
+        codexScroll_ = static_cast<int>(std::lround(row - static_cast<float>(visible) * 0.5f));
+    }
+    // A focus the keys or pad move scrolls into view.
+    if (focus >= 0 && focus != codexFocus_) codexScroll_ = std::clamp(codexScroll_, focus - visible + 1, focus);
+    codexFocus_ = focus;
+    codexScroll_ = std::clamp(codexScroll_, 0, maxScroll);
+    return focus;
 }
 
 void GrimoirePanel::drawChronicle(App& app, float x, float y) {

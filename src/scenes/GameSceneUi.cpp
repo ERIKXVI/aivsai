@@ -549,28 +549,17 @@ void GameScene::drawEssences(float right, float y) const {
     }
 }
 
-void GameScene::drawFeatToast() const {
+void GameScene::drawToast() const {
     if (toasts_.empty()) return;
     const Toast& t = toasts_.front();
+    const float cx = static_cast<float>(app_.screenWidth()) * 0.5f, top = 26.0f * static_cast<float>(ui::scale());
+    if (t.discovery != CodexEntry::Count) {
+        ui::discoveryToast(t.discovery, cx, top, t.time, kToastSeconds);
+        return;
+    }
+    static constexpr ui::ToastLook kFeat{Color{200, 170, 100, 255}, Color{255, 222, 140, 255}, ui::color::kGold};
     const FeatDef& def = featDef(t.feat);
-    const float sw = static_cast<float>(app_.screenWidth());
-    const float s = static_cast<float>(ui::scale());
-    const int size = ui::fontSize(ui::scale()), small = ui::smallFontSize();
-    // Slides down from the top, holds, then fades.
-    const float in = std::min(1.0f, t.time / 0.25f), out = clamp((kToastSeconds - t.time) / 0.5f, 0.0f, 1.0f);
-    const float a = std::min(in, out);
-    const float w = static_cast<float>(std::max(ui::measure(def.name, size), ui::measure(def.description, small))) + 24.0f * s;
-    const float h = static_cast<float>(small * 2 + size) + 14.0f * s;
-    const Rectangle r{sw * 0.5f - w * 0.5f, 26.0f * s - (1.0f - in) * 12.0f * s, w, h};
-    const auto al = [&](float k) { return static_cast<unsigned char>(255.0f * a * k); };
-    DrawRectangleRec(r, Color{18, 13, 28, al(0.9f)});
-    DrawRectangleLinesEx(r, s, withAlpha(ui::color::kGold, al(0.8f)));
-    float y = r.y + 4.0f * s;
-    ui::text("FEAT EARNED", sw * 0.5f, y, small, Color{200, 170, 100, al(1.0f)}, ui::Align::Center);
-    y += static_cast<float>(small) + 2.0f * s;
-    ui::text(def.name, sw * 0.5f, y, size, Color{255, 222, 140, al(1.0f)}, ui::Align::Center);
-    y += static_cast<float>(size) + 2.0f * s;
-    ui::text(def.description, sw * 0.5f, y, small, Color{205, 195, 215, al(1.0f)}, ui::Align::Center);
+    ui::toast(kFeat, "FEAT EARNED", def.name, def.description, cx, top, t.time, kToastSeconds);
 }
 
 float GameScene::titleCardHeight() const {

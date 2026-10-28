@@ -12,6 +12,7 @@
 #include "app/Scene.hpp"
 #include "game/Bot.hpp"
 #include "game/Camera.hpp"
+#include "game/Codex.hpp"
 #include "game/Input.hpp"
 #include "game/Level.hpp"
 #include "game/LevelRenderer.hpp"
@@ -40,7 +41,7 @@ private:
 
     // Durations shared by the run flow (GameScene.cpp) and the presentation files (GameSceneUi.cpp, GameSceneMenus.cpp).
     static constexpr float kTitleCardSeconds = 4.0f;   ///< how long a stage/guardian title card shows
-    static constexpr float kToastSeconds = 3.5f;       ///< how long one feat toast shows
+    static constexpr float kToastSeconds = 3.5f;       ///< how long one toast (a feat or a discovery) shows
     static constexpr float kGoldPopSeconds = 0.25f;    ///< HUD gold counter pop after gold comes in
     static constexpr float kDeathScreenDelay = 1.6f;   ///< seconds after death before the end screen fades in
     static constexpr float kVictoryScreenDelay = 0.5f; ///< seconds after victory before the end screen fades in
@@ -70,6 +71,9 @@ private:
     /// Records a feat in the profile the first time it is earned, and queues its toast.
     void earnFeat(FeatId feat);
     void updateFeats(float dt);
+    /// After a tick in play: the transmutations that fired in view enter the Alchemical Codex, the new ones
+    /// with a toast and a chime.
+    void witnessTransmutations();
     void recordProfile(bool victory);
     /// Steps graphics down to Low once if the GPU cannot keep up on High.
     void watchFrameRate();
@@ -101,7 +105,8 @@ private:
     /// In play, with the alchemist alive. Still captures (automated, not autoplay) leave it out:
     /// their idle pointer would sit on the screen's centre, over the alchemist.
     bool showReticle() const;
-    void drawFeatToast() const;
+    /// The oldest toast waiting: a feat earned or a transmutation discovered.
+    void drawToast() const;
     void drawTitleCard() const;
     /// Height of the title card's text block, in pixels.
     float titleCardHeight() const;
@@ -227,10 +232,11 @@ private:
     SpellId satchelLatest_ = SpellId::None; ///< the newest of them, kept across stages
     uint32_t bossTrailId_ = 0;        ///< whose health the boss chip follows
     struct Toast {
-        FeatId feat;
-        float time = 0.0f; ///< seconds shown so far
+        FeatId feat = FeatId::Count;              ///< the feat earned, or Count for a discovery
+        CodexEntry discovery = CodexEntry::Count; ///< the transmutation discovered, or Count for a feat
+        float time = 0.0f;                        ///< seconds shown so far
     };
-    std::vector<Toast> toasts_;      ///< newly earned feats, announced one at a time
+    std::vector<Toast> toasts_;      ///< newly earned feats and discoveries, announced one at a time
     float stageDamageStart_ = 0.0f;  ///< damage taken before this stage (for Untouched)
     float goldPop_ = 0.0f;       ///< seconds left on the HUD gold counter's pop
     EventNotice eventNotice_;    ///< the line announcing a stage event...

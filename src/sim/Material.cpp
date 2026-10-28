@@ -90,12 +90,12 @@ private:
     float speckFraction_ = 0.0f;
 };
 
-void react(MatId a, MatId b, MatId aInto, MatId bInto, int chance) {
-    auto add = [](MatId self, MatId other, MatId selfInto, MatId otherInto, int c) {
+void react(MatId a, MatId b, MatId aInto, MatId bInto, int chance, CodexEntry codex) {
+    auto add = [codex](MatId self, MatId other, MatId selfInto, MatId otherInto, int c) {
         uint8_t& n = g_tables.reactionCount[self];
         assert(n < kMaxReactions && "raise kMaxReactions");
         if (n >= kMaxReactions) return;
-        g_tables.reactions[self][n++] = Reaction{other, selfInto, otherInto, static_cast<uint8_t>(c)};
+        g_tables.reactions[self][n++] = Reaction{other, selfInto, otherInto, static_cast<uint8_t>(c), codex};
     };
     // Register on both participants so whichever cell updates first can trigger it.
     add(a, b, aInto, bInto, chance);
@@ -205,22 +205,23 @@ void defineMaterials() {
     Define(Plasma, "Plasma", Phase::Fire).colors(0x80a0ff, 0xf0f8ff).glow(0x80b0ff, 255).life(4, 14)
         .damage(60.0f).flags(kIgniter | kHot);
 
-    // --- Pairwise reactions ---------------------------------------------------------
-    react(Water, Lava, Steam, Obsidian, 90);
-    react(Brine, Lava, Steam, Obsidian, 90);
-    react(Lava, Ice, kKeep, Water, 40);
-    react(Lava, Snow, kKeep, Water, 80);
-    react(Lava, Sand, kKeep, Glass, 3);
-    react(Lava, Blood, kKeep, Smoke, 60);
-    react(Lava, Toxic, kKeep, ToxicGas, 60);
-    react(Lava, Slime, kKeep, Smoke, 30);
-    react(Water, Salt, kKeep, Brine, 10);
-    react(Water, SaltRock, Brine, kKeep, 1); // water saturates; the walls stay (and the pool settles)
-    react(Salt, Ice, kKeep, Water, 12);
-    react(Vitae, Toxic, Water, Water, 120);
-    react(Vitae, Acid, Water, Water, 120);
-    react(Water, Spore, kKeep, Fungus, 3);
-    react(Quicksilver, GoldDust, kKeep, Midas, 2);
+    // --- Pairwise reactions (each one an entry in the Alchemical Codex) --------------
+    using Codex = CodexEntry;
+    react(Water, Lava, Steam, Obsidian, 90, Codex::WaterLava);
+    react(Brine, Lava, Steam, Obsidian, 90, Codex::WaterLava); // brine quenches lava as water does
+    react(Lava, Ice, kKeep, Water, 40, Codex::LavaIce);
+    react(Lava, Snow, kKeep, Water, 80, Codex::LavaSnow);
+    react(Lava, Sand, kKeep, Glass, 3, Codex::LavaSand);
+    react(Lava, Blood, kKeep, Smoke, 60, Codex::LavaBlood);
+    react(Lava, Toxic, kKeep, ToxicGas, 60, Codex::LavaSludge);
+    react(Lava, Slime, kKeep, Smoke, 30, Codex::LavaSlime);
+    react(Water, Salt, kKeep, Brine, 10, Codex::WaterSalt);
+    react(Water, SaltRock, Brine, kKeep, 1, Codex::WaterSaltRock); // water saturates; the walls stay (and the pool settles)
+    react(Salt, Ice, kKeep, Water, 12, Codex::SaltIce);
+    react(Vitae, Toxic, Water, Water, 120, Codex::VitaeSludge);
+    react(Vitae, Acid, Water, Water, 120, Codex::VitaeAcid);
+    react(Water, Spore, kKeep, Fungus, 3, Codex::WaterSpore);
+    react(Quicksilver, GoldDust, kKeep, Midas, 2, Codex::QuicksilverGold);
 }
 
 } // namespace

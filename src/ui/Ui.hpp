@@ -6,6 +6,7 @@
 
 #include "game/Spells.hpp"
 #include "raylib.h"
+#include "sim/Codex.hpp"
 
 namespace pm {
 class Audio;
@@ -26,6 +27,7 @@ constexpr Color kHealth{214, 52, 64, 255};
 constexpr Color kMana{80, 150, 255, 255};
 constexpr Color kDanger{255, 90, 80, 255};
 constexpr Color kBarBack{30, 24, 36, 230};
+constexpr Color kVerdigris{110, 214, 176, 255}; ///< the Alchemical Codex: transmutations discovered
 } // namespace color
 
 /// Integer UI scale derived from the window size (720p -> 2, 1080p -> 3).
@@ -61,6 +63,17 @@ struct BarTrail {
     float hold = 0.0f;   ///< seconds the chip waits before draining
     void update(float fraction, float dt);
 };
+/// The colours of an announcement toast: its header, its title and its frame (the detail line is always pale).
+struct ToastLook {
+    Color header, title, frame;
+};
+/// An announcement on a dark card centred on `cx`, its top at `top`: a small `header`, a `title` in the body size
+/// and a small `detail` line. `shown` is how long it has been up, of `duration` seconds: it slides down into place
+/// over the first quarter second and fades out over the last half.
+void toast(const ToastLook& look, const std::string& header, const std::string& title, const std::string& detail, float cx,
+           float top, float shown, float duration);
+/// The toast announcing a transmutation witnessed for the first time: its formula and flavour, in verdigris.
+void discoveryToast(CodexEntry entry, float cx, float top, float shown, float duration);
 /// Darkens the whole screen behind a modal panel (or for a fade) with black at the given alpha.
 void dimScreen(unsigned char alpha);
 bool hovered(Rectangle r);

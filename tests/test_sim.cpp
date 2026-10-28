@@ -1,11 +1,14 @@
 // Simulation invariants: movement conserves matter, reactions behave, chunks go to sleep,
-// and vines cut loose from the ceiling fall.
+// vines cut loose from the ceiling fall, and the Alchemical Codex notes what fires where.
+#include <bit>
+#include <cstdio>
 #include <memory>
 #include <utility>
 #include <vector>
 
 #include "core/ThreadPool.hpp"
 #include "sim/ChunkUpdater.hpp"
+#include "sim/Codex.hpp"
 #include "sim/Particles.hpp"
 #include "sim/World.hpp"
 #include "tests/TestFramework.hpp"
@@ -15,6 +18,33 @@ using namespace pm;
 
 using pm::test::buildBox;
 using pm::test::countMat;
+
+namespace {
+
+/// Every chunk's codex record, row by row.
+std::vector<uint32_t> codexRecords(const World& w) {
+    std::vector<uint32_t> out;
+    for (int cy = 0; cy < w.chunksY(); ++cy)
+        for (int cx = 0; cx < w.chunksX(); ++cx) out.push_back(w.chunkCodexSeen(cx, cy));
+    return out;
+}
+
+/// Fills the inclusive cell rectangle with `m`.
+void fillRect(World& w, int x0, int y0, int x1, int y1, MatId m) {
+    for (int y = y0; y <= y1; ++y)
+        for (int x = x0; x <= x1; ++x) w.place(x, y, m);
+}
+
+/// A rock cup 20 cells wide inside, its lower half `bottom` and its upper half `top`, open above.
+void cup(World& w, int x, int y, MatId top, MatId bottom) {
+    fillRect(w, x - 1, y, x - 1, y + 20, mat::Rock);
+    fillRect(w, x + 20, y, x + 20, y + 20, mat::Rock);
+    fillRect(w, x - 1, y + 21, x + 20, y + 21, mat::Rock);
+    fillRect(w, x, y + 11, x + 19, y + 20, bottom);
+    fillRect(w, x, y + 1, x + 19, y + 10, top);
+}
+
+} // namespace
 
 TEST_CASE("the matter lens speaks only of notable matter") {
     initMaterials();
@@ -277,4 +307,115 @@ TEST_CASE("liquids never flow further in a tick than the chunk updater may reach
     // A sideways flow moves up to `dispersion` cells; past kMaxReach, chunks updated in the
     // same checkerboard phase could race.
     for (int id = 0; id < kMaterialCount; ++id) CHECK(matDef(static_cast<MatId>(id)).dispersion <= ChunkUpdater::kMaxReach);
+}
+
+TEST_CASE("a transmutation is recorded in its own chunk for the step that applied it") {
+    // Water resting on lava at the foot of a one-cell shaft can do nothing but react. Until it does, no chunk
+    // records anything; the step that quenches it marks its chunk with that entry alone, and the next step, with
+    // nothing reacting, leaves the record clear again.
+    initMaterials();
+    ThreadPool pool(2);
+    World w(192, 128, 21);
+    buildBox(w);
+    const int x = 100, y = 90; // inside chunk (1, 1)
+    fillRect(w, x - 1, y - 20, x - 1, y + 1, mat::Rock);
+    fillRect(w, x + 1, y - 20, x + 1, y + 1, mat::Rock);
+    w.place(x, y + 1, mat::Rock);
+    w.place(x, y, mat::Lava);
+    w.place(x, y - 1, mat::Water);
+    bool quenched = false;
+    for (int i = 0; i < 200 && !quenched; ++i) {
+        w.step(pool);
+        quenched = w.at(x, y).mat == mat::Obsidian;
+        if (!quenched) CHECK(w.codexSeen(0, 0, w.width() - 1, w.height() - 1) == 0);
+    }
+    REQUIRE(quenched);
+    CHECK(countMat(w, mat::Steam) == 1); // risen up the shaft already when the lava's own update quenched it
+    CHECK(w.chunkCodexSeen(x >> World::kChunkShift, y >> World::kChunkShift) == codexBit(CodexEntry::WaterLava));
+    CHECK(w.codexSeen(0, 0, w.width() - 1, w.height() - 1) == codexBit(CodexEntry::WaterLava)); // and nowhere else
+    CHECK(w.codexSeen(0, 0, 63, 63) == 0); // a rectangle clear of that chunk reads nothing
+    w.step(pool);
+    CHECK(w.chunkCodexSeen(x >> World::kChunkShift, y >> World::kChunkShift) == 0);
+}
+
+TEST_CASE("every transmutation rule records its own codex entry") {
+    // One of each: the pairwise reactions in their cups, flames thawing ice, oil burning on water (kindled by
+    // lava, doused by the water), timber burning down to ash, a keg detonating, acid on stone and gold ore, Liquid
+    // Midas on stone, steam condensing and vines cut loose.
+    initMaterials();
+    ThreadPool pool(3);
+    World w(640, 256, 33);
+    buildBox(w);
+    const MatId cups[][2] = {{mat::Water, mat::Lava},    {mat::Lava, mat::Ice},        {mat::Lava, mat::Snow},
+                             {mat::Lava, mat::Sand},     {mat::Blood, mat::Lava},      {mat::Toxic, mat::Lava},
+                             {mat::Slime, mat::Lava},    {mat::Salt, mat::Water},      {mat::Water, mat::SaltRock},
+                             {mat::Salt, mat::Ice},      {mat::Vitae, mat::Toxic},     {mat::Vitae, mat::Acid},
+                             {mat::Spore, mat::Water},   {mat::GoldDust, mat::Quicksilver}, {mat::Acid, mat::GoldOre},
+                             {mat::Midas, mat::Rock},    {mat::Oil, mat::Water},       {mat::Oil, mat::Lava}};
+    int n = 0;
+    for (const auto& c : cups) {
+        cup(w, 8 + (n % 12) * 26, 10 + (n / 12) * 40, c[0], c[1]);
+        ++n;
+    }
+    w.ignite(8 + (16 % 12) * 26 + 10, 10 + (16 / 12) * 40 + 1); // the top of the oil on water (cup 16)
+    fillRect(w, 20, 150, 79, 159, mat::Ice);     // thawed by flames placed on it below
+    fillRect(w, 100, 150, 159, 169, mat::Wood);  // burns down to ash
+    for (int x = 102; x < 160; x += 8) w.ignite(x, 150);
+    fillRect(w, 180, 150, 199, 169, mat::Gunpowder);
+    w.ignite(190, 150);
+    fillRect(w, 220, 120, 299, 139, mat::Steam); // left to condense under a lid
+    fillRect(w, 220, 118, 299, 119, mat::Rock);
+    fillRect(w, 320, 120, 399, 121, mat::Rock);  // vines hang from this ceiling until it is cut away
+    for (int x = 322; x < 398; x += 4)
+        for (int y = 122; y < 140; ++y) w.place(x, y, (x / 4) % 2 ? mat::Vine : mat::GlowVine);
+    uint32_t seen = 0;
+    for (int i = 0; i < 1500; ++i) {
+        if (i % 10 == 0) fillRect(w, 20, 149, 79, 149, mat::Fire);
+        if (i == 30) fillRect(w, 320, 120, 399, 121, mat::Empty);
+        w.step(pool);
+        w.takeBlasts();
+        seen |= w.codexSeen(0, 0, w.width() - 1, w.height() - 1);
+    }
+    CHECK((seen & ~kCodexAll) == 0);
+    for (int i = 0; i < kCodexCount; ++i) {
+        const bool recorded = (seen & codexBit(static_cast<CodexEntry>(i))) != 0;
+        if (!recorded) std::printf("    codex entry %d was never recorded\n", i);
+        CHECK(recorded);
+    }
+}
+
+TEST_CASE("the codex records do not depend on the worker count") {
+    // Recording is part of each chunk's own update, so the same chunks note the same entries whichever worker
+    // ran them, step by step, and the cells come out the same as ever.
+    initMaterials();
+    auto build = [] {
+        auto w = std::make_unique<World>(256, 192, 7);
+        buildBox(*w);
+        for (int x = 20; x < 236; ++x) w->place(x, 120, mat::Rock);
+        for (int x = 60; x < 200; x += 9) w->clear(x, 120);
+        for (int y = 20; y < 60; ++y)
+            for (int x = 20; x < 236; ++x) {
+                const int band = (x / 24) % 7;
+                const MatId m = band == 0 ? mat::Sand : band == 1 ? mat::Water : band == 2 ? mat::Oil : band == 3 ? mat::Lava
+                              : band == 4 ? mat::Gunpowder : band == 5 ? mat::Acid : mat::Ice;
+                w->place(x, y, m);
+            }
+        for (int x = 20; x < 236; x += 16) w->ignite(x, 59);
+        return w;
+    };
+    ThreadPool one(1), many(4);
+    const std::unique_ptr<World> a = build(), b = build();
+    uint32_t seen = 0;
+    bool same = true;
+    for (int i = 0; i < 300; ++i) {
+        a->step(one);
+        b->step(many);
+        a->takeBlasts();
+        b->takeBlasts();
+        same = same && codexRecords(*a) == codexRecords(*b);
+        seen |= a->codexSeen(0, 0, a->width() - 1, a->height() - 1);
+    }
+    CHECK(same);
+    CHECK(std::popcount(seen) >= 4); // a busy scene: quenching, burning, dousing, blasts, corrosion...
+    CHECK(pm::test::sameCells(*a, *b));
 }

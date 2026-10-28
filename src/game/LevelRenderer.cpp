@@ -64,7 +64,10 @@ void drawFigures(const Level& level, DrawContext& ctx, bool emissive) {
 } // namespace
 
 void LevelRenderer::render(const Level& level, Vec2 camera, float alpha, float time, int screenW, int screenH) {
-    scene_.beginFrame(camera, screenW, screenH);
+    // A window narrower than 16:9 sees more of the level's height rather than less of its width, so the
+    // creatures' engage box (Enemy.cpp) never reaches past the sides of the view.
+    const float aspect = static_cast<float>(screenW) / static_cast<float>(std::max(1, screenH));
+    scene_.beginFrame(camera, screenW, screenH, std::min(1.0f, aspect * SceneRenderer::kViewHeightCells / 480.0f));
     const ViewInfo& v = scene_.view();
     const World& world = level.world();
 

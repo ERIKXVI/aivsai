@@ -7,6 +7,7 @@
 
 #include "app/InputLatch.hpp"
 #include "audio/Audio.hpp"
+#include "game/Codex.hpp"
 #include "render/ColorUtil.hpp"
 
 namespace pm::ui {
@@ -145,6 +146,33 @@ void BarTrail::update(float fraction, float dt) {
     }
     if (hold > 0.0f) hold -= dt;
     else shown = std::max(fraction, shown - kDrainPerSecond * dt);
+}
+
+void toast(const ToastLook& look, const std::string& header, const std::string& title, const std::string& detail, float cx,
+           float top, float shown, float duration) {
+    const float s = static_cast<float>(g_scale);
+    const int size = fontSize(g_scale), small = smallFontSize();
+    // Slides down from the top, holds, then fades.
+    const float in = std::min(1.0f, shown / 0.25f), out = std::clamp((duration - shown) / 0.5f, 0.0f, 1.0f);
+    const float a = std::min(in, out);
+    const int widest = std::max({measure(header, small), measure(title, size), measure(detail, small)});
+    const float w = static_cast<float>(widest) + 24.0f * s;
+    const float h = static_cast<float>(small * 2 + size) + 14.0f * s;
+    const Rectangle r{cx - w * 0.5f, top - (1.0f - in) * 12.0f * s, w, h};
+    const auto al = [&](float k) { return static_cast<unsigned char>(255.0f * a * k); };
+    DrawRectangleRec(r, Color{18, 13, 28, al(0.9f)});
+    DrawRectangleLinesEx(r, s, withAlpha(look.frame, al(0.8f)));
+    float y = r.y + 4.0f * s;
+    text(header, cx, y, small, withAlpha(look.header, al(1.0f)), Align::Center);
+    y += static_cast<float>(small) + 2.0f * s;
+    text(title, cx, y, size, withAlpha(look.title, al(1.0f)), Align::Center);
+    y += static_cast<float>(size) + 2.0f * s;
+    text(detail, cx, y, small, Color{205, 195, 215, al(1.0f)}, Align::Center);
+}
+
+void discoveryToast(CodexEntry entry, float cx, float top, float shown, float duration) {
+    static constexpr ToastLook kLook{Color{120, 214, 180, 255}, Color{196, 246, 226, 255}, color::kVerdigris};
+    toast(kLook, "TRANSMUTATION DISCOVERED", codexFormula(entry), codexDef(entry).flavour, cx, top, shown, duration);
 }
 
 void dimScreen(unsigned char alpha) { DrawRectangle(0, 0, g_screenW, g_screenH, Color{0, 0, 0, alpha}); }

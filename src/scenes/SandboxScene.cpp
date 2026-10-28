@@ -10,6 +10,7 @@
 #include "app/InputLatch.hpp"
 #include "audio/Audio.hpp"
 #include "core/Timing.hpp"
+#include "game/Codex.hpp"
 #include "raylib.h"
 #include "scenes/MenuScene.hpp"
 #include "ui/Ui.hpp"
@@ -21,6 +22,7 @@ namespace {
 constexpr int kWorldW = 640;
 constexpr int kWorldH = 384;
 constexpr int kMaxBrush = 40;
+constexpr float kDiscoverySeconds = 3.5f; ///< how long one discovery notice shows (as a run's toasts do)
 
 struct PaletteGroup {
     const char* title;
@@ -184,12 +186,33 @@ void SandboxScene::tick() {
     auto t1 = std::chrono::steady_clock::now();
     float ms = std::chrono::duration<float, std::milli>(t1 - t0).count();
     simMs_ = simMs_ * 0.95f + ms * 0.05f;
+    witnessTransmutations();
     for (const SimBlast& b : world_->takeBlasts())
         explode(floorToInt(b.center.x), floorToInt(b.center.y), static_cast<int>(b.radius()));
 }
 
+void SandboxScene::witnessTransmutations() {
+    // The canvas the last frame showed: the screen right of the palette.
+    const Vec2 a = renderer_.screenToWorld({paletteWidth_, 0.0f});
+    const Vec2 b = renderer_.screenToWorld({static_cast<float>(app_.screenWidth()), static_cast<float>(app_.screenHeight())});
+    const uint32_t seen = codexWitnessed(*world_, {a.x, a.y, b.x - a.x, b.y - a.y});
+    // Automated sessions announce discoveries but leave the profile as loaded, as a run does.
+    const bool preview = app_.options().previewOnly();
+    const uint32_t fresh = discoverCodex(seen, app_.profile().codexSeen, app_.previewCodex(), preview);
+    if (fresh == 0) return;
+    if (!preview) saveProfile(app_.profile());
+    for (int i = 0; i < kCodexCount; ++i)
+        if (fresh & codexBit(static_cast<CodexEntry>(i))) discoveries_.push_back(static_cast<CodexEntry>(i));
+    app_.audio().play(Sfx::Perk, 0.4f, 1.8f); // the run's discovery chime
+}
+
 void SandboxScene::frame(float dt) {
     app_.audio().update(dt);
+    // Discovery notices show one at a time.
+    if (!discoveries_.empty() && (discoveryShown_ += dt) > kDiscoverySeconds) {
+        discoveries_.erase(discoveries_.begin());
+        discoveryShown_ = 0.0f;
+    }
     // Vertical motion only, in whole notches: a touchpad's sideways swipe or a smooth wheel's
     // stream of small deltas must not resize the brush a step per frame.
     brushRadius_ = clamp(brushRadius_ + wheel_.step(GetMouseWheelMoveV().y, dt), 1, kMaxBrush);
@@ -323,6 +346,8 @@ void SandboxScene::render(float alpha) {
              ui::fontSize(ui::scale()), ui::color::kText, ui::Align::Center);
     ui::text("LMB paint   RMB erase   Wheel brush size   F fire   X / MMB blast   Space pause   Esc / B menu", hx,
              sh - static_cast<float>(small) - 8.0f * s, small, ui::color::kTextDim, ui::Align::Center);
+    // A transmutation seen for the first time, under the brush line.
+    if (!discoveries_.empty()) ui::discoveryToast(discoveries_.front(), hx, 26.0f * s, discoveryShown_, kDiscoverySeconds);
     if (app_.settings().showFps)
         ui::text(TextFormat("sim %.2f ms  chunks %d  fps %d", simMs_, world_->activeChunkCount(), GetFPS()), sw - 8.0f * s, 8.0f * s,
                  small, ui::color::kTextDim, ui::Align::Right);

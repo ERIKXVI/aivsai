@@ -131,6 +131,7 @@ TEST_CASE("the profile survives a save and load") {
     p.ordealUnlocked = 3;
     p.spellsSeen = 0x7FFF00FF00FFull;
     p.perksSeen = 0x3Fu;
+    p.codexSeen = 0xA5C3E1u;
     p.creatureKills[0] = 40;
     p.creatureKills[p.creatureKills.size() - 1] = 7;
     for (uint32_t i = 0; i < Profile::kHistorySize + 2; ++i) {
@@ -146,6 +147,7 @@ TEST_CASE("the profile survives a save and load") {
     CHECK(back.chestsOpened == 30 && back.bestKills == 88 && back.bestGold == 1200);
     CHECK(back.featsEarned == p.featsEarned && back.ordealUnlocked == 3);
     CHECK(back.spellsSeen == p.spellsSeen && back.perksSeen == p.perksSeen && back.creatureKills == p.creatureKills);
+    CHECK(back.codexSeen == p.codexSeen);
     // Only the most recent entries of the chronicle are kept.
     CHECK(back.history.size() == Profile::kHistorySize);
     CHECK(back.history.front().seed == 100 && back.history.back().seed == 100 + Profile::kHistorySize - 1);
@@ -163,6 +165,7 @@ TEST_CASE("profiles from older builds are upgraded on load") {
     CHECK(p.ordealUnlocked == 1); // the completed Work has already earned the first ordeal
     CHECK(p.bestKills == 31);     // recovered from what the chronicle remembers
     CHECK(p.bestGold == -1);      // unknown, so the next run claims no false record
+    CHECK(p.codexSeen == 0);      // from before the Alchemical Codex: nothing witnessed yet
     CHECK(p.history.size() == 2 && p.history[0].victory && p.history[0].ordeal == 0 && p.history[1].sanctum);
 
     // Without a victory no ordeal is open; a profile with no runs has nothing to recover.

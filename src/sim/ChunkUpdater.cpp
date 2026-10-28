@@ -78,6 +78,8 @@ void ChunkUpdater::run() {
     }
 
     if (!local_.empty()) world_.expandNext(chunk_, local_.minX, local_.minY, local_.maxX, local_.maxY);
+    // Only this updater touches its own chunk's record during the phase; World::step() cleared it beforehand.
+    if (codexSeen_ != 0) chunk_.codexSeen |= codexSeen_;
 }
 
 void ChunkUpdater::wake(int x, int y) {
@@ -111,20 +113,23 @@ void ChunkUpdater::updateHanging(int x, int y) {
     if (def(matAt(x, y - 1)).phase == Phase::Solid) return;
     // The strand crumbles from its loose end down, a cell per tick, into falling litter.
     replace(x, y, at(x, y).mat == mat::GlowVine ? mat::Spore : mat::Litter);
+    witness(CodexEntry::VineFall);
 }
 
-void ChunkUpdater::igniteCell(int x, int y) {
+bool ChunkUpdater::igniteCell(int x, int y) {
     Cell& o = at(x, y);
     const MaterialDef& od = def(o.mat);
-    if (od.flammability == 0 || (o.flags & kBurning)) return;
-    if (!rng_.chance256(od.flammability)) return;
+    if (od.flammability == 0 || (o.flags & kBurning)) return false;
+    if (!rng_.chance256(od.flammability)) return false;
     o.flags |= kBurning;
     o.life = burnLife(od, rng_.next());
     wake(x, y);
+    return true;
 }
 
 void ChunkUpdater::expire(int x, int y, const MaterialDef& d) {
     const bool decays = d.decayChance > 0 && rng_.chance256(d.decayChance);
+    if (decays && d.decaysInto == mat::Water) witness(CodexEntry::Condensation); // steam
     replace(x, y, decays ? d.decaysInto : static_cast<MatId>(mat::Empty));
 }
 
@@ -182,15 +187,22 @@ bool ChunkUpdater::updateBurning(int x, int y) {
 
     if (const int i = extinguisherDir(x, y); i >= 0) {
         c.flags &= static_cast<uint8_t>(~kBurning);
-        if (rng_.chance256(60)) replace(x + kDx4[i], y + kDy4[i], mat::Steam);
+        if (rng_.chance256(60)) {
+            replace(x + kDx4[i], y + kDy4[i], mat::Steam);
+            witness(CodexEntry::Dousing);
+        }
         wake(x, y);
         return false;
     }
 
     if (c.life == 0) {
-        if (d.flags & kExplosive) world_.pushEvent({SimEvent::Type::Explosion, x, y});
+        if (d.flags & kExplosive) {
+            world_.pushEvent({SimEvent::Type::Explosion, x, y});
+            witness(CodexEntry::Detonation);
+        }
         MatId into = d.burnsInto;
         if (into == mat::Ash && rng_.chance256(150)) into = mat::Empty;
+        if (into == mat::Ash) witness(CodexEntry::Ashes);
         replace(x, y, into);
         return true;
     }
@@ -237,6 +249,7 @@ bool ChunkUpdater::updateReactions(int x, int y) {
             if (re.other != o.mat) continue;
             pending = true;
             if (!rng_.chance256(re.chance)) continue;
+            witness(re.codex);
             // Read both marks before either cell is replaced (`o` is a reference into the world).
             const bool both = re.selfInto != kKeep && re.otherInto != kKeep;
             const uint8_t otherMark = playerMade(o, at(x, y), both), selfMark = playerMade(at(x, y), o, both);
@@ -257,6 +270,7 @@ bool ChunkUpdater::updateReactions(int x, int y) {
                 MatId residue = rng_.chance256(24) ? mat::ToxicGas : mat::Empty;
                 // The rock dissolves around the gold, freeing its acid-proof dust (as digging does).
                 if (o.mat == mat::GoldOre) residue = mat::GoldDust;
+                witness(residue == mat::GoldDust ? CodexEntry::GoldParting : CodexEntry::Corrosion);
                 replace(nx, ny, residue);
                 if (rng_.chance256(46)) {
                     replace(x, y, rng_.chance256(60) ? mat::ToxicGas : mat::Empty);
@@ -268,11 +282,16 @@ bool ChunkUpdater::updateReactions(int x, int y) {
         if (d.flags & (kIgniter | kHot)) {
             if (od.flammability > 0 && !(o.flags & kBurning)) {
                 pending = true;
-                igniteCell(nx, ny);
+                if (igniteCell(nx, ny)) witness(CodexEntry::Kindling);
             }
             if (od.flags & kMeltable) {
                 pending = true;
-                if (rng_.chance256(24)) replace(nx, ny, mat::Water, playerMade(o, at(x, y), false)); // the heat is kept
+                if (rng_.chance256(24)) {
+                    // Lava's heat melts ice and snow as its reactions with them do: the same entries. Flames thaw.
+                    if (self != mat::Lava) witness(CodexEntry::Thaw);
+                    else witness(o.mat == mat::Ice ? CodexEntry::LavaIce : CodexEntry::LavaSnow);
+                    replace(nx, ny, mat::Water, playerMade(o, at(x, y), false)); // the heat is kept
+                }
             }
         }
 
@@ -280,6 +299,7 @@ bool ChunkUpdater::updateReactions(int x, int y) {
             pending = true;
             if (rng_.chance256(40)) {
                 replace(nx, ny, mat::GoldOre);
+                witness(CodexEntry::Projection);
                 if (rng_.chance256(60)) {
                     replace(x, y, mat::Empty);
                     return true;
@@ -440,7 +460,10 @@ void ChunkUpdater::updateFire(int x, int y) {
     wake(x, y);
 
     if (const int i = extinguisherDir(x, y); i >= 0) {
-        if (rng_.chance256(50)) replace(x + kDx4[i], y + kDy4[i], mat::Steam);
+        if (rng_.chance256(50)) {
+            replace(x + kDx4[i], y + kDy4[i], mat::Steam);
+            witness(CodexEntry::Dousing);
+        }
         replace(x, y, mat::Empty);
         return;
     }

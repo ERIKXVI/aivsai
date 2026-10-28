@@ -82,6 +82,18 @@ void World::wakeRect(int x0, int y0, int x1, int y1) {
     }
 }
 
+uint32_t World::codexSeen(int x0, int y0, int x1, int y1) const {
+    x0 = std::max(x0, 0);
+    y0 = std::max(y0, 0);
+    x1 = std::min(x1, w_ - 1);
+    y1 = std::min(y1, h_ - 1);
+    if (x0 > x1 || y0 > y1) return 0;
+    uint32_t seen = 0;
+    for (int cy = y0 >> kChunkShift; cy <= y1 >> kChunkShift; ++cy)
+        for (int cx = x0 >> kChunkShift; cx <= x1 >> kChunkShift; ++cx) seen |= chunks_[cy * cw_ + cx].codexSeen;
+    return seen;
+}
+
 void World::pushEvent(const SimEvent& e) {
     std::lock_guard lock(eventMutex_);
     events_.push_back(e);
@@ -90,9 +102,11 @@ void World::pushEvent(const SimEvent& e) {
 void World::step(ThreadPool& pool) {
     ++tick_;
 
-    // Promote the regions woken during the previous tick (and by gameplay) to this tick.
+    // Promote the regions woken during the previous tick (and by gameplay) to this tick, and forget what
+    // the last one witnessed: a chunk's codex record always means "fired during the latest step".
     activeChunks_ = 0;
     for (auto& c : chunks_) {
+        c.codexSeen = 0;
         c.current.minX = c.nextMinX.exchange(1 << 30, std::memory_order_relaxed);
         c.current.minY = c.nextMinY.exchange(1 << 30, std::memory_order_relaxed);
         c.current.maxX = c.nextMaxX.exchange(-1, std::memory_order_relaxed);

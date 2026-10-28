@@ -10,6 +10,7 @@
 #include "app/Scene.hpp"
 #include "render/Background.hpp"
 #include "render/SceneRenderer.hpp"
+#include "sim/Codex.hpp"
 #include "sim/World.hpp"
 
 namespace pm {
@@ -34,6 +35,9 @@ private:
     void stroke(int& lastX, int& lastY, int cx, int cy, MatId m);
     void torch(int cx, int cy);
     void explode(int cx, int cy, int radius);
+    /// After a step: the transmutations that fired on the canvas enter the Alchemical Codex, the new ones
+    /// announced with a chime and a notice.
+    void witnessTransmutations();
     void buildInitialScene();
     /// Draws the palette and tool buttons; returns the panel bounds (screen space).
     Rectangle drawPalette();
@@ -57,6 +61,8 @@ private:
     bool explodeQueued_ = false;
     float paletteWidth_ = 0.0f; ///< screen pixels covered by the palette (last frame)
     uint32_t lastBlastSound_ = 0;
+    std::vector<CodexEntry> discoveries_; ///< transmutations newly witnessed, announced one at a time
+    float discoveryShown_ = 0.0f;         ///< seconds the first of them has been announced
 };
 
 } // namespace pm

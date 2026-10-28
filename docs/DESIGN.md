@@ -100,6 +100,14 @@ The descent follows the four stages of the alchemical Great Work:
 - **Grimoire**: every spell discovered, creature slain (silhouettes until then) and perk
   taken, browsable from the title screen, plus a chronicle of the last ten runs (path,
   depth, time and fate); any of them can be replayed on the same seed.
+- **Alchemical Codex**: 24 transmutations - the pairwise reactions, kindling, dousing, ash,
+  detonation, corrosion, gold parting, thawing, Midas' projection, condensation and vines
+  falling - each recorded the first time it happens on screen (in a run or the Sandbox) and
+  announced with a toast; the Grimoire's Codex tab shows the formulas found and a riddle for
+  each of the rest. Each chunk updater notes what fires in its own chunk (observation only:
+  no random draws, no writes to cells), step() clears the notes first, and the scene reads
+  the chunks in view (plus a few cells) after each step. Bots and captures keep the profile
+  as loaded.
 - **Paths** (starting loadouts) unlock through milestones and change the opening:
   Pyromancer (reach stage II), Geomancer (open 8 chests), Stormcaller (slay 100
   creatures) and Hermeticist (slay a stage guardian; rolls a powerful wand per seed),
@@ -165,9 +173,10 @@ The descent follows the four stages of the alchemical Great Work:
 
 ## Quality
 
-- `pm_tests`: simulation invariants (conservation, reactions, sleeping, hanging vines),
-  generation (route and vault reachability, determinism, omens, trees), spell table, deck
-  casting, loadouts, run saves, the chronicle and death advice.
+- `pm_tests`: simulation invariants (conservation, reactions, sleeping, hanging vines, the
+  codex's per-chunk records), generation (route and vault reachability, determinism, omens,
+  trees), spell table, deck casting, loadouts, the codex's entries, run saves, the chronicle
+  and death advice.
 - `--autoplay --turbo [--god]`: a flow-field bot plays full runs headlessly; used for
   smoke tests, ASan runs and balance data (death causes per stage).
 - CI builds and tests on Windows (MSVC) and Linux (GCC, warnings as errors) and runs the

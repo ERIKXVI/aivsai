@@ -16,6 +16,8 @@ public:
     void update(Vec2 target, Vec2 aim, float fallSpeed, float dt, Vec2 worldSize, Vec2 viewSize);
     /// Camera centre including shake (`shake` 0..1) and cast recoil.
     Vec2 position(float shake, float time, bool shakeEnabled) const;
+    /// Camera centre without shake or recoil (which move the view by a few cells at most).
+    Vec2 center() const { return pos_; }
     /// Nudges the view (cast recoil, in cells); it springs back within about a tenth of a second.
     void kick(Vec2 offset);
 

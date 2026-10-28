@@ -91,7 +91,9 @@ App::App(const LaunchOptions& options) : options_(options) {
         if (mw > 0 && mh > 0) {
             int ww = std::min(w, mw * 85 / 100), wh = std::min(h, mh * 85 / 100);
             SetWindowSize(ww, wh);
-            SetWindowPosition((mw - ww) / 2, (mh - wh) / 2);
+            // Monitor sizes are the monitor's own, positions are on the desktop: centre on that monitor.
+            const Vector2 origin = GetMonitorPosition(monitor);
+            SetWindowPosition(static_cast<int>(origin.x) + (mw - ww) / 2, static_cast<int>(origin.y) + (mh - wh) / 2);
         }
     }
 

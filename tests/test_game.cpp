@@ -1,6 +1,6 @@
 // Game-rule tests: spells and wand decks, loadouts and their unlocks, run saves, records and the end and death screens,
-// and rules played out in a Level: lanterns, guardians, elites and the boss, feats, elixirs, mimics, stage events,
-// ordeals, loot tables and shops, and kill credit.
+// and rules played out in a Level: lanterns, guardians, elites and the boss, feats, the Alchemical Codex, elixirs,
+// mimics, stage events, ordeals, loot tables and shops, and kill credit.
 
 #include <algorithm>
 #include <cmath>
@@ -16,6 +16,7 @@
 #include "core/Timing.hpp"
 #include "game/Actor.hpp"
 #include "game/Body.hpp"
+#include "game/Codex.hpp"
 #include "game/Enemy.hpp"
 #include "game/Feats.hpp"
 #include "game/Level.hpp"
@@ -860,6 +861,84 @@ TEST_CASE("feats are described and kills earn them") {
     CHECK(std::find(earned.begin(), earned.end(), FeatId::Carnage) != earned.end());
     CHECK(std::find(earned.begin(), earned.end(), FeatId::BlackToad) != earned.end());
     CHECK(level.takeFeats().empty());
+}
+
+TEST_CASE("every codex entry is described, and names what its rule really does") {
+    initMaterials();
+    for (int i = 0; i < kCodexCount; ++i) {
+        const auto e = static_cast<CodexEntry>(i);
+        const CodexDef& d = codexDef(e);
+        REQUIRE(d.name && d.name[0] && d.riddle && d.riddle[0] && d.flavour && d.flavour[0]);
+        for (int j = 0; j < i; ++j) CHECK(std::strcmp(d.name, codexDef(static_cast<CodexEntry>(j)).name) != 0);
+        CHECK(d.reagents[0].present() && d.products[0].present());
+        for (const CodexTerm& t : {d.reagents[0], d.reagents[1], d.products[0], d.products[1]}) {
+            CHECK(t.mat < kMaterialCount);
+            if (t.present()) CHECK(t.name()[0] != '\0');
+        }
+        // The game's pixel font has no arrows or accents: plain ASCII only.
+        const std::string formula = codexFormula(e);
+        CHECK(formula.find(" -> ") != std::string::npos);
+        for (const std::string& text : {std::string(d.name), std::string(d.riddle), std::string(d.flavour), formula})
+            for (const char c : text) CHECK(c >= ' ' && c <= '~');
+    }
+    CHECK(codexFormula(CodexEntry::WaterLava) == "Water + Lava -> Steam & Obsidian");
+    CHECK(codexFormula(CodexEntry::Condensation) == "Steam -> Water");
+
+    // Every pairwise reaction is filed under an entry whose formula names both its reagents (brine quenching
+    // lava as water does) and everything it makes.
+    auto names = [](const CodexTerm (&terms)[2], MatId m) { return terms[0].mat == m || terms[1].mat == m; };
+    auto asWater = [](MatId m) { return m == mat::Brine ? static_cast<MatId>(mat::Water) : m; };
+    const MaterialTables& mt = materials();
+    for (int self = 0; self < kMaterialCount; ++self)
+        for (int r = 0; r < mt.reactionCount[static_cast<size_t>(self)]; ++r) {
+            const Reaction& re = mt.reactions[static_cast<size_t>(self)][static_cast<size_t>(r)];
+            const CodexDef& d = codexDef(re.codex);
+            CHECK(names(d.reagents, asWater(static_cast<MatId>(self))) && names(d.reagents, asWater(re.other)));
+            if (re.selfInto != kKeep) CHECK(names(d.products, re.selfInto));
+            if (re.otherInto != kKeep) CHECK(names(d.products, re.otherInto));
+        }
+}
+
+TEST_CASE("a transmutation is discovered once, where the view can see it, and previews keep the profile") {
+    initMaterials();
+    // Water quenching lava at the foot of a shaft at x 40, in the first column of chunks.
+    ThreadPool pool(2);
+    World w(512, 128, 5);
+    for (int y = 70; y <= 91; ++y) {
+        w.place(39, y, mat::Rock);
+        w.place(41, y, mat::Rock);
+    }
+    w.place(40, 91, mat::Rock);
+    w.place(40, 90, mat::Lava);
+    w.place(40, 89, mat::Water);
+    for (int i = 0; i < 200 && w.at(40, 90).mat != mat::Obsidian; ++i) w.step(pool);
+    REQUIRE(w.at(40, 90).mat == mat::Obsidian);
+    const uint32_t quench = codexBit(CodexEntry::WaterLava);
+    CHECK(codexWitnessed(w, {0.0f, 0.0f, 480.0f, 128.0f}) == quench);
+    CHECK(codexWitnessed(w, {200.0f, 0.0f, 270.0f, 128.0f}) == 0);
+    // A view whose margin reaches the reaction's chunk counts it; one falling short does not.
+    CHECK(codexWitnessed(w, {71.0f, 0.0f, 200.0f, 128.0f}) == quench);
+    CHECK(codexWitnessed(w, {72.0f, 0.0f, 200.0f, 128.0f}) == 0);
+    // A view hanging past the world's edges reads the chunks it still touches; one wholly outside reads nothing.
+    CHECK(codexWitnessed(w, {-300.0f, -40.0f, 330.0f, 200.0f}) == quench);
+    CHECK(codexWitnessed(w, {0.0f, 120.0f, 480.0f, 270.0f}) == quench);
+    CHECK(codexWitnessed(w, {-300.0f, 0.0f, 250.0f, 128.0f}) == 0);
+    CHECK(codexWitnessed(w, {0.0f, -400.0f, 480.0f, 270.0f}) == 0);
+    CHECK(codexWitnessed(w, {600.0f, 0.0f, 480.0f, 270.0f}) == 0);
+
+    // In play, what is new enters the profile's record and is announced, once.
+    const uint32_t seen = quench | codexBit(CodexEntry::Kindling);
+    uint32_t known = codexBit(CodexEntry::Kindling), preview = 0;
+    CHECK(discoverCodex(seen, known, preview, false) == quench);
+    CHECK(known == seen && preview == 0);
+    CHECK(discoverCodex(seen, known, preview, false) == 0);
+    // A bot or a capture announces its finds once each, and leaves the profile's record as it was loaded.
+    uint32_t profile = codexBit(CodexEntry::Kindling), session = 0;
+    CHECK(discoverCodex(seen, profile, session, true) == quench);
+    CHECK(profile == codexBit(CodexEntry::Kindling) && session == quench);
+    CHECK(discoverCodex(seen, profile, session, true) == 0);
+    // Bits past the last entry (a mask from a newer build, say) are never announced.
+    CHECK(discoverCodex(~kCodexAll, known, preview, false) == 0);
 }
 
 TEST_CASE("elixirs lend haste and fury for a while") {
