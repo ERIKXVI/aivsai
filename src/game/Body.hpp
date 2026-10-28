@@ -18,6 +18,7 @@ struct Environment {
     MatId contactMat = 0;
     bool fire = false;          ///< touching fire, lava or burning cells
     bool extinguishing = false; ///< touching water or similar
+    bool water = false;         ///< touching water or brine (the same cells as `extinguishing`)
     bool healing = false;
     bool sticky = false;
     bool acid = false;

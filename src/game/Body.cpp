@@ -117,6 +117,7 @@ Environment sampleEnvironment(const Body& b, const World& world) {
             }
             if (c.burning() || (d.flags & matflag::kHot)) env.fire = true;
             if (d.flags & matflag::kExtinguisher) env.extinguishing = true;
+            if (c.mat == mat::Water || c.mat == mat::Brine) env.water = true;
             if (d.flags & matflag::kHealing) env.healing = true;
             if (d.flags & matflag::kSticky) env.sticky = true;
             if (d.flags & matflag::kCorrosive) env.acid = true;
