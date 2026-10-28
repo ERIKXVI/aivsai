@@ -20,6 +20,9 @@ void noteAway();
 bool mousePressed(int button);
 /// True while `button` is held, except for the click that refocused the window.
 bool mouseDown(int button);
+/// Like IsMouseButtonReleased(button), but false for the release of the click that refocused the
+/// window: its press was swallowed, so its release must not drop or cancel a spell held in hand.
+bool mouseReleased(int button);
 /// True if `key` went down since the previous frame, however briefly.
 bool keyPressed(int key);
 /// True if any key other than a lone modifier (Shift, Ctrl, Alt, Super) went down since the

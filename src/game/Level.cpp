@@ -378,7 +378,8 @@ const Pickup* Level::focusedPickup() const {
     const Vec2 at = player_->body.pos;
     const Pickup* best = nullptr;
     const Pickup* ware = nullptr;
-    float bestDist = kInteractRange, wareDist = kInteractRange;
+    const Pickup* other = nullptr; // the nearest one the alchemist did not set down
+    float bestDist = kInteractRange, wareDist = kInteractRange, otherDist = kInteractRange;
     for (const Pickup& p : pickups_) {
         if (p.dead || !p.interactive() || (p.type == PickupType::Chest && p.opened)) continue;
         const float d = (p.body.pos - at).length();
@@ -390,11 +391,18 @@ const Pickup* Level::focusedPickup() const {
             wareDist = d;
             ware = &p;
         }
+        if (!p.setDown && d < otherDist) {
+            otherDist = d;
+            other = &p;
+        }
     }
     // A shop's ware floats over its pedestal, 7 cells above the alchemist's centre, while a spell set
     // down beside it lies at the feet: within reach of a ware, anything else takes E only when the
     // alchemist stands right over it.
     if (ware && best != ware && std::fabs(best->body.pos.x - at.x) >= 2.0f) return ware;
+    // Likewise a spell set down from the satchel, to make room for something in reach, leaves E to the
+    // nearest thing not set down unless the alchemist stands right over the spell.
+    if (best && best->setDown && other && std::fabs(best->body.pos.x - at.x) >= 2.0f) return other;
     return best;
 }
 

@@ -1216,6 +1216,42 @@ TEST_CASE("the first sanctum's shop stocks the coming depth") {
     CHECK(deeper);
 }
 
+TEST_CASE("a spell set down to make room leaves E to the find beside it") {
+    SanctumRun s(21);
+    Level& level = s.level;
+    const Vec2 at = level.player().body.pos;
+    auto place = [&](float dx, SpellId spell, bool setDown, int price) {
+        Pickup p = makeSpellPickup(at + Vec2{dx, 0.0f}, spell);
+        p.setDown = setDown;
+        p.price = price;
+        level.spawnPickup(std::move(p));
+    };
+    const auto focusedSpell = [&] {
+        const Pickup* p = level.focusedPickup();
+        return p ? p->spell : SpellId::None;
+    };
+
+    // Nearer than the find, but a step aside: E goes to the find.
+    level.pickups().clear();
+    place(4.0f, SpellId::SparkBolt, true, 0);
+    place(12.0f, SpellId::Bomb, false, 0);
+    CHECK(focusedSpell() == SpellId::Bomb);
+    // Standing right over it, E takes it back up.
+    level.pickups().clear();
+    place(1.0f, SpellId::SparkBolt, true, 0);
+    place(12.0f, SpellId::Bomb, false, 0);
+    CHECK(focusedSpell() == SpellId::SparkBolt);
+    // Alone in reach, it is E's as usual.
+    level.pickups().clear();
+    place(6.0f, SpellId::SparkBolt, true, 0);
+    CHECK(focusedSpell() == SpellId::SparkBolt);
+    // A ware in reach still wins over a plain spell beside it.
+    level.pickups().clear();
+    place(4.0f, SpellId::SparkBolt, false, 0);
+    place(-10.0f, SpellId::Fireball, false, 90);
+    CHECK(focusedSpell() == SpellId::Fireball);
+}
+
 TEST_CASE("kills the world makes are counted, chained and paid") {
     SanctumRun s(12);
     RunState& run = s.run;

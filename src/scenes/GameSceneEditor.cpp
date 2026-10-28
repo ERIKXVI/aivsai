@@ -116,18 +116,22 @@ void GameScene::takeSpellOut(int wand, int slot) {
         return;
     }
     // From the satchel (or a wand, with the satchel full) the spell is set down at the alchemist's feet
-    // with a little toss, to be picked up again with E. Within reach of a shop's ware it lands a step
-    // aside: the ware floats over its pedestal, so a spell at the feet would be nearer and take E from it.
+    // with a little toss, to be picked up again with E. Within reach of anything else E could take (a
+    // shop's ware over its pedestal, a spell on the floor, a chest) it lands a step aside, away from the
+    // nearest: right under the alchemist it would take E from what it was set down to make room for (see
+    // Level::focusedPickup). Spells set down earlier do not count; they still lie at the feet while the
+    // editor is open.
     const Vec2 at = level_->player().body.pos;
     float aside = 0.0f, nearest = 16.0f * 16.0f; // the reach of E, squared
-    for (const Pickup& ware : level_->pickups()) {
-        const float d = (ware.body.pos - at).lengthSq();
-        if (ware.price <= 0 || ware.dead || d >= nearest) continue;
+    for (const Pickup& p : level_->pickups()) {
+        const float d = (p.body.pos - at).lengthSq();
+        if (p.dead || !p.interactive() || (p.type == PickupType::Chest && p.opened) || p.setDown || d >= nearest) continue;
         nearest = d;
-        aside = ware.body.pos.x > at.x ? -30.0f : 30.0f;
+        aside = p.body.pos.x > at.x ? -30.0f : 30.0f;
     }
     Pickup dropped = makeSpellPickup(at, spell);
     dropped.body.vel = {aside, -80.0f};
+    dropped.setDown = true;
     level_->spawnPickup(std::move(dropped));
     spell = SpellId::None;
     app_.audio().play(Sfx::UiClick, 0.6f, 0.8f);
@@ -358,7 +362,7 @@ void GameScene::drawInventory() {
                   drag_.active ? drag_.spell : hover.spell);
 
     if (guide.active() && !drag_.active) {
-        const float t = static_cast<float>(GetTime());
+        const float t = time_;
         const unsigned char glow = static_cast<unsigned char>(140.0f + 100.0f * std::sin(t * 6.0f));
         const Color gold = withAlpha(ui::color::kGold, glow);
         const float m = 2.0f * s;
@@ -400,7 +404,7 @@ void GameScene::drawInventory() {
                                 : Rectangle{mouse.x - slot * 0.5f, mouse.y - slot * 0.5f, slot, slot};
         ui::spellIcon(drag_.spell, r, true);
         const bool overSource = hover.wand == drag_.wand && hover.slot == drag_.slot;
-        if (!pad && IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && !overSource) {
+        if (!pad && input::mouseReleased(MOUSE_BUTTON_LEFT) && !overSource) {
             if (hover.wand != -2) dropDragOnto(hover.wand, hover.slot);
             else drag_ = Drag{};
         }

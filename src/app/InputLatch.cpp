@@ -22,6 +22,7 @@ std::array<bool, kKeys> g_consumed{};
 bool g_anyKey = false;
 bool g_wasFocused = true;
 bool g_mouseBlocked = false; ///< swallowing the click that refocused the window
+bool g_releaseBlocked = false; ///< the block as it stood before this frame's beginFrame lifted it
 double g_focusAt = 0.0;
 bool g_padBlocked = false; ///< another window has the focus, or it only just came back
 constexpr float kTriggerPull = 0.3f; ///< a trigger past this is pulled (as when casting)
@@ -68,6 +69,9 @@ void beginFrame() {
     g_triggerPulled = (left && !g_leftTrigger) || (right && !g_rightTrigger);
     g_leftTrigger = left;
     g_rightTrigger = right;
+    // The swallowed click's release shows in the frame that lifts the block, so releases stay blocked
+    // through that frame.
+    g_releaseBlocked = g_mouseBlocked;
     if (g_mouseBlocked && GetTime() - g_focusAt > kRefocusGrace && !IsMouseButtonDown(MOUSE_BUTTON_LEFT) &&
         !IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
         g_mouseBlocked = false;
@@ -91,6 +95,8 @@ bool mousePressed(int button) {
 }
 
 bool mouseDown(int button) { return !g_mouseBlocked && IsMouseButtonDown(button); }
+
+bool mouseReleased(int button) { return !g_releaseBlocked && IsMouseButtonReleased(button); }
 
 bool keyPressed(int key) {
     const bool inRange = key > 0 && key < kKeys;

@@ -28,6 +28,7 @@ struct Pickup {
     float age = 0.0f;
     bool opened = false;
     bool rare = false;      ///< a rare spell find: glints gold and is announced
+    bool setDown = false;   ///< set down by the alchemist from the satchel (see Level::focusedPickup)
     bool dead = false;
 
     bool interactive() const { return type != PickupType::Gold && type != PickupType::Heart; }

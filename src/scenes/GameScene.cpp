@@ -401,6 +401,8 @@ void GameScene::frame(float dt) {
             loadSkipped_ = true;
         else pressed = false;
         const bool lingered = loadTimer_ >= kMinLoadSeconds || loadSkipped_ || app_.options().autoplay;
+        // Automated runs (the bot, captures) wait for the stage to be built, so they replay frame for frame.
+        if (lingered && app_.options().automated() && pending_.valid()) pending_.wait();
         // A pause menu opening on arrival must not take this frame's press: arrive a frame later.
         if (lingered && !(pressed && pauseOnArrival_) && pending_.valid() &&
             pending_.wait_for(std::chrono::seconds(0)) == std::future_status::ready)

@@ -168,9 +168,10 @@ reacting to combat intensity, with fire/water/lava ambience mixed in.
 
 ### Testing tools
 
-- `pm_tests` - 83 unit tests for simulation invariants (conservation, reactions, blasts,
+- `pm_tests` - 103 unit tests for simulation invariants (conservation, reactions, blasts,
   hanging vines), generation (route and vault reachability, determinism, omens, trees), the
-  spell table, deck casting, spell finds and the guided first wand edit, starting loadouts,
+  spell table, deck casting, how spells fly (rime bridges, bombs, sawblades, homing, arcs,
+  crits), spell finds and the guided first wand edit, starting loadouts,
   run saves, the chronicle, end-screen records and path unlocks, death advice, guardians and
   their essence altars, lanterns, elite affixes, the route compass, sprite decoding and edge
   lighting, the matter lens, health-bar chips and mouse-wheel stepping.

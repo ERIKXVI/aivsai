@@ -239,7 +239,7 @@ std::string matDescription(MatId id) {
     case Oil: return "Floats on water and burns fiercely.";
     case Lava: return "Burns whatever it touches. Water cools it into obsidian.";
     case Acid: return "Eats through stone and flesh. Vitae neutralises it.";
-    case Blood: return "Puts out flames.";
+    case Blood: return "Puts out burning matter. Drunk, or waded in deep, it puts out your flames.";
     case Slime: return "Sticky: slows anything wading through it.";
     case Vitae: return "Heals whoever bathes in it or drinks it. Neutralises acid and sludge.";
     case Toxic: return "Eats at whatever wades through it. Drunk, it poisons for a while.";

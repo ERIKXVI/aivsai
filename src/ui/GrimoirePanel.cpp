@@ -157,12 +157,17 @@ void GrimoirePanel::drawCreatures(App& app, float x, float y) {
         const std::string name = kills > 0 ? def.name : "???";
         const Color nameColor = kills > 0 ? ui::color::kText : ui::color::kTextDim;
         // At the smallest UI scale the small text is body-sized: a name too wide for its cell
-        // takes both lines, and the count moves to a tooltip.
+        // takes both lines, and the bare count moves up to the art row's top-right corner, beside
+        // the centred sprite, so keyboard and pad players see it too (hovering spells it out).
         std::string first, second;
         if (static_cast<float>(ui::measure(name, small)) > cellW - 4.0f * s && splitName(name, small, first, second)) {
             ui::text(first, px + cellW * 0.5f, ny, small, nameColor, ui::Align::Center);
             ui::text(second, px + cellW * 0.5f, line2, small, nameColor, ui::Align::Center);
-            if (kills > 0 && ui::hovered({px, py, cellW, cellH})) ui::tooltip(name, TextFormat("Slain %d", kills));
+            if (kills > 0) {
+                ui::text(std::to_string(kills), px + cellW - 2.0f * s, py + 1.0f * s, small, ui::color::kTextDim,
+                         ui::Align::Right);
+                if (ui::hovered({px, py, cellW, cellH})) ui::tooltip(name, TextFormat("Slain %d", kills));
+            }
             continue;
         }
         ui::text(name, px + cellW * 0.5f, ny, small, nameColor, ui::Align::Center);
@@ -238,7 +243,7 @@ void GrimoirePanel::drawChronicle(App& app, float x, float y) {
     const char* headers[] = {"Path", "Reached", "Time", "Fate"};
     for (int c = 0; c < 4; ++c) ui::text(headers[c], x + cols[c], y, size, ui::color::kGold);
     // At the smallest UI scale the hint is body-sized and would run over the Fate header: leave it
-    // out there (hovering a row explains the replay).
+    // out there (the highlighted row's tooltip explains the replay).
     const std::string hint = "choose a run to replay its seed";
     const float hintRight = x + rowW - 6.0f * s;
     const float fateRight = x + cols[3] + static_cast<float>(ui::measure(headers[3], size));
@@ -279,16 +284,20 @@ void GrimoirePanel::drawChronicle(App& app, float x, float y) {
         ui::text(e.fate, x + cols[3], py, size, e.victory ? ui::color::kGold : Color{230, 150, 120, 255});
         py += rowH;
     }
-    if (mouseHot || armedRow_ >= 0) {
+    // The highlighted row explains the replay, whether the mouse or the keyboard / pad focus picked
+    // it (an armed row is always the highlighted one): beside the cursor, or hanging from the row's
+    // end, clear of the row itself.
+    if (hot >= 0) {
         const RunHistoryEntry& he = p.history[static_cast<size_t>(hot)];
         const char* title = he.ordeal > 0 ? TextFormat("Seed %u - %s", he.seed, ordealLabel(he.ordeal).c_str()) : TextFormat("Seed %u", he.seed);
-        if (armedRow_ == hot)
-            ui::tooltip(title, "Choose it again to begin: your suspended run will be abandoned.", ui::color::kDanger);
-        else if (replayAbandonsRun_)
-            ui::tooltip(title, "Walk this path again: the same stages, wands and treasures. Abandons your suspended run.",
-                        ui::color::kDanger);
-        else
-            ui::tooltip(title, "Walk this path again: the same stages, wands and treasures.", ui::color::kAccent);
+        const char* body = armedRow_ == hot ? "Choose it again to begin: your suspended run will be abandoned."
+                           : replayAbandonsRun_
+                               ? "Walk this path again: the same stages, wands and treasures. Abandons your suspended run."
+                               : "Walk this path again: the same stages, wands and treasures.";
+        const Color color = armedRow_ == hot || replayAbandonsRun_ ? ui::color::kDanger : ui::color::kAccent;
+        const Rectangle row = rowRect(static_cast<size_t>(hot));
+        if (mouseHot) ui::tooltip(title, body, color);
+        else ui::tooltipBeside({row.x + row.width - 1.0f, row.y + row.height, 1.0f, 1.0f}, title, body, color);
     }
 }
 

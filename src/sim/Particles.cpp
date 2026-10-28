@@ -69,14 +69,23 @@ void ParticleSystem::deposit(World& world, const Particle& p) {
         if (settle(floorToInt(q.x), floorToInt(q.y))) return;
     }
     // Only matter buried in terrain climbs out: one that landed in the open with its neighbours
-    // full must not pass through the rock above it.
+    // full must not pass through the rock above it, even when a sibling grain has since filled its
+    // own cell (kBuried is read before any particle settles).
     const MatId here = world.matAt(x, y);
-    if (phaseOf(here) != Phase::Solid && phaseOf(here) != Phase::Powder) return;
+    if (!(p.flags & partflag::kBuried) || (phaseOf(here) != Phase::Solid && phaseOf(here) != Phase::Powder)) return;
     for (int i = 3; i <= kSearch + 2; ++i) // the offsets above already tried two cells up
         if (settle(x, y - i)) return;
 }
 
 void ParticleSystem::update(World& world, float dt) {
+    // Which matter begins the tick buried in terrain, read before any particle settles: a grain
+    // written into the cell another particle sits in must not make that one climb through rock.
+    for (Particle& p : particles_) {
+        if (!(p.flags & partflag::kMatter)) continue;
+        const Phase phase = phaseOf(world.matAt(floorToInt(p.pos.x), floorToInt(p.pos.y)));
+        if (phase == Phase::Solid || phase == Phase::Powder) p.flags |= partflag::kBuried;
+        else p.flags &= static_cast<uint8_t>(~partflag::kBuried);
+    }
     for (size_t i = 0; i < particles_.size();) {
         Particle& p = particles_[i];
         p.prevPos = p.pos;

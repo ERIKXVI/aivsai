@@ -139,6 +139,15 @@ void hitActor(Level& level, Projectile& p, Actor& a) {
     }
 }
 
+/// Whether the cell at (x, y) stops a shot of `team`: solid matter (out of bounds reads as bedrock), save the rime the
+/// alchemist's trails lay, which their own spells pass through, beams as much as bolts.
+bool shotBlocked(const World& world, int x, int y, Team team) {
+    if (!world.inBounds(x, y)) return true;
+    const Cell& c = world.at(x, y);
+    const bool rime = (c.flags & cellflag::kRime) && team == Team::Player;
+    return isSolidForCollision(c.mat) && !rime;
+}
+
 /// Returns the creature overlapping `pos` (expanded by `radius`) that this projectile may hit.
 Actor* findVictim(Level& level, const Projectile& p, Vec2 pos) {
     const float r = p.def.radius;
@@ -267,9 +276,8 @@ void fireHitscan(Level& level, Projectile& p, float range) {
     Vec2 q = p.pos;
     for (float t = 0.0f; t < range; t += 1.0f) {
         Vec2 next = q + dir;
-        if (!world.inBounds(floorToInt(next.x), floorToInt(next.y)) ||
-            isSolidForCollision(world.matAt(floorToInt(next.x), floorToInt(next.y))))
-            break;
+        // The alchemist's beams cross their rime as their bolts do (a Rime Trail trigger lets its payload go on it).
+        if (shotBlocked(world, floorToInt(next.x), floorToInt(next.y), p.team)) break;
         q = next;
         if (Actor* victim = findVictim(level, p, q)) hitActor(level, p, *victim);
     }
@@ -315,12 +323,7 @@ void updateProjectile(Level& level, Projectile& p, float dt) {
     // The alchemist's spells pass through rime laid by their own trails: the shot laying it, its
     // siblings, and a trigger's payload released on the line. Other matter, natural ice included,
     // still stops them, and rime stops the creatures' shots. Out of bounds reads as bedrock.
-    auto blocks = [&](int x, int y) {
-        if (!world.inBounds(x, y)) return true;
-        const Cell& c = world.at(x, y);
-        const bool rime = (c.flags & cellflag::kRime) && p.team == Team::Player;
-        return isSolidForCollision(c.mat) && !rime;
-    };
+    auto blocks = [&](int x, int y) { return shotBlocked(world, x, y, p.team); };
 
     // March along the path in sub-cell steps.
     Vec2 delta = p.vel * dt;

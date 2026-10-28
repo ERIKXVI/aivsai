@@ -131,19 +131,23 @@ TEST_CASE("matter launched inside rock is pushed out, not lost") {
 
 TEST_CASE("matter that lands in a full pocket does not pass through the rock above") {
     // Spray straight up at a shelf three cells thick: once the open cells beside the landing point
-    // have filled, later drops must not be written above the shelf.
+    // have filled, later drops must not be written above the shelf. Sand as well as water: the
+    // first grain settles into the landing cell itself, which must not make the rest read as buried.
     initMaterials();
-    World w(128, 128, 6);
-    buildBox(w);
-    for (int y = 60; y < 63; ++y)
-        for (int x = 1; x < 127; ++x) w.place(x, y, mat::Rock);
-    ParticleSystem particles;
-    for (int i = 0; i < 12; ++i) particles.addMatter({64.5f, 63.5f}, {0.0f, -200.0f}, makeCell(mat::Water, 1u + static_cast<uint32_t>(i)));
-    particles.update(w, 1.0f / 60.0f);
-    int above = 0;
-    for (int y = 1; y < 60; ++y)
-        for (int x = 1; x < 127; ++x) above += w.at(x, y).mat == mat::Water ? 1 : 0;
-    CHECK(above == 0);
+    for (const MatId m : {mat::Water, mat::Sand}) {
+        World w(128, 128, 6);
+        buildBox(w);
+        for (int y = 60; y < 63; ++y)
+            for (int x = 1; x < 127; ++x) w.place(x, y, mat::Rock);
+        ParticleSystem particles;
+        for (int i = 0; i < 12; ++i)
+            particles.addMatter({64.5f, 63.5f}, {0.0f, -200.0f}, makeCell(m, 1u + static_cast<uint32_t>(i)));
+        particles.update(w, 1.0f / 60.0f);
+        int above = 0;
+        for (int y = 1; y < 60; ++y)
+            for (int x = 1; x < 127; ++x) above += w.at(x, y).mat == m ? 1 : 0;
+        CHECK(above == 0);
+    }
 }
 
 TEST_CASE("the alchemist's mark passes only to what their own matter becomes") {

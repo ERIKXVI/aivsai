@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include <utility>
 
 #include "core/Timing.hpp"
 #include "game/Level.hpp"
@@ -616,8 +617,13 @@ void Enemy::tickBoss(Level& level, Vec2 toPlayer, bool /*sees*/) {
             l.spell = SpellId::Lightning;
             l.def = spellDef(SpellId::Lightning).proj;
             l.def.damage = 18.0f;
-            for (const Vec2& top : strikes_) level.launch(l, top, kPi * 0.5f, team, id, dmgMul);
-            strikes_.clear();
+            // Taken out of the queue first: a bolt may kill the Rebis (onKilled clears the queue), and the rest of the
+            // lightning it called dies with it.
+            const std::vector<Vec2> strikes = std::exchange(strikes_, {});
+            for (const Vec2& top : strikes) {
+                level.launch(l, top, kPi * 0.5f, team, id, dmgMul);
+                if (dead) break;
+            }
         }
     }
 
