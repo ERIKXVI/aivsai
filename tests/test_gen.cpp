@@ -7,11 +7,62 @@
 
 #include "core/ThreadPool.hpp"
 #include "gen/LevelGenerator.hpp"
+#include "gen/Vaults.hpp"
 #include "sim/World.hpp"
 #include "tests/TestFramework.hpp"
 #include "tests/TestWorld.hpp"
 
 using namespace pm;
+
+namespace {
+
+/// The doorway row of the vault with outer bounds `v`, its kind told by its size (each has its own).
+int doorRowOf(const Rectf& v) {
+    VaultPlan plan;
+    plan.y0 = static_cast<int>(v.y);
+    plan.h = static_cast<int>(v.h);
+    for (int k = 0; k < static_cast<int>(VaultKind::Count); ++k) {
+        int w = 0, h = 0;
+        vaultSize(static_cast<VaultKind>(k), w, h);
+        if (w == static_cast<int>(v.w) && h == plan.h) plan.kind = static_cast<VaultKind>(k);
+    }
+    return vaultDoorRow(plan);
+}
+
+/// True if a vault's shell is whole but for its own doorway, in one side wall: no other vault's
+/// passage has bored into it.
+bool shellWhole(const World& world, const Rectf& v) {
+    const int x0 = static_cast<int>(v.x), y0 = static_cast<int>(v.y);
+    const int x1 = x0 + static_cast<int>(v.w) - 1, y1 = y0 + static_cast<int>(v.h) - 1;
+    const int door = doorRowOf(v);
+    bool openLeft = false, openRight = false;
+    for (int y = y0; y <= y1; ++y)
+        for (int x = x0; x <= x1; ++x) {
+            const bool left = x < x0 + kVaultWall, right = x > x1 - kVaultWall;
+            const bool wall = left || right || y < y0 + kVaultWall || y > y1 - kVaultWall;
+            if (!wall || world.at(x, y).mat != mat::Empty) continue;
+            if (!(left || right) || y <= door - kVaultDoorHeight || y > door) return false;
+            (left ? openLeft : openRight) = true;
+        }
+    return !(openLeft && openRight);
+}
+
+/// True if a transmutation basin keeps its runestone floor and rim. Cells under a vault are left
+/// out: only the passages leading to vaults are in question here.
+bool basinWhole(const World& world, Vec2 pos, const std::vector<Rectf>& vaults) {
+    const int cx = static_cast<int>(pos.x), floorY = static_cast<int>(pos.y);
+    for (int dy = -6; dy <= 4; ++dy)
+        for (int dx = -10; dx <= 10; ++dx) {
+            const int x = cx + dx, y = floorY + dy;
+            const Vec2 p{static_cast<float>(x), static_cast<float>(y)};
+            if ((dy <= 0 && dx != -10 && dx != 10) || !world.inBounds(x, y)) continue; // the hollow
+            if (std::any_of(vaults.begin(), vaults.end(), [&](const Rectf& v) { return v.contains(p); })) continue;
+            if (world.at(x, y).mat != mat::Rune) return false;
+        }
+    return true;
+}
+
+} // namespace
 
 TEST_CASE("stages I-IV hide a guardian's lair") {
     initMaterials();
@@ -24,12 +75,20 @@ TEST_CASE("stages I-IV hide a guardian's lair") {
             ++levels;
             for (const SpawnPoint& s : layout.spawns) {
                 lairs += s.kind == SpawnKind::LairGuardian ? 1 : 0;
+                // No vault's passage bores through a transmutation basin...
+                if (s.kind == SpawnKind::Transmuter) CHECK(basinWhole(*layout.world, s.pos, layout.vaults));
                 if (s.kind != SpawnKind::RareSpell) continue;
                 // Rare spells are only ever left inside vaults.
                 ++rareFinds;
                 CHECK(std::any_of(layout.vaults.begin(), layout.vaults.end(), [&](const Rectf& v) { return v.contains(s.pos); }));
             }
-            for (const Rectf& v : layout.vaults) CHECK(pathExists(*layout.world, layout.playerStart, vaultProbePoint(v)));
+            for (const Rectf& v : layout.vaults) {
+                CHECK(pathExists(*layout.world, layout.playerStart, vaultProbePoint(v)));
+                // ...nor into another vault (the lair among them).
+                const bool whole = shellWhole(*layout.world, v);
+                if (!whole) std::printf("    breached vault: seed %u stage %d at %.0f,%.0f\n", seed, index, v.x, v.y);
+                CHECK(whole);
+            }
         }
     std::printf("    lairs placed: %d of %d stages, %d rare finds\n", lairs, levels, rareFinds);
     CHECK(lairs >= levels * 3 / 4);

@@ -154,6 +154,7 @@ struct SpellTable {
             p.explosionDamage = 80;
             p.color = 0xffc040;
             p.lightRadius = 16;
+            p.flags = kFused;
             proj(SpellId::Bomb, "Bomb", "A heavy charge with a long fuse. Clears the way.", 30, 0.9f, 0, 120, p)
                 .recharge = 0.4f;
         }

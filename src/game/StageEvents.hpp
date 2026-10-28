@@ -46,7 +46,7 @@ private:
 
     bool start(Level& level, StageEventKind kind);
     StageEventKind pickKind(const Level& level, Rng& rng) const;
-    /// The telegraph: grit, sparks and tremors at the site.
+    /// The telegraph: grit, sparks, gathering motes and tremors at the site.
     void warn(Level& level);
     /// The moment it lands: the ceiling lets go, the crack opens, the swarm arrives.
     void release(Level& level);

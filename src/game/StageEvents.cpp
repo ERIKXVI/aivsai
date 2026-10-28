@@ -13,6 +13,7 @@ namespace {
 constexpr int kMaxEvents = 3;         ///< per stage
 constexpr int kRestlessMaxEvents = 5; ///< per stage under the Restless Mountain ordeal
 constexpr float kWarnTime = 1.6f; ///< the telegraph before an event lands
+constexpr float kSwarmWarnTime = 1.0f; ///< ... shorter for a swarm, which comes from well away
 // How much ceiling lets go (half-widths of the ellipse), and how far from a vault it must stay.
 constexpr int kCaveInRadiusX = 12, kCaveInRadiusY = 6;
 constexpr int kGoldFallRadiusX = 7, kGoldFallRadiusY = 4;
@@ -223,7 +224,7 @@ bool StageEvents::start(Level& level, StageEventKind kind) {
     if (!found) return false;
     kind_ = kind;
     phase_ = Phase::Warning;
-    timer_ = kind == StageEventKind::Swarm ? 1.0f : kWarnTime;
+    timer_ = kind == StageEventKind::Swarm ? kSwarmWarnTime : kWarnTime;
     elapsed_ = 0.0f;
     released_ = false;
     ++fired_;
@@ -257,6 +258,9 @@ bool StageEvents::start(Level& level, StageEventKind kind) {
         notice_ = {level.biome() == BiomeId::Rubedo || level.biome() == BiomeId::Citrinitas ? "Fiends gather in the dark..."
                                                                                           : "Wings stir in the dark...",
                    0xc8a0e0};
+        // A faint cry and a dim glow at the roost, so the swarm is seen coming.
+        audio.playAt(Sfx::Roar, site_, 0.3f, 1.6f);
+        level.addFlash(site_, 0x8050c0, 0.6f, 26.0f, kSwarmWarnTime);
         break;
     case StageEventKind::Count: break;
     }
@@ -295,6 +299,16 @@ void StageEvents::warn(Level& level) {
         break;
     }
     case StageEventKind::Swarm:
+        // Dark motes gather on the roost (cosmetic randomness: the swarm's own draws stay on the level's rng).
+        if (level.ticks() % 2 == 0) {
+            Rng& motes = level.fxRng();
+            for (int i = 0; i < 2; ++i) {
+                const Vec2 off = fromAngle(motes.angle(), motes.range(7.0f, 12.0f));
+                fx.addVisual(site_ + off, off * -1.6f, Rgba{36, 22, 48, 230}, Rgba{110, 60, 160, 90}, 0.55f, 0.0f,
+                             partflag::kFade | partflag::kDieOnHit | partflag::kNoGravity);
+            }
+        }
+        break;
     case StageEventKind::Count: break;
     }
 }
@@ -347,6 +361,9 @@ void StageEvents::release(Level& level) {
             Enemy& e = level.spawnEnemy(pickEnemy(level.layout().levelIndex, true, 0.5f, rng), site_ + rng.inCircle(5.0f));
             e.alert(target);
         }
+        // They burst from the dark in a rush of wings (cosmetic randomness only).
+        level.particles().burst(site_, 12 + 3 * count, 55.0f, Rgba{40, 26, 56, 230}, Rgba{100, 55, 150, 80}, 0.6f, level.fxRng(), 0.0f);
+        level.audio().playAt(Sfx::Levitate, site_, 0.7f, 0.7f);
         timer_ = 0.0f;
         break;
     }

@@ -79,6 +79,13 @@ void Generator::placeVaults(World& world, LevelLayout& out) {
     constexpr uint32_t kLairBit = 1u << static_cast<unsigned>(VaultKind::Lair);
     uint32_t used = 0;
     std::vector<Rectf> placed;
+    // Ground a doorway's passage must not bore into: transmutation basins, headroom to runestone
+    // floor (it would cut the stone, or take the hollow for a cave), and, as they are placed, earlier
+    // vaults with a margin.
+    constexpr float kKeepClear = 3.0f;
+    std::vector<Rectf> keepOut;
+    for (const SpawnPoint& s : out.spawns)
+        if (s.kind == SpawnKind::Transmuter) keepOut.push_back({s.pos.x - 12.0f, s.pos.y - 15.0f, 25.0f, 20.0f});
     for (int attempt = 0; attempt < 1500 && static_cast<int>(placed.size()) < wanted; ++attempt) {
         VaultPlan plan;
         const bool lairTurn = lairWanted && !(used & kLairBit) && attempt < 900;
@@ -101,6 +108,8 @@ void Generator::placeVaults(World& world, LevelLayout& out) {
 
         // The doorway must tunnel through to caves the player can actually reach.
         const int door = vaultDoorRow(plan);
+        // The passage's rows, lintel to brick floor, as the carve below makes them.
+        const float passTop = static_cast<float>(door - kVaultDoorHeight), passRows = static_cast<float>(kVaultDoorHeight + 2);
         int tunnelEnd = -1;
         const int firstSide = rng_.sign();
         for (int s = 0; s < 2 && tunnelEnd < 0; ++s) {
@@ -109,6 +118,10 @@ void Generator::placeVaults(World& world, LevelLayout& out) {
             for (int k = 0; k < 110; ++k) {
                 const int x = startX + plan.doorSide * k, y = door - 4;
                 if (!world.inBounds(x, y) || x < kBorder + 6 || x >= w_ - kBorder - 6) break;
+                // Give this side up where the passage (its full height, and the 8 cells carved on into the
+                // cave) would reach ground kept out; everything the carve below touches has passed this test.
+                const Rectf reach{static_cast<float>(std::min(x, x + plan.doorSide * 8)), passTop, 9.0f, passRows};
+                if (std::any_of(keepOut.begin(), keepOut.end(), [&](const Rectf& r) { return r.overlaps(reach); })) break;
                 // Strict search: the cave must be reachable right where the passage meets it.
                 if (world.at(x, y).mat == mat::Empty && nav.distanceAt({static_cast<float>(x), static_cast<float>(y)}, 2) >= 0) {
                     tunnelEnd = x;
@@ -159,6 +172,8 @@ void Generator::placeVaults(World& world, LevelLayout& out) {
         nav.computeDistances(start_);
         placed.push_back({c.x, c.y, static_cast<float>(plan.w), static_cast<float>(plan.h)});
         out.vaults.push_back(bounds);
+        keepOut.push_back({bounds.x - kKeepClear, bounds.y - kKeepClear, bounds.w + 2.0f * kKeepClear,
+                           bounds.h + 2.0f * kKeepClear});
         used |= 1u << static_cast<unsigned>(plan.kind);
     }
 }

@@ -12,6 +12,7 @@
 #include "app/RunRecords.hpp"
 #include "audio/Audio.hpp"
 #include "core/ThreadPool.hpp"
+#include "core/Timing.hpp"
 #include "game/Actor.hpp"
 #include "game/Body.hpp"
 #include "game/Enemy.hpp"
@@ -464,6 +465,37 @@ TEST_CASE("rime-trailed bolts fly over their own ice and each other's, but not o
     CHECK(level.projectiles().empty());
 }
 
+TEST_CASE("a rime trail never freezes into a creature it passes") {
+    SanctumRun s(15);
+    Level& level = s.level;
+    World& w = level.world();
+    // An open gallery in the brick under the sanctum floor, far from the player, with a slime in the bolt's path.
+    constexpr int kRow = 225;
+    for (int y = kRow - 8; y <= kRow + 8; ++y)
+        for (int x = 40; x < 300; ++x) w.clear(x, y);
+    const Enemy& slime = level.spawnEnemy(EnemyType::Slime, {140.0f, static_cast<float>(kRow) + 0.5f});
+    const CastShot shot = castOnce({SpellId::RimeTrail, SpellId::SparkBolt});
+    REQUIRE(shot.projectiles.size() == 1);
+    Projectile bolt;
+    bolt.spell = shot.projectiles.front().spell;
+    bolt.def = shot.projectiles.front().def;
+    bolt.pos = bolt.prevPos = {60.5f, static_cast<float>(kRow) + 0.5f};
+    bolt.vel = {bolt.def.speed, 0.0f};
+    bolt.rememberHit(slime.id); // it has struck the slime already and flies on through it, as a piercing bolt does
+    for (int i = 0; i < 20 && !bolt.dead; ++i) updateProjectile(level, bolt, kTickDt);
+    CHECK(bolt.pos.x > 200.0f);
+    // The bridge runs up to the slime and on beyond it...
+    CHECK(w.at(100, kRow).mat == mat::Ice);
+    CHECK(w.at(180, kRow).mat == mat::Ice);
+    // ...but not through it.
+    const Rectf b = slime.bounds();
+    int frozenInside = 0;
+    for (int y = floorToInt(b.y); y <= floorToInt(b.y + b.h - 0.001f); ++y)
+        for (int x = floorToInt(b.x); x <= floorToInt(b.x + b.w - 0.001f); ++x)
+            frozenInside += w.at(x, y).mat == mat::Ice ? 1 : 0;
+    CHECK(frozenInside == 0);
+}
+
 TEST_CASE("a sawblade rolls on along a floor too hard to cut") {
     SanctumRun s(15);
     Level& level = s.level;
@@ -485,6 +517,41 @@ TEST_CASE("a sawblade rolls on along a floor too hard to cut") {
     const Projectile& saw = level.projectiles().front();
     CHECK(saw.pos.x > tip.x + 100.0f);
     CHECK(saw.pos.y < static_cast<float>(kRow + 3)); // still on the floor, not in it
+}
+
+TEST_CASE("a bomb rests where it lands until its long fuse runs out") {
+    SanctumRun s(15);
+    Level& level = s.level;
+    World& w = level.world();
+    // A corridor in the brick under the sanctum floor, well away from the player, floored with brick.
+    constexpr int kRow = 205, kStartX = 200, kEndX = 420;
+    for (int x = kStartX; x < kEndX; ++x)
+        for (int y = kRow - 2; y <= kRow + 2; ++y) w.clear(x, y);
+    const CastShot shot = castOnce({SpellId::Bomb});
+    REQUIRE(shot.projectiles.size() == 1);
+    REQUIRE((shot.projectiles.front().def.flags & projflag::kFused) != 0);
+    // Tossed along the corridor from under its roof: it drops onto the floor, bounces, then rolls to a stop.
+    const Vec2 tip{static_cast<float>(kStartX) + 10.5f, static_cast<float>(kRow) - 1.5f};
+    level.launch(shot.projectiles.front(), tip, 0.0f, Team::Player, 0, 1.0f);
+    for (int i = 0; i < 60; ++i) level.tick(PlayerInput{}); // a second
+    REQUIRE(level.projectiles().size() == 1);
+    const Projectile& bomb = level.projectiles().front();
+    CHECK(bomb.pos.y > static_cast<float>(kRow + 2)); // lying on the floor...
+    CHECK(bomb.pos.y < static_cast<float>(kRow + 3));
+    CHECK(std::fabs(bomb.vel.x) < 1.0f);              // ...at rest
+    const Vec2 rest = bomb.pos;
+    for (int i = 0; i < 30; ++i) level.tick(PlayerInput{});
+    REQUIRE(level.projectiles().size() == 1);
+    CHECK((level.projectiles().front().pos - rest).length() < 0.5f); // still, not jittering or creeping
+    // It bursts once the fuse (2.6 s) runs out, within three seconds of the throw.
+    int ticks = 90;
+    while (!level.projectiles().empty() && ticks < 180) {
+        level.tick(PlayerInput{});
+        ++ticks;
+    }
+    CHECK(level.projectiles().empty());
+    CHECK(ticks > 150);
+    CHECK(!level.shockwaves().empty());
 }
 
 TEST_CASE("holding jump climbs on levitation once the jump's rise is spent") {
@@ -569,6 +636,37 @@ TEST_CASE("the final boss honours the difficulty, unlike the depth") {
         const Enemy& boss = level.spawnEnemy(EnemyType::Boss, level.player().body.pos + Vec2{60.0f, -10.0f});
         CHECK(std::fabs(boss.maxHp - base * k) < 0.5f);
     }
+}
+
+TEST_CASE("the Rebis' fall ends its brood and its spells, and nothing can undo the alchemist after it") {
+    SanctumRun s(11);
+    RunState& run = s.run;
+    Level& level = s.level;
+    Player& pl = level.player();
+    Enemy& boss = level.spawnEnemy(EnemyType::Boss, pl.body.pos + Vec2{60.0f, -40.0f});
+    Enemy& imp = level.spawnEnemy(EnemyType::Imp, pl.body.pos + Vec2{30.0f, -30.0f});
+    const CastShot bolt = castOnce({SpellId::FireBolt});
+    level.launch(bolt.projectiles.front(), boss.body.pos, 0.0f, Team::Monster, boss.id, 1.0f);
+    level.tick(PlayerInput{}); // the bolt takes flight
+    auto hostileShots = [&] {
+        return std::count_if(level.projectiles().begin(), level.projectiles().end(),
+                             [](const Projectile& p) { return p.team == Team::Monster && !p.dead; });
+    };
+    REQUIRE(hostileShots() > 0);
+    const int kills = run.stats.kills;
+    boss.applyDamage(level, {1.0e7f, DamageType::Physical, {}, Team::Player, false, false, "test"});
+    CHECK(!boss.alive());
+    CHECK(!imp.alive());                // the brood dissolves...
+    CHECK(run.stats.kills == kills + 1); // ...for no credit
+    CHECK(run.killsByType[static_cast<size_t>(EnemyType::Imp)] == 0);
+    CHECK(hostileShots() == 0);
+    // Even the damage over time that slips past a hit's grace no longer lands.
+    CHECK(pl.applyDamage(level, {1.0e6f, DamageType::Fire, {}, Team::Monster, false, true, "flames"}) == 0.0f);
+    CHECK(pl.alive());
+    level.tick(PlayerInput{});
+    CHECK(std::none_of(level.enemies().begin(), level.enemies().end(),
+                       [](const auto& e) { return e->type() == EnemyType::Imp; })); // swept away with the dead
+    CHECK(pl.untouchable > 60.0f);
 }
 
 TEST_CASE("guardians rage, the toad sheds its brood and the slayer earns a perk") {
@@ -701,6 +799,44 @@ TEST_CASE("a mimic poses as a chest until approached, and pays out like one") {
     Enemy& other = level.spawnEnemy(EnemyType::Mimic, home + Vec2{-70.0f, -2.0f});
     other.applyDamage(level, {1.0f, DamageType::Physical, {}, Team::Player, false, false, "test"});
     CHECK(!other.disguised());
+}
+
+TEST_CASE("a chest holds the same treasure however the stage went before it was opened") {
+    SanctumRun s(12);
+    Level& level = s.level;
+    const Vec2 at = level.player().body.pos + Vec2{40.0f, -10.0f};
+    auto open = [&](uint32_t lootSeed) {
+        const size_t before = level.pickups().size();
+        level.dropLoot(at, 1, lootSeed);
+        std::vector<std::string> loot;
+        for (size_t i = before; i < level.pickups().size(); ++i) {
+            const Pickup& p = level.pickups()[i];
+            loot.push_back(std::to_string(static_cast<int>(p.type)) + " " + p.label() + " " + std::to_string(p.amount));
+        }
+        return loot;
+    };
+    const std::vector<std::string> first = open(77u);
+    CHECK(first.size() >= 4); // three to six coins and a find
+    for (int i = 0; i < 50; ++i) level.rng().next(); // the stage's stream has moved on
+    CHECK(open(77u) == first);
+
+    // Each of a stage's chests (and mimics) has a seed of its own, the same each time the stage is built.
+    auto lootSeeds = [&](uint32_t seed) {
+        RunState run = newRun(seed, Difficulty::Adept, false);
+        run.levelIndex = 1;
+        Level stage(generateLevel(biomeForDepth(1), 1, seed, s.pool), run, s.audio, s.pool);
+        std::vector<uint32_t> seeds;
+        for (const Pickup& p : stage.pickups())
+            if (p.type == PickupType::Chest) seeds.push_back(p.lootSeed);
+        for (const auto& e : stage.enemies())
+            if (e->type() == EnemyType::Mimic) seeds.push_back(e->lootSeed);
+        return seeds;
+    };
+    std::vector<uint32_t> seeds = lootSeeds(21u);
+    CHECK(!seeds.empty());
+    CHECK(lootSeeds(21u) == seeds);
+    std::sort(seeds.begin(), seeds.end());
+    CHECK(std::adjacent_find(seeds.begin(), seeds.end()) == seeds.end());
 }
 
 TEST_CASE("a transmutation circle dissolves stray matter but keeps the alchemist's offering") {
@@ -1018,6 +1154,36 @@ TEST_CASE("hits on one creature add up into one number until the moment passes")
     shown = numbers();
     CHECK(shown.size() == 2);
     CHECK(shown.back()->text == "2");
+}
+
+TEST_CASE("a critical blast trebles on foes, never on the caster's side") {
+    SanctumRun s(12);
+    Level& level = s.level;
+    // Deep in the brick under the sanctum floor, far from the player and from one another.
+    const Enemy& struck = level.spawnEnemy(EnemyType::Golem, {100.0f, 230.0f});
+    const Enemy& plain = level.spawnEnemy(EnemyType::Golem, {300.0f, 230.0f});
+    const Enemy& homunculus = level.spawnEnemy(EnemyType::Companion, {200.0f, 230.0f});
+    REQUIRE(homunculus.team == Team::Player);
+    ExplosionSpec blast;
+    blast.radius = 6.0f;
+    blast.damage = 10.0f;
+    blast.power = 0; // leaves the brick be
+    blast.team = Team::Player;
+    level.explode(plain.body.pos, blast);
+    blast.crit = true;
+    level.explode(struck.body.pos, blast);
+    level.explode(homunculus.body.pos, blast); // the alchemist's blasts catch their own side too
+    const float plainLoss = plain.maxHp - plain.hp, critLoss = struck.maxHp - struck.hp;
+    CHECK(plainLoss > 0.0f);
+    CHECK(std::fabs(critLoss - 3.0f * plainLoss) < 0.01f);
+    CHECK(std::fabs((homunculus.maxHp - homunculus.hp) - 10.0f * 0.35f) < 0.01f); // the usual sting, no harder
+    auto critNumber = [&](const Enemy& e) {
+        return std::any_of(level.floatTexts().begin(), level.floatTexts().end(),
+                           [&](const FloatText& t) { return t.owner == e.id && t.crit; });
+    };
+    CHECK(critNumber(struck));
+    CHECK(!critNumber(plain));
+    CHECK(!critNumber(homunculus));
 }
 
 TEST_CASE("reaching a stage is a goal met or not, never a count") {

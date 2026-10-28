@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <chrono>
+#include <climits>
 #include <cmath>
+#include <cstdlib>
 
 #include "app/App.hpp"
 #include "app/InputLatch.hpp"
@@ -95,6 +97,21 @@ void SandboxScene::paint(int cx, int cy, int radius, MatId m) {
     }
 }
 
+void SandboxScene::stroke(int& lastX, int& lastY, int cx, int cy, MatId m) {
+    // The pointer can cross many cells between two ticks (a quick drag, a low frame rate): stamp
+    // the brush every half radius along the way so the stroke stays a line, not a row of dots.
+    // The last sample's own cell was stamped when it was taken.
+    if (lastX != INT_MIN) {
+        const int dx = cx - lastX, dy = cy - lastY;
+        const int spacing = std::max(1, brushRadius_ / 2);
+        const int stamps = (std::max(std::abs(dx), std::abs(dy)) + spacing - 1) / spacing; // the last one on (cx, cy)
+        for (int i = 1; i < stamps; ++i) paint(lastX + dx * i / stamps, lastY + dy * i / stamps, brushRadius_, m);
+    }
+    paint(cx, cy, brushRadius_, m); // every tick, so a brush held still keeps pouring
+    lastX = cx;
+    lastY = cy;
+}
+
 void SandboxScene::torch(int cx, int cy) {
     // Flames in open air, and anything flammable nearby catches.
     for (int k = 0; k < 4; ++k) {
@@ -138,9 +155,19 @@ void SandboxScene::tick() {
     // the click that opened the sandbox); releasing the button re-arms it.
     if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) paintArmed_ = true;
     if (!IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) eraseArmed_ = true;
-    if (!pointerOverUi_) {
-        if (paintArmed_ && input::mouseDown(MOUSE_BUTTON_LEFT)) paint(mx, my, brushRadius_, brush_);
-        if (eraseArmed_ && input::mouseDown(MOUSE_BUTTON_RIGHT)) paint(mx, my, brushRadius_, mat::Empty);
+    // A stroke ends when its button is let go (or pressed anew between two ticks) or the pointer
+    // crosses the palette: the next one starts where the pointer then is.
+    if (!pointerOverUi_ && paintArmed_ && input::mouseDown(MOUSE_BUTTON_LEFT)) {
+        if (input::mousePressed(MOUSE_BUTTON_LEFT)) lastPaintX_ = INT_MIN;
+        stroke(lastPaintX_, lastPaintY_, mx, my, brush_);
+    } else {
+        lastPaintX_ = INT_MIN;
+    }
+    if (!pointerOverUi_ && eraseArmed_ && input::mouseDown(MOUSE_BUTTON_RIGHT)) {
+        if (input::mousePressed(MOUSE_BUTTON_RIGHT)) lastEraseX_ = INT_MIN;
+        stroke(lastEraseX_, lastEraseY_, mx, my, mat::Empty);
+    } else {
+        lastEraseX_ = INT_MIN;
     }
     if (IsKeyDown(KEY_F)) torch(mx, my);
     if (explodeQueued_) {

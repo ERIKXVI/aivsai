@@ -59,6 +59,7 @@ constexpr uint32_t kTransmute = 1u << 9;   ///< turns solids it touches into gol
 constexpr uint32_t kFromSky = 1u << 10;    ///< spawns above the target and falls (meteor)
 constexpr uint32_t kRolls = 1u << 11;      ///< sticks to the ground and rolls (sawblade)
 constexpr uint32_t kNoCollideWorld = 1u << 12;
+constexpr uint32_t kFused = 1u << 13;      ///< rests on terrain; bursts when its fuse (lifetime) runs out or it strikes a foe
 } // namespace projflag
 
 struct ProjectileDef {

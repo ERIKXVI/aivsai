@@ -315,6 +315,12 @@ PlayerInput GameScene::gatherInput() {
     return in;
 }
 
+void GameScene::onFrameInput() {
+    // Latched before the frame's ticks, so a press acts in the same tick as the held keys
+    // (a jump off a ledge, a wand chosen then fired). Menus still open in frame().
+    if (level_ && mode_ == Mode::Playing) latchInput();
+}
+
 void GameScene::tick() {
     if (!level_ || (mode_ != Mode::Playing && mode_ != Mode::Dead)) return;
     // After death the world keeps running in slow motion for a dramatic beat.
@@ -405,6 +411,7 @@ void GameScene::frame(float dt) {
         endTimer_ += dt;
         fade_ = std::max(0.0f, fade_ - dt);
         updateFeats(dt); // the ending's own feats are announced over the end screen
+        usingGamepad_ = input::usingGamepad(); // the end screen's button labels follow the device too
         return;
     }
     if (!level_) return;
@@ -508,7 +515,6 @@ void GameScene::updateModeInput(float dt) {
         // The pause menu opens unarmed, with no entry focused (it starts on Resume).
         confirmAbandon_ = confirmQuit_ = false;
         pauseNav_ = ui::NavList{};
-        latchInput();
         const bool pausePressed = input::keyPressed(KEY_ESCAPE) || input::padPressed(GAMEPAD_BUTTON_MIDDLE_RIGHT);
         if (exiting_) {
             // Through the portal no menu opens over the fade (the stage is about to go): a pause

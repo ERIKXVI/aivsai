@@ -200,7 +200,7 @@ void Level::explode(Vec2 c, const ExplosionSpec& s) {
     audio_.playAt(s.radius >= 15.0f ? Sfx::ExplosionBig : Sfx::ExplosionSmall, c, std::min(1.0f, 0.5f + s.radius / 30.0f),
                   rng_.range(0.9f, 1.1f));
     damageRadius(c, s.radius * 1.25f, s.damage, DamageType::Explosion, s.team, s.knockback, s.hurtsOwner,
-                 s.cause ? s.cause : "an explosion");
+                 s.cause ? s.cause : "an explosion", s.crit);
     if (s.incendiary) {
         for (auto& e : enemies_)
             if (e->alive() && (e->body.pos - c).length() < s.radius && e->status.wet <= 0.0f) e->status.burning = 3.0f;
@@ -360,7 +360,8 @@ void Level::transmuteArea(Vec2 pos, float radius) {
 }
 
 void Level::damageRadius(Vec2 pos, float radius, float damage, DamageType type, Team team, float knockback,
-                         bool hurtsOwnTeam, const char* cause) {
+                         bool hurtsOwnTeam, const char* cause, bool crit) {
+    bool punched = false;
     auto hit = [&](Actor& a) {
         if (!a.alive()) return;
         Vec2 to = a.body.pos - pos;
@@ -369,8 +370,16 @@ void Level::damageRadius(Vec2 pos, float radius, float damage, DamageType type, 
         float f = 1.0f - 0.6f * clamp(d / std::max(1.0f, radius), 0.0f, 1.0f);
         float dmg = damage * f;
         if (team == Team::Player && a.team == Team::Player) dmg *= 0.35f; // self-inflicted blasts sting less
+        const bool critical = crit && a.team != team;
+        if (critical) dmg *= 3.0f;
         Vec2 kb = (d > 0.1f ? to / d : Vec2{0.0f, -1.0f}) * knockback * f + Vec2{0.0f, -knockback * 0.35f * f};
-        a.applyDamage(*this, {dmg, type, kb, team, false, false, cause});
+        a.applyDamage(*this, {dmg, type, kb, team, critical, false, cause});
+        // A critical blast lands as a critical bolt does (the gold number comes with the damage), with
+        // one freeze-frame and flash for the whole blast rather than one per creature caught.
+        if (critical && team == Team::Player && !punched) {
+            critPunch(a.body.pos);
+            punched = true;
+        }
     };
     if (player_->alive() && (team != Team::Player || hurtsOwnTeam)) hit(*player_);
     for (size_t i = 0; i < enemies_.size(); ++i) {
@@ -420,27 +429,28 @@ bool Level::lineOfSight(Vec2 a, Vec2 b) const {
     return true;
 }
 
-void Level::dropLoot(Vec2 pos, int tier, bool chest) {
+void Level::dropLoot(Vec2 pos, int tier, uint32_t lootSeed) {
+    // What the chest holds comes from its own seed; only the way it all flies out is cosmetic.
+    Rng loot(lootSeed);
     const bool lucky = run_.hasPerk(PerkId::LuckyDay);
-    int coins = chest ? rng_.rangeInt(3, 6) : 0;
+    const int coins = loot.rangeInt(3, 6);
     for (int i = 0; i < coins; ++i) {
-        int value = (4 + rng_.rangeInt(0, 8)) * (tier + 1);
-        pickups_.push_back(makeGold(pos, value, {rng_.range(-80.0f, 80.0f), rng_.range(-160.0f, -80.0f)}));
+        const int value = (4 + loot.rangeInt(0, 8)) * (tier + 1);
+        pickups_.push_back(makeGold(pos, value, {fxRng_.range(-80.0f, 80.0f), fxRng_.range(-160.0f, -80.0f)}));
     }
-    if (!chest) return;
-    int rolls = lucky ? 2 : 1;
+    const int rolls = lucky ? 2 : 1;
     const int lootTier = std::min(kMaxTier, tier + (lucky ? 1 : 0));
     for (int i = 0; i < rolls; ++i) {
-        float r = rng_.uniform();
+        const float r = loot.uniform();
         Pickup p;
         if (r < 0.05f) {
-            p = makeSpellPickup(pos, randomRareSpell(lootTier, rng_));
+            p = makeSpellPickup(pos, randomRareSpell(lootTier, loot));
             p.rare = true;
-        } else if (r < 0.45f) p = makeSpellPickup(pos, randomFind(lootTier, rng_));
-        else if (r < 0.62f) p = makeWandPickup(pos, makeRandomWand(lootTier, rng_));
-        else if (r < 0.88f) p = makePotion(pos, randomPotionMaterial(lootTier, rng_), 800);
+        } else if (r < 0.45f) p = makeSpellPickup(pos, randomFind(lootTier, loot));
+        else if (r < 0.62f) p = makeWandPickup(pos, makeRandomWand(lootTier, loot));
+        else if (r < 0.88f) p = makePotion(pos, randomPotionMaterial(lootTier, loot), 800);
         else p = makeHeart(pos);
-        p.body.vel = {rng_.range(-60.0f, 60.0f), -140.0f};
+        p.body.vel = {fxRng_.range(-60.0f, 60.0f), -140.0f};
         pickups_.push_back(std::move(p));
     }
 }
@@ -523,7 +533,7 @@ void Level::onEnemyKilled(Enemy& e) {
         case EnemyType::Mimic:
             // The treasure it posed as is real.
             earnFeat(FeatId::Mimic);
-            dropLoot(e.body.pos - Vec2{0.0f, 4.0f}, std::min(kMaxTier, layout_.levelIndex), true);
+            dropLoot(e.body.pos - Vec2{0.0f, 4.0f}, std::min(kMaxTier, layout_.levelIndex), e.lootSeed);
             break;
         default: break;
         }
@@ -602,6 +612,36 @@ void Level::onEnemyKilled(Enemy& e) {
     } else {
         addShake(0.08f);
     }
+    // Last, so the Rebis' own end has the particle budget first.
+    if (e.type() == EnemyType::Boss && player_->alive()) completeGreatWork();
+}
+
+void Level::completeGreatWork() {
+    // Called from inside the creature and projectile updates: nothing here adds or removes elements, it only marks
+    // them dead, and the dead are swept up at the end of the tick.
+    auto fizzle = [&](Projectile& p) {
+        if (p.dead || p.team != Team::Monster) return;
+        p.dead = true; // no impact: it simply comes apart
+        const Rgba c = hexRgba(p.def.color);
+        particles_.burst(p.pos, 5, 40.0f, c, c, 0.25f, fxRng_, 0.0f);
+    };
+    for (Projectile& p : projectiles_) fizzle(p);
+    for (Projectile& p : pendingProjectiles_) fizzle(p); // cast this tick, not yet in flight
+    // Every creature still hostile dissolves, never through onEnemyKilled, so it pays no kill, gold or feat, and only
+    // cosmetic randomness is drawn. A mimic still posing as a chest is left be: the treasure it holds is real.
+    bool dissolved = false;
+    for (const auto& other : enemies_) {
+        Enemy& o = *other;
+        if (!o.alive() || o.team != Team::Monster || o.disguised()) continue;
+        o.hp = 0.0f;
+        o.dead = true;
+        dissolved = true;
+        if ((o.body.pos - player_->body.pos).lengthSq() > 320.0f * 320.0f) continue; // out of sight: no show for it
+        shatter(o);
+        particles_.burst(o.body.pos, 12, 90.0f, {255, 236, 170, 255}, {255, 210, 120, 255}, 0.5f, fxRng_, 0.0f);
+    }
+    if (dissolved) audio_.play(Sfx::EnemyDie, 0.6f, fxRng_.range(0.7f, 0.8f));
+    player_->untouchable = 1.0e6f; // for the rest of the stage: the walk to the portal cannot end in a defeat
 }
 
 void Level::spawnAmbience() {

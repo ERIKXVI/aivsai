@@ -24,6 +24,7 @@ struct Pickup {
     int price = 0;          ///< > 0 when sold in a shop
     PerkId perk = PerkId::Vitality;
     int altarGroup = -1;    ///< perk altars in the same group vanish together
+    uint32_t lootSeed = 0;  ///< a chest's treasure is rolled from this (see Level::dropLoot)
     float age = 0.0f;
     bool opened = false;
     bool rare = false;      ///< a rare spell find: glints gold and is announced

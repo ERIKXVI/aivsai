@@ -37,6 +37,7 @@ struct ExplosionSpec {
     float knockback = 260.0f;
     bool hurtsOwner = true;    ///< player explosions also hurt the player
     const char* cause = nullptr; ///< reported on the death screen
+    bool crit = false;         ///< a critical blast: treble damage to all but the caster's side
 };
 
 struct LightFlash {
@@ -182,8 +183,10 @@ public:
     /// A damage number over actor `owner`. Hits landing within a moment of the last one add up
     /// into the same number, which pops, instead of stacking a column of small ones.
     void addDamageNumber(uint32_t owner, Vec2 pos, float amount, bool crit);
+    /// Hurts every creature within `radius` of `pos`, less towards the rim. A critical blast (`crit`)
+    /// trebles the damage to those not on `team`; the caster's own side is never hit harder.
     void damageRadius(Vec2 pos, float radius, float damage, DamageType type, Team team, float knockback,
-                      bool hurtsOwnTeam, const char* cause = nullptr);
+                      bool hurtsOwnTeam, const char* cause = nullptr, bool crit = false);
     /// Name of the creature with this id (for death causes), or nullptr.
     const char* actorName(uint32_t id) const;
     void bleed(Vec2 pos, MatId blood, int amount, Vec2 dir);
@@ -199,7 +202,9 @@ public:
     void knockLanterns(Vec2 a, Vec2 b, float radius);
     Enemy& spawnEnemy(EnemyType type, Vec2 pos);
     void spawnPickup(Pickup p) { pickups_.push_back(std::move(p)); }
-    void dropLoot(Vec2 pos, int tier, bool chest);
+    /// A chest's treasure (or a mimic's): coins and a find, two with Lucky Day. It is rolled from the chest's own
+    /// `lootSeed`, never the level's stream, so a replayed seed holds the same treasure however the stage went.
+    void dropLoot(Vec2 pos, int tier, uint32_t lootSeed);
     uint32_t nextId() { return nextId_++; }
     void onEnemyKilled(Enemy& e);
     /// Applies a perk to the run and rebuilds the player's derived stats, with fanfare. A Homunculus
@@ -219,6 +224,9 @@ public:
 private:
     void populate();
     Affix rollAffix();
+    /// The Rebis is slain: the creatures' shots fizzle and every creature still hostile dissolves (no credit, gold,
+    /// feat or gameplay randomness), and nothing can undo the alchemist for the rest of the stage.
+    void completeGreatWork();
     /// The float text tagged `owner` whose life is at least `minLife`, or else a new one so tagged at `pos` (its text and look
     /// are the caller's to set).
     FloatText& taggedFloatText(uint32_t owner, Vec2 pos, float minLife = 0.0f);

@@ -231,6 +231,9 @@ int App::run() {
             windowY_ = windowPos.y;
             if (GetCurrentMonitor() != capMonitor_) applyFrameCap();
         }
+        // The scene takes this frame's presses before the ticks, which read the held keys as they
+        // are now: taken after them, a press would act a frame later than the keys held with it.
+        if (scene_) scene_->onFrameInput();
 
         // Fixed-rate simulation. If the machine falls behind we drop time rather than
         // spiralling: at most 3 ticks per rendered frame.

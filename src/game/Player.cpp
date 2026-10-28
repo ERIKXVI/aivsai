@@ -173,8 +173,13 @@ void Player::tick(Level& level) {
         if (env.contactMat != mat::Lava) env.fire = false;
         status.burning = 0.0f;
     }
+    const bool wasBurning = status.burning > 0.0f; // after Phoenix Step, whose flames never count
     updateStatus(level, env);
     if (dead) return;
+    // Doused by wading into water or brine (drinking it counts in handleFlask). Any of it among the
+    // body's cells puts the flames out, so they only stay lit where fire re-kindles them.
+    const bool inWater = env.liquid == mat::Water || env.liquid == mat::Brine;
+    if (wasBurning && status.burning <= 0.0f && inWater) level.earnFeat(FeatId::Doused);
 
     Vec2 toAim = input_.aim - body.pos;
     if (toAim.lengthSq() > 1.0f) aimDir_ = toAim.normalized();

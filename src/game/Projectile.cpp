@@ -1,5 +1,6 @@
 #include "game/Projectile.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 #include "game/Level.hpp"
@@ -11,12 +12,24 @@ namespace {
 
 using namespace projflag;
 
+/// A fused charge bounces off terrain it strikes faster than this (cells / s into the surface) and
+/// settles below it: well above the speed one tick of gravity adds, so a resting charge stays put.
+constexpr float kFuseBounceSpeed = 40.0f;
+constexpr float kFuseFriction = 400.0f; ///< cells / s^2 lost by a fused charge rolling along a surface
+
 /// What to blame for a projectile's damage: the creature that cast it, else the spell.
 const char* projectileCause(const Level& level, const Projectile& p) {
     if (p.ownerName) return p.ownerName; // named at launch, so a shot still in flight when its caster dies blames it
     if (p.team == Team::Monster)
         if (const char* name = level.actorName(p.ownerId)) return name;
     return p.spell == SpellId::None ? nullptr : spellDef(p.spell).name;
+}
+
+/// The chance this projectile's hit (or blast) is critical: its own, plus Critical Mind for the alchemist's shots.
+float critChanceOf(const Level& level, const Projectile& p) {
+    return p.critChance + (p.team == Team::Player && level.run().hasPerk(PerkId::CriticalMind)
+                               ? 0.15f * level.run().perkCount(PerkId::CriticalMind)
+                               : 0.0f);
 }
 
 Rgba scaled(Rgba c, float k) {
@@ -37,6 +50,9 @@ void impact(Level& level, Projectile& p, Vec2 at) {
         e.team = p.team;
         e.knockback = 120.0f + d.explosionRadius * 9.0f;
         e.cause = projectileCause(level, p);
+        // A critical strike lands on the blast as on a direct hit: one roll for all it catches.
+        const float critChance = critChanceOf(level, p);
+        e.crit = critChance > 0.0f && rng.chance(critChance);
         level.explode(at, e);
     }
     if (d.spawnMat != mat::Empty && d.spawnAmount > 0) level.spawnBlob(at, d.spawnMat, d.spawnAmount, p.vel * -0.15f);
@@ -81,9 +97,7 @@ void hitActor(Level& level, Projectile& p, Actor& a) {
     Rng& rng = level.rng();
     float dmg = d.damage * p.damageMul;
     bool crit = false;
-    float critChance = p.critChance + (p.team == Team::Player && level.run().hasPerk(PerkId::CriticalMind)
-                                           ? 0.15f * level.run().perkCount(PerkId::CriticalMind)
-                                           : 0.0f);
+    const float critChance = critChanceOf(level, p);
     if (critChance > 0.0f && rng.chance(critChance)) {
         dmg *= 3.0f;
         crit = true;
@@ -175,10 +189,23 @@ void emitTrail(Level& level, Projectile& p) {
     Rng& rng = level.rng();
     if (d.trailMat != mat::Empty && phaseOf(d.trailMat) == Phase::Solid) {
         // A solid trail (rime) is laid cell by cell along the whole step, so it forms an
-        // unbroken bridge - though never inside the caster. Its cells are marked so that spells
-        // laying the same trail (this one, its siblings) fly through them instead of crashing.
+        // unbroken bridge - though never inside the caster, nor inside a creature it would entomb.
+        // Its cells are marked so that spells laying the same trail (this one, its siblings) fly
+        // through them instead of crashing.
         const Rectf keepClear = level.player().bounds();
         const Vec2 step = p.pos - p.prevPos;
+        // Only creatures whose bodies reach this step's cells are tested cell by cell.
+        const Rectf swept{std::min(p.prevPos.x, p.pos.x) - 1.0f, std::min(p.prevPos.y, p.pos.y) - 1.0f, std::fabs(step.x) + 2.0f,
+                          std::fabs(step.y) + 2.0f};
+        const bool creaturesNear = std::any_of(level.enemies().begin(), level.enemies().end(), [&](const auto& e) {
+            return e->alive() && e->body.collides && e->bounds().overlaps(swept);
+        });
+        auto insideCreature = [&](int tx, int ty) {
+            const Rectf cell{static_cast<float>(tx), static_cast<float>(ty), 1.0f, 1.0f};
+            for (const auto& e : level.enemies())
+                if (e->alive() && e->body.collides && e->bounds().overlaps(cell)) return true;
+            return false;
+        };
         const int n = std::max(1, static_cast<int>(std::ceil(step.length())));
         for (int i = 0; i <= n; ++i) {
             const Vec2 t = p.prevPos + step * (static_cast<float>(i) / static_cast<float>(n));
@@ -186,6 +213,7 @@ void emitTrail(Level& level, Projectile& p) {
                 t.y < keepClear.y + keepClear.h + 2.0f)
                 continue;
             const int tx = floorToInt(t.x), ty = floorToInt(t.y);
+            if (creaturesNear && insideCreature(tx, ty)) continue;
             if (world.placeIfEmpty(tx, ty, d.trailMat)) world.at(tx, ty).flags |= cellflag::kRime;
         }
     } else if (d.trailMat != mat::Empty && d.trailRate > 0.0f) {
@@ -210,8 +238,9 @@ void emitTrail(Level& level, Projectile& p) {
         level.particles().addVisual(lerp(p.prevPos, p.pos, rng.uniform()), p.vel * 0.05f + Vec2{rng.range(-8.0f, 8.0f), rng.range(-8.0f, 8.0f)},
                                     c, scaled(c, 0.7f), rng.range(0.15f, 0.4f), d.visual == ProjVisual::Star ? 0.15f : 0.0f);
     }
-    if (d.visual == ProjVisual::Bomb && rng.chance(0.5f)) {
-        level.particles().addVisual(p.pos + Vec2{0.0f, -2.0f}, {rng.range(-10.0f, 10.0f), rng.range(-30.0f, -10.0f)},
+    if (Rng& fx = level.fxRng(); d.visual == ProjVisual::Bomb && fx.chance(0.5f)) {
+        // The fuse's embers are decoration: cosmetic randomness, so they never shift gameplay.
+        level.particles().addVisual(p.pos + Vec2{0.0f, -2.0f}, {fx.range(-10.0f, 10.0f), fx.range(-30.0f, -10.0f)},
                                     {255, 200, 80, 255}, {255, 150, 40, 255}, 0.2f, 0.0f);
     }
 }
@@ -304,6 +333,38 @@ void updateProjectile(Level& level, Projectile& p, float dt) {
                 }
                 p.vel.y = std::min(p.vel.y, 0.0f) * 0.2f;
                 next.y = p.pos.y;
+            } else if (d.flags & kFused) {
+                // A fused charge never bursts on terrain: it bounces off what it strikes hard while it has
+                // bounces left, else settles against the surface and rolls to a stop along it, until its
+                // fuse runs out (the lifetime, above) or a foe touches it (below).
+                const bool blockX = blocks(nx, floorToInt(p.pos.y));
+                const bool blockY = blocks(floorToInt(p.pos.x), ny);
+                // Its speed into the surface (its whole speed into a corner).
+                const float into = blockX != blockY ? std::fabs(blockX ? p.vel.x : p.vel.y) : p.vel.length();
+                if (p.bouncesLeft > 0 && into > kFuseBounceSpeed) {
+                    if (blockX) p.vel.x = -p.vel.x;
+                    if (blockY) p.vel.y = -p.vel.y;
+                    if (!blockX && !blockY) p.vel = -p.vel;
+                    p.vel *= 0.45f;
+                    --p.bouncesLeft;
+                    if (p.vel.length() > 60.0f) level.audio().playAt(Sfx::Land, p.pos, 0.3f, 1.5f);
+                    break;
+                }
+                // At rest nothing carries into the surface (so gravity's pull each tick neither bounces nor
+                // shakes it), and friction slows the slide along it.
+                const float friction = kFuseFriction * dt / static_cast<float>(steps);
+                if (blockY && !blockX) {
+                    p.vel.y = 0.0f;
+                    p.vel.x = approach(p.vel.x, 0.0f, friction);
+                    next.y = p.pos.y;
+                } else if (blockX && !blockY) {
+                    p.vel.x = 0.0f;
+                    p.vel.y = approach(p.vel.y, 0.0f, friction);
+                    next.x = p.pos.x;
+                } else {
+                    p.vel = {}; // wedged into a corner
+                    break;
+                }
             } else if (p.bouncesLeft > 0) {
                 bool blockX = blocks(nx, floorToInt(p.pos.y));
                 bool blockY = blocks(floorToInt(p.pos.x), ny);

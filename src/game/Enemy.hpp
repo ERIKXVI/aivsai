@@ -144,6 +144,8 @@ public:
 
     // Worm body segments (world positions), head first.
     std::vector<Vec2> segments;
+    /// A mimic's treasure is rolled from this, as the chest it poses as would roll it (see Level::dropLoot).
+    uint32_t lootSeed = 0;
 
 protected:
     void onDamaged(Level& level, const DamageInfo& info, float dealt) override;

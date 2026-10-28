@@ -17,6 +17,7 @@ constexpr float kFloatTextLife = 1.1f; ///< seconds a float text lingers
 constexpr float kMergeWindow = 0.4f;   ///< a hit this soon after the last adds into its number
 constexpr uint32_t kHitNumberColor = 0xffffff, kCritNumberColor = 0xffe040;
 constexpr float kFoeHealthPerStage = 0.32f; ///< each stage deeper, foes have this much more of their base health
+constexpr int kLootSalt = 0x1007;           ///< keeps chests' loot seeds apart from other hashes of the level seed
 
 /// The spawn point where the stage's lair guardian waits, or nullptr when the stage has no lair.
 const SpawnPoint* lairKeeperSpawn(const LevelLayout& layout) {
@@ -44,6 +45,7 @@ void Level::populate() {
     const bool lucky = run_.hasPerk(PerkId::LuckyDay);
     int shopIndex = 0;
     int guardians = 0;
+    int chests = 0; // chest spawns so far, mimics too: numbers each one's loot seed
     std::vector<PerkId> offered;
     // A guardian's lair: the wand in its hoard is a finer one.
     const Rectf* lair = nullptr;
@@ -86,13 +88,19 @@ void Level::populate() {
             break;
         }
         case SpawnKind::Chest: {
+            // The treasure is seeded by the chest's place in the stage, not drawn from rng_, so a replayed
+            // seed holds the same treasure however the stage goes before it is opened.
+            const uint32_t lootSeed = hash3(layout_.levelIndex, chests++, kLootSalt, layout_.seed);
             // Some chests along the route are mimics, more of them deeper down; a vault's hoard
             // is always what it seems.
             const bool inVault = std::any_of(layout_.vaults.begin(), layout_.vaults.end(), [&](const Rectf& v) { return v.contains(s.pos); });
-            if (!isSanctum() && !inVault && rng_.chance(layout_.levelIndex == 0 ? 0.08f : 0.16f))
-                spawnEnemy(EnemyType::Mimic, {s.pos.x, s.pos.y - enemyDef(EnemyType::Mimic).halfH});
-            else
-                pickups_.push_back(makeChest(s.pos - Vec2{0.0f, 4.0f}));
+            if (!isSanctum() && !inVault && rng_.chance(layout_.levelIndex == 0 ? 0.08f : 0.16f)) {
+                spawnEnemy(EnemyType::Mimic, {s.pos.x, s.pos.y - enemyDef(EnemyType::Mimic).halfH}).lootSeed = lootSeed;
+            } else {
+                Pickup chest = makeChest(s.pos - Vec2{0.0f, 4.0f});
+                chest.lootSeed = lootSeed;
+                pickups_.push_back(std::move(chest));
+            }
             break;
         }
         case SpawnKind::Potion:
@@ -471,7 +479,7 @@ void Level::interact() {
         p.opened = true;
         run_.stats.chestsOpened++;
         audio_.play(Sfx::ChestOpen, 0.8f);
-        dropLoot(at - Vec2{0.0f, 4.0f}, std::min(kMaxTier, layout_.levelIndex), true);
+        dropLoot(at - Vec2{0.0f, 4.0f}, std::min(kMaxTier, layout_.levelIndex), p.lootSeed);
         addFlash(at, 0xffd070, 2.0f, 60.0f, 0.5f);
         break;
     case PickupType::PerkAltar: {

@@ -14,6 +14,9 @@ public:
     Scene(const Scene&) = delete;
     Scene& operator=(const Scene&) = delete;
 
+    /// Called once per rendered frame, after the input frame starts and before that frame's ticks,
+    /// so presses reach the simulation together with the held keys and buttons it reads.
+    virtual void onFrameInput() {}
     /// Fixed-rate simulation step (kTickRate per second).
     virtual void tick() = 0;
     /// Called once per rendered frame before render(); `dt` is real elapsed seconds.

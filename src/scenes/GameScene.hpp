@@ -29,6 +29,7 @@ public:
     GameScene(App& app, RunState run);
     ~GameScene() override;
 
+    void onFrameInput() override;
     void tick() override;
     void frame(float dt) override;
     void render(float alpha) override;

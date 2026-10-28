@@ -131,7 +131,11 @@ const char* deathAdvice(const Actor& victim) {
         return "Burning? Water puts out the flames: jump in, or drink or pour a flask of water.";
     case DamageType::Explosion: return "Gunpowder chains into great blasts. Keep fire well away from powder stores.";
     case DamageType::Acid: return "Acid eats flesh and stone alike. Never wade through it.";
-    case DamageType::Toxic: return "Poison lingers after you leave the sludge. Carry Vitae to heal through it.";
+    case DamageType::Toxic:
+        // Only drunk sludge leaves lingering poison; touching sludge or gas hurts just while in it.
+        if (std::strcmp(cause, "poison") == 0)
+            return "Drunk sludge keeps poisoning you for a while. Carry Vitae to heal through it.";
+        return "Sludge, toxic gas and miasma eat at you while you stand in them. Get clear fast, and carry Vitae.";
     case DamageType::Electric: return "Electricity arcs through water and metal. Stay dry when sparks fly.";
     default: break;
     }

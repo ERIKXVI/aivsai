@@ -2,6 +2,7 @@
 // Alchemy Sandbox: free-form painting with every material, a palette grouped by phase,
 // fire and blasts. Doubles as a test bed for the simulation and renderer.
 
+#include <climits>
 #include <memory>
 #include <vector>
 
@@ -28,6 +29,9 @@ private:
     };
 
     void paint(int cx, int cy, int radius, MatId m);
+    /// Paints the brush at (cx, cy) and along the way from the stroke's last sample (`lastX`, `lastY`;
+    /// `lastX` INT_MIN starts a stroke), then makes (cx, cy) the last sample.
+    void stroke(int& lastX, int& lastY, int cx, int cy, MatId m);
     void torch(int cx, int cy);
     void explode(int cx, int cy, int radius);
     void buildInitialScene();
@@ -48,6 +52,8 @@ private:
     bool pointerOverUi_ = false;
     bool paintArmed_ = false; ///< false until the button has been up once in this scene
     bool eraseArmed_ = false;
+    int lastPaintX_ = INT_MIN, lastPaintY_ = 0; ///< where the paint stroke was last stamped (INT_MIN: no stroke)
+    int lastEraseX_ = INT_MIN, lastEraseY_ = 0; ///< likewise for the erase stroke
     bool explodeQueued_ = false;
     float paletteWidth_ = 0.0f; ///< screen pixels covered by the palette (last frame)
     uint32_t lastBlastSound_ = 0;

@@ -242,7 +242,7 @@ std::string matDescription(MatId id) {
     case Blood: return "Puts out flames.";
     case Slime: return "Sticky: slows anything wading through it.";
     case Vitae: return "Heals whoever bathes in it or drinks it. Neutralises acid and sludge.";
-    case Toxic: return "Poisons whatever wades through it.";
+    case Toxic: return "Eats at whatever wades through it. Drunk, it poisons for a while.";
     case Midas: return "Turns the stone it touches into gold ore.";
     case Quicksilver: return "Heavy, conductive metal. Turns gold dust into Liquid Midas. Drunk, it lends haste.";
     case Ichor: return "The glowing blood of fiends. Puts out flames. Drunk, it lends fury to your spells.";

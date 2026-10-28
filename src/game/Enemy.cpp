@@ -744,6 +744,8 @@ void Enemy::onKilled(Level& level, const DamageInfo&) {
         level.explode(body.pos, s);
     }
     if (type_ == EnemyType::Boss) {
+        strikes_.clear(); // the lightning it called dies with it
+        strikeTimer_ = 0.0f;
         for (int i = 0; i < 6; ++i) {
             ExplosionSpec s;
             s.radius = 14.0f + static_cast<float>(i) * 2.0f;
