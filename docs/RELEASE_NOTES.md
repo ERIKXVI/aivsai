@@ -21,7 +21,8 @@ switches to a window.
   and where it will go, and a HUD badge counts the spells waiting in your satchel. The wand
   editor guides your first edit, drops a modifier in front of the spell it boosts, warns
   about a booster with nothing after it, and works with a gamepad, a mouse drag or a
-  touchpad tap (tap to pick a spell up, tap to put it down).
+  touchpad tap (tap to pick a spell up, tap to put it down). A satchel spell you don't need
+  can be set down at your feet to make room.
 - A matter lens: rest the cursor on any substance or creature to learn what it does, and
   prompts that say what a potion does, how to feed a transmutation circle, which perk each
   altar holds, and when a drink from the flask would put out your flames or heal you.

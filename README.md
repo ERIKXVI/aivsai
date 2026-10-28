@@ -56,6 +56,8 @@ Menus work with the mouse, the keyboard (arrows / Enter / Esc) or a gamepad (D-p
   and where it will go: an attack spell drops straight into an empty slot of the wand in
   hand, the rest wait in the satchel (a HUD badge counts them). The wand editor (`Tab`)
   walks you through your first drag; a modifier dropped onto a spell goes in front of it.
+  Right-click (pad: Y) returns a wand's spell to the satchel, or sets a satchel spell down
+  at your feet to make room.
 - **The flask** absorbs any liquid or powder (`Q`) and pours it back out (right mouse): carry
   water to douse fires, acid to dissolve walls, oil to set traps. Drinking has effects too:
   Vitae heals, quicksilver lends haste and ichor lends your spells fury.

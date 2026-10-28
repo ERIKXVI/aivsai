@@ -89,7 +89,7 @@ The descent follows the four stages of the alchemical Great Work:
 - **Stage events**: up to three times a stage the mountain stirs near the alchemist. A
   cave-in (grit trickles from the ceiling for a moment first), a breach that gushes the
   stage's liquid from a wall (water, brine, oil, sludge or lava), seeping marsh gas, a
-  swarm out of view, or a fall of gold. The mix follows the stage and its omen; none come
+  swarm that gathers from the dark and bursts out of it, or a fall of gold. The mix follows the stage and its omen; none come
   in sanctums, the Athanor, vaults or guardian fights.
 - **Elixirs**: drinking quicksilver lends haste, ichor lends spells fury; both show on the
   HUD as counting-down status chips and on the alchemist's body.
