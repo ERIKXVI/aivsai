@@ -41,9 +41,11 @@ Rgba scaled(Rgba c, float k) {
 /// What a shot carries for its caster, a Teleport Bolt's blink and a trigger's payload, let go at `at` however the shot
 /// ends (on impact, doused, or past the world's edge), since its mana is spent. `sparkle` draws the blink's particles.
 void releaseCargo(Level& level, const Projectile& p, Vec2 at, Rng& sparkle) {
+    // The way the shot came: just after a ricochet its velocity already points back into the surface it struck.
+    const Vec2 heading = p.cargoVel.lengthSq() > 1.0f ? p.cargoVel : p.vel;
     if ((p.def.flags & kTeleport) && p.team == Team::Player && level.player().alive()) {
         Player& pl = level.player();
-        Vec2 back = p.vel.lengthSq() > 1.0f ? p.vel.normalized() * -4.0f : Vec2{0.0f, -4.0f};
+        Vec2 back = heading.lengthSq() > 1.0f ? heading.normalized() * -4.0f : Vec2{0.0f, -4.0f};
         Vec2 from = pl.body.pos;
         pl.body.pos = pl.body.prevPos = at + back;
         unbury(pl.body, level.world());
@@ -54,7 +56,8 @@ void releaseCargo(Level& level, const Projectile& p, Vec2 at, Rng& sparkle) {
     }
     if (p.payload) {
         Vec2 dir = p.vel.lengthSq() > 1.0f ? p.vel.normalized() : Vec2{1.0f, 0.0f};
-        level.castShot(*p.payload, at - dir * 1.5f, angleOf(dir), p.team, p.ownerId, p.damageMul);
+        const Vec2 from = heading.lengthSq() > 1.0f ? heading.normalized() : dir; // starts on the open side
+        level.castShot(*p.payload, at - from * 1.5f, angleOf(dir), p.team, p.ownerId, p.damageMul);
     }
 }
 
@@ -130,6 +133,7 @@ void hitActor(Level& level, Projectile& p, Actor& a) {
             arc.age = 0.0f;
             arc.pos = arc.prevPos = a.body.pos;
             arc.vel = (next->body.pos - a.body.pos).normalized() * d.speed;
+            arc.cargoVel = {};
             arc.damageMul *= 0.85f;
             arc.payload.reset();
             arc.dead = false;
@@ -341,6 +345,7 @@ StepOutcome settleAgainstTerrain(Level& level, Projectile& p, MarchStep& step) {
 StepOutcome bounceOffTerrain(Level& level, Projectile& p, const MarchStep& step) {
     const ProjectileDef& d = p.def;
     const World& world = level.world();
+    p.cargoVel = p.vel; // until it moves on, what it carries is let go back along the way it came
     bool blockX = shotBlocked(world, step.nx, floorToInt(p.pos.y), p.team);
     bool blockY = shotBlocked(world, floorToInt(p.pos.x), step.ny, p.team);
     if (blockX) p.vel.x = -p.vel.x;
@@ -456,6 +461,7 @@ bool marchAlongPath(Level& level, Projectile& p, float dt) {
         const StepOutcome outcome = takeStep(level, p, step);
         if (outcome == StepOutcome::Stop) break;
         if (outcome == StepOutcome::Gone) return false;
+        p.cargoVel = {};
         p.pos = step.next;
     }
     return true;

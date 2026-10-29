@@ -13,6 +13,7 @@ struct Projectile {
     SpellId spell = SpellId::None;
     ProjectileDef def;
     Vec2 pos, prevPos, vel;
+    Vec2 cargoVel; ///< the heading before a ricochet the shot has not yet moved on from (zero otherwise)
     float age = 0.0f;
     Team team = Team::Player;
     uint32_t ownerId = 0;

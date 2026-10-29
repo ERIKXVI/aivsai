@@ -173,7 +173,7 @@ reacting to combat intensity, with fire/water/lava ambience mixed in.
 
 ### Testing tools
 
-- `pm_tests` - 108 unit tests for simulation invariants (conservation, reactions, blasts,
+- `pm_tests` - 109 unit tests for simulation invariants (conservation, reactions, blasts,
   hanging vines, the Alchemical Codex's record of what fired where), generation (route and
   vault reachability, determinism, omens, trees), the spell table, deck casting, how spells
   fly (rime bridges, bombs, sawblades, homing, arcs, crits), spell finds and the guided first

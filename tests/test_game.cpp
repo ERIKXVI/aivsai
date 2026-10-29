@@ -482,6 +482,35 @@ TEST_CASE("rime-trailed bolts fly over their own ice and each other's, but not o
     CHECK(level.projectiles().empty());
 }
 
+TEST_CASE("a teleport bolt that ends just after a ricochet blinks back along its path, not through the wall") {
+    SanctumRun s(15);
+    Level& level = s.level;
+    World& w = level.world();
+    // A corridor in the brick under the sanctum floor, ending in a wall three cells thick with an open pocket behind it.
+    constexpr int kRow = 205, kStartX = 40, kWallX = 120;
+    for (int y = kRow - 9; y <= kRow + 9; ++y) {
+        for (int x = kStartX; x < kWallX; ++x) w.clear(x, y);
+        for (int x = kWallX + 3; x < kWallX + 30; ++x) w.clear(x, y);
+    }
+    const CastShot shot = castOnce({SpellId::Bouncy, SpellId::TeleportBolt});
+    REQUIRE(shot.projectiles.size() == 1);
+    level.debugTeleport({static_cast<float>(kStartX) + 8.0f, static_cast<float>(kRow) + 2.0f});
+    level.launch(shot.projectiles.front(), {static_cast<float>(kStartX) + 12.5f, static_cast<float>(kRow) + 0.5f}, 0.0f,
+                 Team::Player, 0, 1.0f);
+    // Fly until the first ricochet off the wall, then let the bolt's time run out on the very next tick.
+    bool bounced = false;
+    for (int i = 0; i < 60 && !bounced; ++i) {
+        level.tick(PlayerInput{});
+        REQUIRE(level.projectiles().size() == 1);
+        bounced = level.projectiles().front().vel.x < 0.0f;
+    }
+    REQUIRE(bounced);
+    level.projectiles().front().age = level.projectiles().front().def.lifetime;
+    level.tick(PlayerInput{});
+    CHECK(level.projectiles().empty());
+    CHECK(level.player().body.pos.x < static_cast<float>(kWallX));
+}
+
 TEST_CASE("a rime trail never freezes into a creature it passes") {
     SanctumRun s(15);
     Level& level = s.level;
